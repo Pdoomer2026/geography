@@ -4,7 +4,15 @@
       "Bash(claude mcp:*)",
       "Bash(gh repo:*)",
       "Bash(ls /Users/shinbigan/geography && git -C /Users/shinbigan/geography status 2>&1)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(git remote:*)",
+      "Bash(git pull:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm exec:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm test:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)"
     ]
   }
 }
