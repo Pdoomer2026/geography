@@ -3,6 +3,8 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { registry } from '../core/registry'
 import gridWavePlugin from '../plugins/geometry/wave/grid-wave'
+import starfieldPlugin from '../plugins/particles/starfield'
+import ambientPlugin from '../plugins/lights/ambient'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
@@ -35,6 +37,8 @@ export default function App() {
 
     // Plugin 起動
     plugin.create(scene)
+    starfieldPlugin.create(scene)
+    ambientPlugin.create(scene)
 
     // OrbitControls
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -48,6 +52,8 @@ export default function App() {
       animationId = requestAnimationFrame(animate)
       const delta = clock.getDelta()
       plugin.update(delta, 0)
+      starfieldPlugin.update(delta, 0)
+      ambientPlugin.update(delta, 0)
       controls.update()
       renderer.render(scene, camera)
     }
@@ -56,6 +62,8 @@ export default function App() {
     return () => {
       cancelAnimationFrame(animationId)
       plugin.destroy(scene)
+      starfieldPlugin.destroy(scene)
+      ambientPlugin.destroy(scene)
       controls.dispose()
       renderer.dispose()
       if (mountRef.current) {

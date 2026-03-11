@@ -1,17 +1,19 @@
-import type { GeometryPlugin } from '../types'
+import type { GeometryPlugin, LightPlugin, ParticlePlugin } from '../types'
+
+type AnyPlugin = GeometryPlugin | LightPlugin | ParticlePlugin
 
 class PluginRegistry {
-  private plugins = new Map<string, GeometryPlugin>()
+  private plugins = new Map<string, AnyPlugin>()
 
-  register(plugin: GeometryPlugin): void {
+  register(plugin: AnyPlugin): void {
     this.plugins.set(plugin.id, plugin)
   }
 
-  get(id: string): GeometryPlugin | undefined {
+  get(id: string): AnyPlugin | undefined {
     return this.plugins.get(id)
   }
 
-  list(): GeometryPlugin[] {
+  list(): AnyPlugin[] {
     return Array.from(this.plugins.values())
   }
 }
