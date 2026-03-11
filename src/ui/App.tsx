@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { registry } from '../core/registry'
+import gridWavePlugin from '../plugins/geometry/wave/grid-wave'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
@@ -7,17 +10,22 @@ export default function App() {
   useEffect(() => {
     if (!mountRef.current) return
 
+    // Plugin を登録
+    registry.register(gridWavePlugin)
+    const plugin = registry.get('grid-wave')!
+
     // Scene
     const scene = new THREE.Scene()
 
-    // Camera
+    // Camera：波が見えるよう斜め上から見下ろす
     const camera = new THREE.PerspectiveCamera(
       75,
       window.innerWidth / window.innerHeight,
       0.1,
-      1000
+      2000
     )
-    camera.position.z = 3
+    camera.position.set(0, 8, 12)
+    camera.lookAt(0, 0, 0)
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -25,38 +33,34 @@ export default function App() {
     renderer.setPixelRatio(window.devicePixelRatio)
     mountRef.current.appendChild(renderer.domElement)
 
-    // Cube
-    const geometry = new THREE.BoxGeometry(1, 1, 1)
-    const material = new THREE.MeshStandardMaterial({ color: 0x00aaff })
-    const cube = new THREE.Mesh(geometry, material)
-    scene.add(cube)
+    // Plugin 起動
+    plugin.create(scene)
 
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
-    scene.add(ambientLight)
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
-    directionalLight.position.set(5, 5, 5)
-    scene.add(directionalLight)
+    // OrbitControls
+    const controls = new OrbitControls(camera, renderer.domElement)
+    controls.enableDamping = true
+    controls.dampingFactor = 0.05
 
     // アニメーションループ
+    const clock = new THREE.Clock()
     let animationId: number
     const animate = () => {
       animationId = requestAnimationFrame(animate)
-      cube.rotation.x += 0.01
-      cube.rotation.y += 0.01
+      const delta = clock.getDelta()
+      plugin.update(delta, 0)
+      controls.update()
       renderer.render(scene, camera)
     }
     animate()
 
     return () => {
+      cancelAnimationFrame(animationId)
+      plugin.destroy(scene)
+      controls.dispose()
+      renderer.dispose()
       if (mountRef.current) {
         mountRef.current.removeChild(renderer.domElement)
       }
-      cancelAnimationFrame(animationId)
-      geometry.dispose()
-      material.dispose()
-      renderer.dispose()
     }
   }, [])
 
