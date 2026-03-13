@@ -13,9 +13,9 @@ Three.js Canvas の上に React UI をオーバーレイする。
 src/ui/
 ├── App.tsx               ← Canvas（全レイヤー重ね）+ UI のルートレイアウト
 ├── MenuBar.tsx           ← File / View / Plugins / Help
-├── MacroPanel.tsx        ← 32ノブ・4列アコーディオン・[L1][L2][L3][+][ALL] ← NEW
-├── MacroKnob.tsx         ← LED ノブ + 割り当て表示・右クリックで AssignDialog ← NEW
-├── AssignDialog.tsx      ← パラメーター割り当てダイアログ（shadcn/ui Dialog）← NEW
+├── MacroPanel.tsx        ← 32ノブ・4列アコーディオン・[L1][L2][L3][+][ALL]
+├── MacroKnob.tsx         ← LED ノブ + 割り当て表示・右クリックで AssignDialog
+├── AssignDialog.tsx      ← パラメーター割り当てダイアログ（shadcn/ui Dialog）
 ├── BpmDisplay.tsx        ← 常時表示・ビート位相点滅・Ableton Link 状態
 ├── FloatingWindow.tsx    ← フローティングウィンドウ基底・ドラッグ・最小化
 ├── WindowManager.tsx     ← 全 Window の開閉状態管理

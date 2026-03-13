@@ -9,6 +9,8 @@ let elapsedTime = 0
 const gridWavePlugin: GeometryPlugin = {
   id: 'grid-wave',
   name: 'Grid Wave',
+  renderer: 'threejs',
+  enabled: true,
   params: structuredClone(defaultParams),
 
   create(scene: THREE.Scene): void {

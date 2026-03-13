@@ -7,6 +7,8 @@ let controller: AmbientLightController | null = null
 const ambientPlugin: LightPlugin = {
   id: 'ambient',
   name: 'Ambient Light',
+  renderer: 'threejs',
+  enabled: true,
   params: structuredClone(defaultParams),
 
   create(scene) {

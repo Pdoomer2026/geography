@@ -7,6 +7,8 @@ let starfield: StarfieldParticle | null = null
 const starfieldPlugin: ParticlePlugin = {
   id: 'starfield',
   name: 'Starfield',
+  renderer: 'threejs',
+  enabled: true,
   params: structuredClone(defaultParams),
 
   create(scene) {
