@@ -4,7 +4,7 @@
 
 フローティングウィンドウを React コンポーネントとして実装する。
 
-**「React が書ける = Window Plugin が作れる」**  
+**「React が書ける = Window Plugin が作れる」**
 コントリビューターが参加しやすい設計。
 
 ---
@@ -12,10 +12,29 @@
 ## Window Plugin の定義
 
 ```typescript
-interface WindowPlugin {
+interface WindowPlugin extends PluginBase {
+  component: React.FC  // React コンポーネントとして実装
+}
+```
+
+---
+
+## Mixer Plugin ルール（Window Plugin の特殊ケース）
+
+SimpleMixer は Window Plugin の一種として実装するが、以下の制約がある：
+
+- **閉じることができない**（常時表示・全 Mixer Plugin 共通）
+- Transition Plugin の選択 UI（プルダウン）を必ず持つ
+- クロスフェーダーを必ず持つ
+- **v1 の時点から MixerPlugin Interface に準拠した実装にすること**（v2 で Plugin 化するとき設計変更ゼロにするため）
+
+```typescript
+interface MixerPlugin {
   id: string
   name: string
-  component: React.FC  // React コンポーネントとして実装
+  renderer: string
+  enabled: boolean
+  component: React.FC  // 閉じられない Window Plugin
 }
 ```
 
@@ -25,6 +44,7 @@ interface WindowPlugin {
 
 | ウィンドウ | 主なセクション |
 |---|---|
+| **SimpleMixer** | Program/Preview バス・縦フェーダー・Transition プルダウン・クロスフェーダー（閉じられない） |
 | GeometryWindow | SHAPE / COLOR（Hue・Alpha）/ RECOMMENDED FX / RECOMMENDED PARTICLES / LIGHT / AUTO / MIDI MAPPING |
 | CameraWindow | POSITION / ROTATION / AUTO / MIDI MAPPING |
 | FXWindow | 全 FX リスト + ColorGrading + AUTO + MIDI MAPPING |
@@ -33,6 +53,23 @@ interface WindowPlugin {
 | PresetWindow | プリセット一覧・New / Import / Export |
 | TempoWindow | BPM・Ableton Link 状態・Tap / Reset |
 | PreferencesWindow | MIDI / Output / Tempo / Camera / Visual Defaults / Modulator |
+
+---
+
+## SimpleMixer の UI 構成
+
+```
+┌─────────────────────────────────────┐
+│  PROGRAM          PREVIEW           │
+│  ┌────┐┌────┐┌────┐  ┌──────────┐  │
+│  │    ││    ││    │  │ サムネイル│  │
+│  │ L1 ││ L2 ││ L3 │  │ 320×180  │  │
+│  │ ▓▓ ││ ▓▓ ││ ▓▓ │  └──────────┘  │
+│  └────┘└────┘└────┘                │
+│  Transition: [ CrossFade       ▼ ] │
+│  ════════════╪════════ CROSSFADER  │
+└─────────────────────────────────────┘
+```
 
 ---
 
@@ -45,7 +82,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 const AccordionSection: React.FC<{ title: string; defaultOpen?: boolean }> = 
   ({ title, children, defaultOpen = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen)
-
   return (
     <div>
       <button onClick={() => setIsOpen(!isOpen)}>
@@ -88,3 +124,4 @@ const AccordionSection: React.FC<{ title: string; defaultOpen?: boolean }> =
 - `<form>` タグは使用しない
 - アコーディオンの開閉状態は preferences.md に保存
 - FloatingWindow.tsx を基底として使う（ドラッグ・最小化）
+- SimpleMixer だけは閉じるボタンを表示しない

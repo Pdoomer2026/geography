@@ -9,15 +9,23 @@ GeoGraphy の主役。Three.js で幾何学パターンを描画する。
 ## Geometry Plugin Interface
 
 ```typescript
-interface GeometryPlugin {
-  id: string
-  name: string
+interface GeometryPlugin extends PluginBase {
   create(scene: THREE.Scene): void
   update(delta: number, beat: number): void
   destroy(scene: THREE.Scene): void
   params: Record<string, PluginParam>
 }
+
+// PluginBase（必須フィールド）
+interface PluginBase {
+  id: string
+  name: string
+  renderer: 'threejs' | 'pixijs' | 'opentype' | string  // 必ず 'threejs' を指定
+  enabled: boolean  // false のとき Registry は update() を呼ばない
+}
 ```
+
+**renderer と enabled は必須。`renderer: 'threejs'` / `enabled: true` をデフォルトにすること。**
 
 ---
 
@@ -90,6 +98,20 @@ knob1:
 - `update()` では新規オブジェクトをアロケートしない
 - 頂点を動かす場合は `geometry.attributes.position.needsUpdate = true` を必ず設定
 - Color は Hue / Alpha のみ管理（Saturation / Contrast / Brightness は ColorGrading FX に委譲）
+- `renderer: 'threejs'`・`enabled: true` を必ずデフォルト値として設定する
+
+---
+
+## v1 実装プラグイン
+
+| フェーズ | カテゴリ | プラグイン | 説明 |
+|---|---|---|---|
+| Phase 1 | wave | grid-wave | 平面グリッドの波 |
+| Phase 1 | terrain | contour | 等高線・地形メッシュ |
+| Phase 1 | tunnel | grid-tunnel | グリッドトンネル |
+| Phase 2 | wave | ocean | 海面 |
+| Phase 2 | terrain | mountain | 山岳地形 |
+| Phase 2 | tunnel | hex-tunnel | 六角形トンネル |
 
 ---
 

@@ -12,8 +12,8 @@ Three.js Canvas の上に React UI をオーバーレイする。
 ```
 src/ui/
 ├── App.tsx               ← Canvas（全レイヤー重ね）+ UI のルートレイアウト
-├── MenuBar.tsx           ← File / View / Plugins / Help
-├── MacroPanel.tsx        ← 32ノブ・4列アコーディオン・[L1][L2][L3][+][ALL]
+├── MenuBar.tsx           ← File / View / Plugins / Help（固定・全 Mixer 共通）
+├── MacroPanel.tsx        ← 32ノブ・4列アコーディオン・[L1][L2][L3][+][ALL]（固定）
 ├── MacroKnob.tsx         ← LED ノブ + 割り当て表示・右クリックで AssignDialog
 ├── AssignDialog.tsx      ← パラメーター割り当てダイアログ（shadcn/ui Dialog）
 ├── BpmDisplay.tsx        ← 常時表示・ビート位相点滅・Ableton Link 状態
@@ -21,6 +21,27 @@ src/ui/
 ├── WindowManager.tsx     ← 全 Window の開閉状態管理
 └── LedKnob.tsx           ← 円形ノブ + LED インジケーター（BCR2000 モチーフ）
 ```
+
+---
+
+## レイアウト構造
+
+```
+┌─────────────────────────────────────┐
+│ MenuBar（最上部・常時表示・固定）        │
+├─────────────────────────────────────┤
+│                                     │
+│  Canvas エリア（Three.js 全レイヤー）  │
+│  SimpleMixer（閉じられない・常時表示）  │
+│  フローティングウィンドウ（重なる）      │
+│                                     │
+├─────────────────────────────────────┤
+│ MacroPanel（32ノブ・4列アコーディオン） │
+│ [L1][L2][L3][+][ALL]   BPM ● 128.0  │
+└─────────────────────────────────────┘
+```
+
+**MenuBar とマクロノブパネルは固定。Plugin が変更してはいけない。**
 
 ---
 
@@ -45,24 +66,6 @@ interface MacroKnobConfig {
 // MIDI 0〜127 → 任意の範囲にマッピング
 const map = (midi: number, min: number, max: number) =>
   min + (midi / 127) * (max - min)
-```
-
----
-
-## レイアウト構造
-
-```
-┌─────────────────────────────────────┐
-│ MenuBar（最上部・常時表示）             │
-├─────────────────────────────────────┤
-│                                     │
-│  Canvas エリア（Three.js 全レイヤー）  │
-│  フローティングウィンドウ（重なる）      │
-│                                     │
-├─────────────────────────────────────┤
-│ MacroPanel（32ノブ・4列アコーディオン） │
-│ [L1][L2][L3][+][ALL]   BPM ● 128.0  │
-└─────────────────────────────────────┘
 ```
 
 ---
@@ -99,3 +102,4 @@ import { useToast } from '@/components/ui/use-toast'
 - localStorage は使用しない（Claude.ai 環境では動作しない）
 - React state（useState / useReducer）でセッション内状態を管理
 - 永続化は preferences.md への書き出しで行う
+- SimpleMixer は FloatingWindow.tsx を基底にするが閉じるボタンを持たない

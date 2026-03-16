@@ -10,14 +10,16 @@
 
 ```typescript
 // Geometry Plugin と同じ Interface
-interface ParticlePlugin {
-  id: string
-  name: string
+interface ParticlePlugin extends PluginBase {
   create(scene: THREE.Scene): void
   update(delta: number, beat: number): void
   destroy(scene: THREE.Scene): void
   params: Record<string, PluginParam>
 }
+
+// PluginBase（必須フィールド）
+// renderer: 'threejs'  ← 必ず指定
+// enabled: boolean
 ```
 
 ---
@@ -82,3 +84,4 @@ pnpm cli create-particle --name Starfield --id starfield
 - `blending: THREE.AdditiveBlending` でレトロフューチャー感が増す
 - `count` が多すぎると GPU 負荷が増える（v1 の上限目安：10000）
 - Camera 移動に連動させる場合は scene の camera 参照を使う
+- `renderer: 'threejs'` を必ず設定すること

@@ -10,14 +10,16 @@
 ## Light Plugin Interface
 
 ```typescript
-interface LightPlugin {
-  id: string
-  name: string
+interface LightPlugin extends PluginBase {
   create(scene: THREE.Scene): void
   update(delta: number, beat: number): void
   destroy(scene: THREE.Scene): void
   params: Record<string, PluginParam>
 }
+
+// PluginBase（必須フィールド）
+// renderer: 'threejs'  ← 必ず指定
+// enabled: boolean
 ```
 
 ---
@@ -46,3 +48,4 @@ interface LightPlugin {
 - `MeshBasicMaterial` はライトを無視する（ワイヤーフレーム系は影響なし）
 - ライトを使いたい場合は `MeshStandardMaterial` または `MeshPhongMaterial` を使う
 - `destroy()` では必ず `scene.remove(light)` を呼ぶ
+- `renderer: 'threejs'` を必ず設定すること

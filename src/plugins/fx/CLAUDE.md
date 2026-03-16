@@ -6,6 +6,23 @@
 
 ---
 
+## FX Plugin Interface
+
+```typescript
+interface FXPlugin extends PluginBase {
+  create(composer: EffectComposer): void
+  update(delta: number, beat: number): void
+  destroy(): void
+  params: Record<string, PluginParam>
+}
+
+// PluginBase（必須フィールド）
+// renderer: 'threejs'  ← 必ず指定
+// enabled: boolean     ← false のとき pass.enabled = false でスキップ
+```
+
+---
+
 ## FX スタック順序（厳守）
 
 ```
@@ -19,7 +36,7 @@ Three.js レンダリング
 → RGBShiftPass      （RGB シフト）
 → CRTPass           （CRT）
 → GlitchPass        （グリッチ）
-→ ColorGradingPass  （色調整・必ず最後）← NEW
+→ ColorGradingPass  （色調整・必ず最後）
 → 出力
 ```
 
@@ -41,22 +58,6 @@ Three.js レンダリング
 | Zoom Blur | OFF | — |
 | Mirror | OFF | — |
 | ColorGrading | ON | saturation 1.0 / contrast 1.0 / brightness 1.0 |
-
----
-
-## FX Plugin Interface
-
-```typescript
-interface FXPlugin {
-  id: string
-  name: string
-  create(composer: EffectComposer): void
-  update(delta: number, beat: number): void
-  destroy(): void
-  enabled: boolean
-  params: Record<string, PluginParam>
-}
-```
 
 ---
 
@@ -82,3 +83,4 @@ interface FXPlugin {
 - `destroy()` では `pass.dispose()` を必ず呼ぶ
 - `enabled = false` の FX は `pass.enabled = false` でスキップ（composer から削除しない）
 - ColorGrading は Geometry の Color（Hue / Alpha）とは別物
+- `renderer: 'threejs'` を必ず設定すること
