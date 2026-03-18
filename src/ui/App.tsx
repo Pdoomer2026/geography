@@ -5,6 +5,7 @@ import { registry } from '../core/registry'
 import gridWavePlugin from '../plugins/geometry/wave/grid-wave'
 import starfieldPlugin from '../plugins/particles/starfield'
 import ambientPlugin from '../plugins/lights/ambient'
+import { SimpleMixer } from '../plugins/windows/simple-mixer/SimpleMixer'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
@@ -73,9 +74,12 @@ export default function App() {
   }, [])
 
   return (
-    <div
-      ref={mountRef}
-      style={{ width: '100vw', height: '100vh', background: '#000' }}
-    />
+    <>
+      <div
+        ref={mountRef}
+        style={{ width: '100vw', height: '100vh', background: '#000' }}
+      />
+      <SimpleMixer />
+    </>
   )
 }
