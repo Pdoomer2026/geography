@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { registry } from './registry'
 import { ParameterStore } from './parameterStore'
+import { Clock } from './clock'
 import { registerGeometryPlugins } from '../plugins/geometry'
 import { registerLightPlugins } from '../plugins/lights'
 import { registerParticlePlugins } from '../plugins/particles'
@@ -16,7 +17,8 @@ export class Engine {
   private camera: THREE.PerspectiveCamera | null = null
   private animationId: number | null = null
   private container: HTMLElement | null = null
-  private clock: THREE.Clock = new THREE.Clock()
+  private threeClock: THREE.Clock = new THREE.Clock()
+  readonly clock: Clock = new Clock()
 
   readonly parameterStore: ParameterStore
 
@@ -81,6 +83,7 @@ export class Engine {
 
   start(): void {
     if (this.animationId !== null) return
+    this.threeClock.start()
     this.clock.start()
     this.loop()
   }
@@ -90,18 +93,19 @@ export class Engine {
       cancelAnimationFrame(this.animationId)
       this.animationId = null
     }
+    this.clock.stop()
   }
 
   private loop = (): void => {
     this.animationId = requestAnimationFrame(this.loop)
-    const delta = this.clock.getDelta()
+    const delta = this.threeClock.getDelta()
     this.update(delta)
     this.render()
   }
 
   private update(delta: number): void {
     // beat は将来 BPM クロックから取得（v1 では 0 固定）
-    const beat = 0
+    const beat = this.clock.getBeat()
     for (const plugin of registry.list()) {
       if (plugin.enabled && this.scene) {
         plugin.update?.(delta, beat)

@@ -1,4 +1,4 @@
-# GeoGraphy HANDOVER.md｜Day8 完了｜2026-03-18
+# GeoGraphy HANDOVER.md｜Day9 完了｜2026-03-18
 
 ---
 
@@ -82,6 +82,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | Day6 | ProgramBus / PreviewBus / SimpleMixer scaffold | ✅ |
 | Day7 | CrossFade Transition Plugin / execute() 純粋関数化 / SimpleMixer App.tsx 常時表示 | ✅ |
 | Day8 | SimpleMixer ↔ ProgramBus / PreviewBus 本接続・PreviewCanvas mount・crossfader execute() 接続 | ✅ |
+| Day9 | engine.ts に grid-wave create/destroy 統合・初期 SceneState 生成・ProgramBus/PreviewBus に流し込み | ✅ |
 
 ---
 
@@ -160,6 +161,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 - `import.meta.glob` を使う場合は `tsconfig.json` に `"types": ["vite/client"]` が必要
 - Claude Desktop から Cursor 内ターミナルの stdout を直接読む手段はない（`.claude/` には会話ログのみ）
 - テスト結果をファイルに書き出す運用：`pnpm test --run 2>&1 | tee .claude/test-latest.txt`
+- Claude Code へのプロンプトは `.claude/day{N}-prompt.md` に保存して `cat` で読み込む運用
 
 ---
 
@@ -180,13 +182,13 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 ### 🔴 次のセッションで最初にやること
 
 1. `pnpm test --run` でグリーン確認（34 tests）
-2. `pnpm dev` でブラウザ動作確認（SimpleMixer の PREVIEW エリアに canvas が表示されるか目視）
-3. Day 9 の実装タスクに進む（下記参照）
+2. `pnpm dev` でブラウザ目視確認（grid-wave 波形・SimpleMixer PREVIEW テキスト表示）
+3. Day 10 の実装タスクに進む（下記参照）
 
 ### 現在の作業状態
 
 - **ブランチ**: `main`
-- **最後のコミット**: `feat: Day8 - SimpleMixer ProgramBus/PreviewBus connection`
+- **最後のコミット**: `feat: Day9 - engine.ts grid-wave create/destroy + initial SceneState`（a394654）
 - **動作確認状態**: ビルド成功・34 tests グリーン ✅・ブラウザ目視未確認
 - **未コミットファイル**: なし
 - **開発環境**: Cursor / Claude Code（ターミナルで `claude` コマンドで起動）
@@ -195,24 +197,27 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 
 なし
 
-### 次回の本実装タスク（Day 9）
+### 次回の本実装タスク（Day 10）
 
-Phase 7 の接続が完了したため、次は実際に SceneState を生成して ProgramBus / PreviewBus に流し込むことで、画面に映像を映す。
+Phase 7 が完成し、engine → ProgramBus → SimpleMixer の基本フローが繋がった。
+次は BPM クロックと Tempo Driver を実装し、beat 値を Plugin に流し込む（Phase 5）。
 
 1. **`pnpm dev` でブラウザ目視確認**
-   - SimpleMixer PREVIEW エリアに canvas（黒地に「PREVIEW」文字）が表示されるか
-   - クロスフェーダーを動かしてコンソールエラーが出ないか確認
+   - grid-wave の波形メッシュが画面に表示されるか
+   - SimpleMixer PREVIEW エリアに「grid-wave / 1 layer(s)」が表示されるか
 
-2. **grid-wave Plugin を ProgramBus に接続する**
-   - `engine.ts` で `programBus.mount()` を呼び出す
-   - `grid-wave` の `create()` / `update()` / `destroy()` を ProgramBus のレンダーループに統合
-   - SceneState を生成して `previewBus.update()` に渡す（サムネイル更新の確認）
+2. **`src/core/clock.ts` の BPM クロック実装**
+   - `start()` / `stop()` / `getBeat()` / `setTempo(bpm)` を持つ Clock クラス
+   - beat 値は小数（0.0〜1.0 を繰り返す）で表現
+   - `engine.ts` の `update()` に beat 値を渡す（現在は 0 固定）
 
-3. `git add -A && git commit -m "feat: Day9 - engine.ts ProgramBus grid-wave integration"`
+3. **Tap Tempo 入力の実装**（SimpleMixer に Tap ボタン追加）
 
-### 今回のセッション（Day 8）で確定したこと
+4. `git add -A && git commit -m "feat: Day10 - BPM clock + tap tempo"`
 
-- `SimpleMixer.tsx` に `useEffect` + `useRef` で `previewBus.getCanvas()` を mount する実装を追加
-- クロスフェーダー変化時に選択中の TransitionPlugin の `execute()` を呼び出し `programBus.load()` に渡す
-- Transition 切り替え時に `crossfader` を 0 にリセット
-- `programBus` / `previewBus` の直接 import は SimpleMixer 内のみに限定（設計原則維持）
+### 今回のセッション（Day 9）で確定したこと
+
+- `engine.ts` の `initialize()` にプラグイン `create()` 呼び出しを追加（登録後に全 Plugin を scene に配置）
+- 初期 SceneState を生成して `programBus.load()` / `previewBus.update()` に渡す処理を追加
+- `dispose()` に全 Plugin の `destroy()` クリーンアップを追加
+- Claude Code へのプロンプトは `.claude/day{N}-prompt.md` に保存して `cat` で読み込む運用が確立

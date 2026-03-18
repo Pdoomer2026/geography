@@ -8,10 +8,11 @@
  ✓ tests/core/registry.test.ts (8 tests) 2ms
  ✓ tests/core/command.test.ts (10 tests) 3ms
  ✓ src/lib/utils.test.ts (3 tests) 3ms
- ✓ tests/core/parameterStore.test.ts (13 tests) 2ms
+ ✓ tests/clock.test.ts (4 tests) 2ms
+ ✓ tests/core/parameterStore.test.ts (13 tests) 3ms
 
- Test Files  4 passed (4)
-      Tests  34 passed (34)
-   Start at  15:38:40
-   Duration  675ms (transform 64ms, setup 20ms, collect 76ms, tests 10ms, environment 1.02s, prepare 302ms)
+ Test Files  5 passed (5)
+      Tests  38 passed (38)
+   Start at  15:52:53
+   Duration  692ms (transform 79ms, setup 53ms, collect 108ms, tests 12ms, environment 1.39s, prepare 230ms)
 

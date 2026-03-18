@@ -4,6 +4,7 @@ import beatCutPlugin from '../../transitions/beat-cut'
 import crossfadePlugin from '../../transitions/crossfade'
 import { programBus } from '../../../core/programBus'
 import { previewBus } from '../../../core/previewBus'
+import { engine } from '../../../core/engine'
 
 const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin, crossfadePlugin]
 
@@ -16,7 +17,9 @@ const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin, crossfadePlugi
 export function SimpleMixer() {
   const [crossfader, setCrossfader] = useState(0)
   const [transitionId, setTransitionId] = useState(AVAILABLE_TRANSITIONS[0].id)
+  const [displayBpm, setDisplayBpm] = useState(128)
   const previewRef = useRef<HTMLDivElement>(null)
+  const tapTimesRef = useRef<number[]>([])
 
   // タスク 1: previewBus.getCanvas() を PREVIEW エリアに mount する
   useEffect(() => {
@@ -50,6 +53,31 @@ export function SimpleMixer() {
   function handleTransitionChange(id: string) {
     setTransitionId(id)
     setCrossfader(0)
+  }
+
+  // Tap Tempo: タップ間隔から BPM を計算して engine.clock に反映
+  function handleTap() {
+    const now = performance.now()
+    const taps = tapTimesRef.current
+
+    // 2秒以上間隔が空いたらリセット
+    if (taps.length > 0 && now - taps[taps.length - 1] > 2000) {
+      tapTimesRef.current = []
+    }
+
+    tapTimesRef.current.push(now)
+
+    // 2回以上タップで BPM 計算
+    if (tapTimesRef.current.length >= 2) {
+      const intervals = []
+      for (let i = 1; i < tapTimesRef.current.length; i++) {
+        intervals.push(tapTimesRef.current[i] - tapTimesRef.current[i - 1])
+      }
+      const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length
+      const bpm = Math.round(60000 / avg)
+      engine.clock.setTempo(bpm)
+      setDisplayBpm(bpm)
+    }
   }
 
   return (
@@ -132,6 +160,25 @@ export function SimpleMixer() {
       {/* クロスフェーダー値表示 */}
       <div className="text-center text-[9px] text-[#4a4a6e] mt-1">
         {Math.round(crossfader * 100)}
+      </div>
+
+      {/* BPM / Tap Tempo */}
+      <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button
+          onClick={handleTap}
+          style={{
+            padding: '6px 14px',
+            background: '#333',
+            color: '#fff',
+            border: '1px solid #555',
+            borderRadius: 4,
+            cursor: 'pointer',
+            fontSize: 13,
+          }}
+        >
+          TAP
+        </button>
+        <span style={{ color: '#aaa', fontSize: 13 }}>{displayBpm} BPM</span>
       </div>
     </div>
   )
