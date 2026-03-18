@@ -1,4 +1,4 @@
-# GeoGraphy HANDOVER.md｜Day10 完了｜2026-03-18
+# GeoGraphy HANDOVER.md｜Day11 完了｜2026-03-18
 
 ---
 
@@ -84,6 +84,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | Day8 | SimpleMixer ↔ ProgramBus / PreviewBus 本接続・PreviewCanvas mount・crossfader execute() 接続 | ✅ |
 | Day9 | engine.ts に grid-wave create/destroy 統合・初期 SceneState 生成・ProgramBus/PreviewBus に流し込み | ✅ |
 | Day10 | src/core/clock.ts BPM クロック実装・engine.ts に接続・SimpleMixer Tap Tempo ボタン追加 | ✅ |
+| Day11 | engine.ts に Beat Cut 接続（ラップアラウンド検出・swap）・SimpleMixer プルダウン → engine.setTransition() 接続 | ✅ |
 
 ---
 
@@ -135,6 +136,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | SimpleMixer | `src/plugins/windows/simple-mixer/` |
 | Transition Plugin | `src/plugins/transitions/` |
 | CrossFade Plugin | `src/plugins/transitions/crossfade/index.ts` |
+| Beat Cut Plugin | `src/plugins/transitions/beat-cut/index.ts` |
 | Obsidian Vault | `/Users/shinbigan/GeoGraphy Vault/` |
 
 ---
@@ -167,6 +169,8 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 - grid-wave の実際のパス: `src/plugins/geometry/wave/grid-wave/index.ts`（`wave/` サブフォルダ以下）
 - `engine.ts` の `threeClock`（THREE.Clock）と `clock`（BPM Clock）は別物・混同しないこと
 - `engine.clock` は `readonly` で外部（SimpleMixer 等）からアクセス可能
+- Beat Cut のラップアラウンド検出条件: `prevBeat > 0.8 && beat < 0.2`
+- `engine.setTransition(id)` で SimpleMixer プルダウンから Transition を切り替え可能
 
 ---
 
@@ -187,44 +191,47 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 ### 🔴 次のセッションで最初にやること
 
 1. `pnpm test --run` でグリーン確認（38 tests）
-2. `pnpm dev` でブラウザ目視確認（TAP ボタンが SimpleMixer に表示されているか）
-3. Day 11 の実装タスクに進む（下記参照）
+2. `pnpm dev` でブラウザ目視確認
+3. Day 12 の実装タスクに進む（下記参照）
 
 ### 現在の作業状態
 
 - **ブランチ**: `main`
-- **最後のコミット**: `feat: Day10 - BPM clock + tap tempo`（1e8d490）
-- **動作確認状態**: 38 tests グリーン ✅・ブラウザ目視未確認
+- **最後のコミット**: `feat: Day11 - beat cut transition connected to engine`（6e65277）
+- **動作確認状態**: 38 tests グリーン ✅・ブラウザ目視確認済み ✅
 - **未コミットファイル**: なし
-- **開発環境**: Cursor / Claude Code（ターミナルで `claude` コマンドで起動）
+- **開発環境**: Cursor / Simple Browser（上部タブ）+ zsh ターミナル
 
 ### 未解決の問題
 
 なし
 
-### 次回の本実装タスク（Day 11）
+### 次回の本実装タスク（Day 12）
 
-BPM クロックが実装され beat 値が Plugin に流れるようになった。
-次は Beat Cut Transition Plugin を完成させ、BPM に同期したカット演出を実装する（Phase 5 完了へ）。
+Beat Cut と CrossFade が engine に接続された。
+次は**レイヤーシステム**の実装に進む（Phase 6 完了へ）。
 
-1. **ブラウザ目視確認**
-   - TAP ボタンが SimpleMixer に表示されているか
-   - TAP を複数回押すと BPM 表示が更新されるか
+現状、SimpleMixer の PROGRAM エリアには L1/L2/L3 のプレースホルダーが表示されているが、
+実際のレイヤー（CSS 合成）はまだ実装されていない。
 
-2. **Beat Cut Transition Plugin の完成**（`src/plugins/transitions/beat-cut/index.ts`）
-   - stub 状態のため、実際の処理を実装する
-   - `execute(from, to, progress)` で beat に同期したカット演出
-   - beat 値が 0 を通過した瞬間に Program/Preview を切り替える
+1. **`src/core/layerManager.ts` の実装**
+   - MAX_LAYERS = 3（config.ts から）
+   - 各レイヤーは `position: absolute` で重ねる
+   - CSS `mixBlendMode` で合成（normal / add / multiply / screen / overlay）
 
-3. **engine.ts に Beat Cut 接続**
-   - `clock.getBeat()` を Beat Cut Plugin に渡す
+2. **`engine.ts` に LayerManager を接続**
+   - `initialize()` でレイヤーキャンバスを生成
+   - 各レイヤーに Plugin を割り当て
 
-4. `git add -A && git commit -m "feat: Day11 - beat cut transition"`
+3. **SimpleMixer の PROGRAM エリアにレイヤー状態を反映**
 
-### 今回のセッション（Day 10）で確定したこと
+4. `git add -A && git commit -m "feat: Day12 - layer system"`
 
-- `src/core/clock.ts` を新規作成（BPM クロック・start/stop/setTempo/getBeat）
-- `engine.ts` の `clock` フィールドを `threeClock`（THREE.Clock）と `clock`（BPM Clock）に分離
-- `update()` の beat 固定値（0）を `this.clock.getBeat()` に変更
-- `SimpleMixer.tsx` に TAP ボタンと BPM 表示を追加（Tap Tempo ロジック実装済み）
-- テスト: 34 → 38 tests グリーン
+### 今回のセッション（Day 11）で確定したこと
+
+- `engine.ts` に `prevBeat`・`activeTransitionId` フィールド追加
+- `update()` にビートラップアラウンド検出（`prevBeat > 0.8 && beat < 0.2`）→ programBus/previewBus swap 実装
+- `setTransition(id)` メソッド追加
+- `SimpleMixer.tsx` の `handleTransitionChange` に `engine.setTransition(id)` 追加
+- Cursor の Simple Browser（上部タブ）+ zsh ターミナルの並列作業環境を確立
+- テスト: 38 tests グリーン（変化なし）
