@@ -4,6 +4,9 @@ import { ParameterStore } from './parameterStore'
 import { registerGeometryPlugins } from '../plugins/geometry'
 import { registerLightPlugins } from '../plugins/lights'
 import { registerParticlePlugins } from '../plugins/particles'
+import { programBus } from './programBus'
+import { previewBus } from './previewBus'
+import type { SceneState } from '../types'
 
 // engine.ts は App.tsx に依存してはいけない・単体で動作できること
 
@@ -45,6 +48,30 @@ export class Engine {
     await registerGeometryPlugins()
     await registerLightPlugins()
     await registerParticlePlugins()
+
+    // タスク 1: 登録済み Plugin の create() を scene に適用
+    for (const plugin of registry.list()) {
+      if (plugin.enabled && this.scene) {
+        plugin.create(this.scene)
+      }
+    }
+
+    // タスク 2: 初期 SceneState を生成して ProgramBus・PreviewBus に渡す
+    const initialState: SceneState = {
+      layers: registry.list()
+        .filter((p) => p.enabled)
+        .map((p) => ({
+          geometryId: p.id,
+          geometryParams: Object.fromEntries(
+            Object.entries(p.params).map(([k, v]) => [k, v.value])
+          ),
+          fxStack: [],
+          opacity: 1,
+          blendMode: 'normal',
+        })),
+    }
+    programBus.load(initialState)
+    previewBus.update(initialState)
 
     // リサイズ対応
     window.addEventListener('resize', this.onResize)
@@ -102,6 +129,14 @@ export class Engine {
 
   dispose(): void {
     this.stop()
+
+    // タスク 3: Plugin のクリーンアップ
+    if (this.scene) {
+      for (const plugin of registry.list()) {
+        plugin.destroy?.(this.scene)
+      }
+    }
+
     window.removeEventListener('resize', this.onResize)
     this.renderer?.dispose()
     this.renderer?.domElement.remove()

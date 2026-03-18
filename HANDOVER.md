@@ -1,4 +1,4 @@
-# GeoGraphy HANDOVER.md｜Day7 完了｜2026-03-18
+# GeoGraphy HANDOVER.md｜Day8 完了｜2026-03-18
 
 ---
 
@@ -81,6 +81,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | Day5 | Obsidian 導入 / parameterStore.test.ts / engine.ts 骨格 | ✅ |
 | Day6 | ProgramBus / PreviewBus / SimpleMixer scaffold | ✅ |
 | Day7 | CrossFade Transition Plugin / execute() 純粋関数化 / SimpleMixer App.tsx 常時表示 | ✅ |
+| Day8 | SimpleMixer ↔ ProgramBus / PreviewBus 本接続・PreviewCanvas mount・crossfader execute() 接続 | ✅ |
 
 ---
 
@@ -179,13 +180,13 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 ### 🔴 次のセッションで最初にやること
 
 1. `pnpm test --run` でグリーン確認（34 tests）
-2. `pnpm dev` でブラウザ動作確認（SimpleMixer が画面下部に表示されるか目視）
-3. Day 8 の実装タスクに進む（下記参照）
+2. `pnpm dev` でブラウザ動作確認（SimpleMixer の PREVIEW エリアに canvas が表示されるか目視）
+3. Day 9 の実装タスクに進む（下記参照）
 
 ### 現在の作業状態
 
 - **ブランチ**: `main`
-- **最後のコミット**: `feat: Day 7 - SimpleMixer always-on overlay in App`（0ad0a7e）
+- **最後のコミット**: `feat: Day8 - SimpleMixer ProgramBus/PreviewBus connection`
 - **動作確認状態**: ビルド成功・34 tests グリーン ✅・ブラウザ目視未確認
 - **未コミットファイル**: なし
 - **開発環境**: Cursor / Claude Code（ターミナルで `claude` コマンドで起動）
@@ -194,23 +195,24 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 
 なし
 
-### 次回の本実装タスク（Day 8）
+### 次回の本実装タスク（Day 9）
 
-1. **`pnpm dev` でブラウザ動作確認**
-   - SimpleMixer が Three.js Canvas の上に重なって表示されるか確認
-   - Beat Cut / CrossFade の2つがプルダウンに表示されるか確認
+Phase 7 の接続が完了したため、次は実際に SceneState を生成して ProgramBus / PreviewBus に流し込むことで、画面に映像を映す。
 
-2. **SimpleMixer ↔ ProgramBus / PreviewBus の本接続**（Phase 7 の TODO 解消）
-   - クロスフェーダーの値を `crossfadePlugin.execute()` に渡す
-   - `previewBus.getCanvas()` を SimpleMixer の PREVIEW エリアに mount する
-   - `programBus.load()` を通じて SceneState を切り替える
+1. **`pnpm dev` でブラウザ目視確認**
+   - SimpleMixer PREVIEW エリアに canvas（黒地に「PREVIEW」文字）が表示されるか
+   - クロスフェーダーを動かしてコンソールエラーが出ないか確認
 
-3. `git add -A && git commit -m "feat: Day8 - SimpleMixer ProgramBus/PreviewBus connection"`
+2. **grid-wave Plugin を ProgramBus に接続する**
+   - `engine.ts` で `programBus.mount()` を呼び出す
+   - `grid-wave` の `create()` / `update()` / `destroy()` を ProgramBus のレンダーループに統合
+   - SceneState を生成して `previewBus.update()` に渡す（サムネイル更新の確認）
 
-### 今回のセッションで確定したこと
+3. `git add -A && git commit -m "feat: Day9 - engine.ts ProgramBus grid-wave integration"`
 
-- `TransitionPlugin.execute()` 戻り値を `void → SceneState` に変更（純粋関数化）
-- beat-cut は `progress >= 1 ? to : from` で即時切り替えを明示
-- CrossFade の `category` は `'parameter'`（transitions/CLAUDE.md のテーブル「ピクセル」は記述ミス→修正済み）
-- Claude Desktop から Cursor 内ターミナルの stdout を直接読む手段はない（`.claude/` には会話ログのみ）
-- テスト結果をファイルに書き出す運用：`pnpm test --run 2>&1 | tee .claude/test-latest.txt`
+### 今回のセッション（Day 8）で確定したこと
+
+- `SimpleMixer.tsx` に `useEffect` + `useRef` で `previewBus.getCanvas()` を mount する実装を追加
+- クロスフェーダー変化時に選択中の TransitionPlugin の `execute()` を呼び出し `programBus.load()` に渡す
+- Transition 切り替え時に `crossfader` を 0 にリセット
+- `programBus` / `previewBus` の直接 import は SimpleMixer 内のみに限定（設計原則維持）
