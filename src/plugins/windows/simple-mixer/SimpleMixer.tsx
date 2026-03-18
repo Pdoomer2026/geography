@@ -49,10 +49,11 @@ export function SimpleMixer() {
     programBus.load(blended)
   }
 
-  // タスク 3: Transition 切り替え時にクロスフェーダーを 0 にリセット
+  // タスク 3: Transition 切り替え時にクロスフェーダーを 0 にリセット・engine に通知
   function handleTransitionChange(id: string) {
     setTransitionId(id)
     setCrossfader(0)
+    engine.setTransition(id)
   }
 
   // Tap Tempo: タップ間隔から BPM を計算して engine.clock に反映

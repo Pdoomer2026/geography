@@ -19,6 +19,8 @@ export class Engine {
   private container: HTMLElement | null = null
   private threeClock: THREE.Clock = new THREE.Clock()
   readonly clock: Clock = new Clock()
+  private prevBeat: number = 0
+  activeTransitionId: string = 'beat-cut'
 
   readonly parameterStore: ParameterStore
 
@@ -79,6 +81,12 @@ export class Engine {
     window.addEventListener('resize', this.onResize)
   }
 
+  // --- Transition 選択 ---
+
+  setTransition(id: string): void {
+    this.activeTransitionId = id
+  }
+
   // --- レンダーループ ---
 
   start(): void {
@@ -104,8 +112,22 @@ export class Engine {
   }
 
   private update(delta: number): void {
-    // beat は将来 BPM クロックから取得（v1 では 0 固定）
     const beat = this.clock.getBeat()
+
+    // Beat Cut: beat が 0 を通過した瞬間（ラップアラウンド検出）に Program/Preview を swap
+    if (this.activeTransitionId === 'beat-cut') {
+      if (this.prevBeat > 0.8 && beat < 0.2) {
+        const programState = programBus.getState()
+        const previewState = previewBus.getState()
+        if (programState && previewState) {
+          programBus.load(previewState)
+          previewBus.update(programState)
+        }
+      }
+    }
+
+    this.prevBeat = beat
+
     for (const plugin of registry.list()) {
       if (plugin.enabled && this.scene) {
         plugin.update?.(delta, beat)

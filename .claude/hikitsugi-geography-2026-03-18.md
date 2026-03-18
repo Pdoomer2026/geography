@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day9｜2026-03-18
+# GeoGraphy 引き継ぎメモ｜Day10｜2026-03-18
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -17,86 +17,89 @@
 | ルート CLAUDE.md | `geography/CLAUDE.md` |
 | 引き継ぎメモ（累積） | `geography/HANDOVER.md` |
 | 型定義 | `src/types/index.ts` |
-| エンジン本体 | `src/core/engine.ts` ← 今回変更 |
+| エンジン本体 | `src/core/engine.ts` |
+| BPM クロック | `src/core/clock.ts` ← 今回新規作成 |
 | Program バス | `src/core/programBus.ts` |
 | Preview バス | `src/core/previewBus.ts` |
-| SimpleMixer | `src/plugins/windows/simple-mixer/SimpleMixer.tsx` ← Day8 変更 |
-| grid-wave Plugin | `src/plugins/geometry/wave/grid-wave/index.ts` |
-| CrossFade Plugin | `src/plugins/transitions/crossfade/index.ts` |
-| Beat Cut Plugin | `src/plugins/transitions/beat-cut/index.ts` |
-| Day9 実装プロンプト | `.claude/day9-prompt.md` |
+| SimpleMixer | `src/plugins/windows/simple-mixer/SimpleMixer.tsx` ← 今回変更 |
+| Beat Cut Plugin | `src/plugins/transitions/beat-cut/index.ts` ← stub・次回実装 |
+| Day10 実装プロンプト | `.claude/day10-prompt.md` |
 
 ---
 
 ## 今回のセッションで完了したこと
 
-### Day 8
-- `SimpleMixer.tsx` に `useEffect` + `useRef` で `previewBus.getCanvas()` を PREVIEW エリアに mount
-- クロスフェーダー変化時に選択中の TransitionPlugin の `execute()` を呼び出し `programBus.load()` に渡す
-- Transition 切り替え時に `crossfader` を 0 にリセット
-- コミット: `feat: Day8 - SimpleMixer ProgramBus/PreviewBus connection`
-
-### Day 9
-- `engine.ts` の `initialize()` に Plugin `create()` 呼び出しを追加（登録後に全 Plugin を scene に配置）
-- 初期 SceneState を生成して `programBus.load()` / `previewBus.update()` に渡す処理を追加
-- `dispose()` に全 Plugin の `destroy()` クリーンアップを追加
-- コミット: `feat: Day9 - engine.ts grid-wave create/destroy + initial SceneState`（a394654）
+### Day 10
+- `src/core/clock.ts` 新規作成（BPM クロック）
+  - `start()` / `stop()` / `setTempo(bpm)` / `getBeat()` / `getBpm()` を実装
+  - beat 値は 0.0〜1.0 の繰り返し小数（1拍の中の位置）
+  - `setTempo(0)` は無視（DEFAULT_BPM = 128 を維持）
+- `src/core/engine.ts` 修正
+  - `private clock: THREE.Clock` → `threeClock` にリネーム
+  - `readonly clock: Clock = new Clock()` を追加（外部からアクセス可）
+  - `update()` の `beat = 0` 固定を `this.clock.getBeat()` に変更
+  - `stop()` に `this.clock.stop()` を追加
+- `src/plugins/windows/simple-mixer/SimpleMixer.tsx` 修正
+  - `engine` を import し `engine.clock.setTempo(bpm)` に接続
+  - TAP ボタンと BPM 表示（`displayBpm` state）を追加
+  - Tap Tempo ロジック：2秒でリセット・2回以上で BPM 計算
+- `tests/clock.test.ts` 新規作成（4 テスト）
+- テスト: 34 → 38 tests グリーン ✅
+- コミット: `feat: Day10 - BPM clock + tap tempo`（1e8d490）
 
 ---
 
 ## 現在の状態（重要）
 
 - **ブランチ**: `main`
-- **最後のコミット**: `feat: Day9 - engine.ts grid-wave create/destroy + initial SceneState`（a394654）
-- **テスト**: 34 tests グリーン ✅
+- **最後のコミット**: `feat: Day10 - BPM clock + tap tempo`（1e8d490）
+- **テスト**: 38 tests グリーン ✅
 - **ブラウザ目視**: 未確認（次回セッションで確認）
-- **期待される表示**: grid-wave 波形メッシュ + SimpleMixer PREVIEW に「grid-wave / 1 layer(s)」
+- **期待される表示**: SimpleMixer に TAP ボタンと「128 BPM」テキストが表示される
 
-### engine.ts の現在の構造（要点）
+### clock.ts の現在の構造（要点）
+```typescript
+class Clock {
+  private bpm = DEFAULT_BPM   // 128
+  private startTime = 0
+  private running = false
+
+  getBeat(): number   // running でなければ 0・running なら 0.0〜1.0
+  setTempo(bpm): void // bpm <= 0 は無視・変更時は startTime リセット
+}
 ```
-initialize()
-  ├── Three.js 基盤セットアップ
-  ├── registerGeometryPlugins() / registerLightPlugins() / registerParticlePlugins()
-  ├── [NEW] 全 Plugin の create(scene) を呼び出す
-  ├── [NEW] 初期 SceneState 生成 → programBus.load() / previewBus.update()
-  └── window.addEventListener('resize', this.onResize)
 
-update(delta)
-  └── registry.list() を走査して plugin.update(delta, beat) ← beat は 0 固定（Day10 で解消）
-
-dispose()
-  ├── stop()
-  ├── [NEW] 全 Plugin の destroy?(scene) を呼び出す
-  └── renderer・scene・camera のクリーンアップ
+### engine.ts の clock 関連（要点）
+```
+threeClock: THREE.Clock  → getDelta() 用（レンダーループのみ）
+clock: Clock（readonly） → getBeat() / setTempo() / 外部アクセス可
 ```
 
 ---
 
 ## 発生した問題と解決策
 
-- **問題**: Claude Code へのプロンプトをチャットからコピーできない
-  → **解決**: `.claude/day{N}-prompt.md` にファイル保存し、Claude Code で `cat` コマンドで読み込む運用を確立
+- **問題**: `engine.ts` の既存 `clock` フィールドが THREE.Clock と名前衝突
+  → **解決**: `threeClock` にリネームし、BPM クロックを `clock` として追加
 
 ---
 
-## 次回やること（Day 10）
+## 次回やること（Day 11）
 
 1. **ブラウザ目視確認**（最優先）
    - `pnpm dev` で起動
-   - grid-wave 波形メッシュが画面に表示されるか確認
-   - SimpleMixer PREVIEW エリアに「grid-wave / 1 layer(s)」が表示されるか確認
-   - クロスフェーダーを動かしてコンソールエラーが出ないか確認
+   - SimpleMixer に TAP ボタンと BPM 表示が出ているか確認
+   - TAP を複数回押すと BPM 表示が更新されるか確認
 
-2. **`src/core/clock.ts` の BPM クロック実装**
-   - `Clock` クラスに `start()` / `stop()` / `getBeat()` / `setTempo(bpm)` を実装
-   - beat 値は小数（0.0〜1.0 を繰り返す）で表現
-   - `engine.ts` の `update()` の beat 固定値（0）を Clock から取得するように変更
+2. **Beat Cut Transition Plugin の完成**
+   - ファイル: `src/plugins/transitions/beat-cut/index.ts`（現在 stub）
+   - `execute(from, to, progress)` で beat に同期したカット演出を実装
+   - beat 値が 0 を通過した瞬間に Program/Preview を瞬時切り替え
 
-3. **SimpleMixer に Tap Tempo ボタン追加**
-   - ボタン押下ごとに間隔を計測して BPM を推定
-   - `clock.setTempo(bpm)` に渡す
+3. **engine.ts に Beat Cut の beat 連携を確認**
+   - `clock.getBeat()` が Beat Cut Plugin に正しく渡っているか確認
 
-4. **コミット**: `feat: Day10 - BPM clock + tap tempo`
+4. **コミット**: `feat: Day11 - beat cut transition`
 
 ---
 
@@ -104,7 +107,8 @@ dispose()
 
 - pnpm 必須（npm / yarn 不可）
 - Three.js r160+ 使用（それ以前は API が異なる）
-- `import.meta.glob` を使う場合は `tsconfig.json` に `"types": ["vite/client"]` が必要
+- `engine.ts` の `threeClock`（THREE.Clock）と `clock`（BPM Clock）は別物・混同しないこと
+- `engine.clock` は `readonly` で外部（SimpleMixer 等）からアクセス可能
 - **Claude Desktop MCP は `/Users/shinbigan` 全体に権限拡張済み**
 - CLAUDE.md 群・docs/ の更新は Claude Desktop から直接行う
 - Git 操作は Claude Code から行う

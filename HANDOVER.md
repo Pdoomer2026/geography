@@ -1,4 +1,4 @@
-# GeoGraphy HANDOVER.md｜Day9 完了｜2026-03-18
+# GeoGraphy HANDOVER.md｜Day10 完了｜2026-03-18
 
 ---
 
@@ -83,6 +83,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | Day7 | CrossFade Transition Plugin / execute() 純粋関数化 / SimpleMixer App.tsx 常時表示 | ✅ |
 | Day8 | SimpleMixer ↔ ProgramBus / PreviewBus 本接続・PreviewCanvas mount・crossfader execute() 接続 | ✅ |
 | Day9 | engine.ts に grid-wave create/destroy 統合・初期 SceneState 生成・ProgramBus/PreviewBus に流し込み | ✅ |
+| Day10 | src/core/clock.ts BPM クロック実装・engine.ts に接続・SimpleMixer Tap Tempo ボタン追加 | ✅ |
 
 ---
 
@@ -126,6 +127,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | 型定義 | `src/types/index.ts` |
 | エンジン設定 | `src/core/config.ts` |
 | エンジン本体 | `src/core/engine.ts` |
+| BPM クロック | `src/core/clock.ts` |
 | Plugin Registry | `src/core/registry.ts` |
 | Parameter Store | `src/core/parameterStore.ts` |
 | Program バス | `src/core/programBus.ts` |
@@ -162,6 +164,9 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 - Claude Desktop から Cursor 内ターミナルの stdout を直接読む手段はない（`.claude/` には会話ログのみ）
 - テスト結果をファイルに書き出す運用：`pnpm test --run 2>&1 | tee .claude/test-latest.txt`
 - Claude Code へのプロンプトは `.claude/day{N}-prompt.md` に保存して `cat` で読み込む運用
+- grid-wave の実際のパス: `src/plugins/geometry/wave/grid-wave/index.ts`（`wave/` サブフォルダ以下）
+- `engine.ts` の `threeClock`（THREE.Clock）と `clock`（BPM Clock）は別物・混同しないこと
+- `engine.clock` は `readonly` で外部（SimpleMixer 等）からアクセス可能
 
 ---
 
@@ -181,15 +186,15 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 
 ### 🔴 次のセッションで最初にやること
 
-1. `pnpm test --run` でグリーン確認（34 tests）
-2. `pnpm dev` でブラウザ目視確認（grid-wave 波形・SimpleMixer PREVIEW テキスト表示）
-3. Day 10 の実装タスクに進む（下記参照）
+1. `pnpm test --run` でグリーン確認（38 tests）
+2. `pnpm dev` でブラウザ目視確認（TAP ボタンが SimpleMixer に表示されているか）
+3. Day 11 の実装タスクに進む（下記参照）
 
 ### 現在の作業状態
 
 - **ブランチ**: `main`
-- **最後のコミット**: `feat: Day9 - engine.ts grid-wave create/destroy + initial SceneState`（a394654）
-- **動作確認状態**: ビルド成功・34 tests グリーン ✅・ブラウザ目視未確認
+- **最後のコミット**: `feat: Day10 - BPM clock + tap tempo`（1e8d490）
+- **動作確認状態**: 38 tests グリーン ✅・ブラウザ目視未確認
 - **未コミットファイル**: なし
 - **開発環境**: Cursor / Claude Code（ターミナルで `claude` コマンドで起動）
 
@@ -197,27 +202,29 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 
 なし
 
-### 次回の本実装タスク（Day 10）
+### 次回の本実装タスク（Day 11）
 
-Phase 7 が完成し、engine → ProgramBus → SimpleMixer の基本フローが繋がった。
-次は BPM クロックと Tempo Driver を実装し、beat 値を Plugin に流し込む（Phase 5）。
+BPM クロックが実装され beat 値が Plugin に流れるようになった。
+次は Beat Cut Transition Plugin を完成させ、BPM に同期したカット演出を実装する（Phase 5 完了へ）。
 
-1. **`pnpm dev` でブラウザ目視確認**
-   - grid-wave の波形メッシュが画面に表示されるか
-   - SimpleMixer PREVIEW エリアに「grid-wave / 1 layer(s)」が表示されるか
+1. **ブラウザ目視確認**
+   - TAP ボタンが SimpleMixer に表示されているか
+   - TAP を複数回押すと BPM 表示が更新されるか
 
-2. **`src/core/clock.ts` の BPM クロック実装**
-   - `start()` / `stop()` / `getBeat()` / `setTempo(bpm)` を持つ Clock クラス
-   - beat 値は小数（0.0〜1.0 を繰り返す）で表現
-   - `engine.ts` の `update()` に beat 値を渡す（現在は 0 固定）
+2. **Beat Cut Transition Plugin の完成**（`src/plugins/transitions/beat-cut/index.ts`）
+   - stub 状態のため、実際の処理を実装する
+   - `execute(from, to, progress)` で beat に同期したカット演出
+   - beat 値が 0 を通過した瞬間に Program/Preview を切り替える
 
-3. **Tap Tempo 入力の実装**（SimpleMixer に Tap ボタン追加）
+3. **engine.ts に Beat Cut 接続**
+   - `clock.getBeat()` を Beat Cut Plugin に渡す
 
-4. `git add -A && git commit -m "feat: Day10 - BPM clock + tap tempo"`
+4. `git add -A && git commit -m "feat: Day11 - beat cut transition"`
 
-### 今回のセッション（Day 9）で確定したこと
+### 今回のセッション（Day 10）で確定したこと
 
-- `engine.ts` の `initialize()` にプラグイン `create()` 呼び出しを追加（登録後に全 Plugin を scene に配置）
-- 初期 SceneState を生成して `programBus.load()` / `previewBus.update()` に渡す処理を追加
-- `dispose()` に全 Plugin の `destroy()` クリーンアップを追加
-- Claude Code へのプロンプトは `.claude/day{N}-prompt.md` に保存して `cat` で読み込む運用が確立
+- `src/core/clock.ts` を新規作成（BPM クロック・start/stop/setTempo/getBeat）
+- `engine.ts` の `clock` フィールドを `threeClock`（THREE.Clock）と `clock`（BPM Clock）に分離
+- `update()` の beat 固定値（0）を `this.clock.getBeat()` に変更
+- `SimpleMixer.tsx` に TAP ボタンと BPM 表示を追加（Tap Tempo ロジック実装済み）
+- テスト: 34 → 38 tests グリーン
