@@ -201,3 +201,50 @@ src/ui/CLAUDE.md
 docs/要件定義書_v1.7.md                   ← 最新要件定義書
 docs/実装計画書_v2.5.md                   ← 最新実装計画書
 ```
+
+---
+
+## ツール役割分担（確定）
+
+| ツール | 役割 |
+|---|---|
+| Claude Desktop | CLAUDE.md・docs/ の編集・更新・設計の壁打ち |
+| Claude Code | 実装・テスト・Git 操作（手を動かす） |
+| Obsidian | 開発ログ・意思決定記録・YouTube 素材管理・AIへの指示書管理 |
+
+---
+
+## ハーネス構造（Governance System）
+
+GeoGraphy は「プラガブルアプリのAI駆動開発におけるスキーマ管理によるハーネス構築」という設計思想で開発する。
+
+```
+第一層：意図（Obsidian）
+  └── 開発ダッシュボード・指示書・決定ログ
+      → 人間の思考を構造化・AIへのプロンプトの種
+
+第二層：憲法（ルート CLAUDE.md）   ← このファイル
+  └── プロジェクト全体の方針・ツール役割分担
+      → AIの「性格」を決める・変更頻度：低・簡潔に保つ
+
+第三層：現場法（プラグイン固有 CLAUDE.md）
+  └── 各プラグインの動作定義・依存関係・実装ヒント
+      → AIをその場所の「専門家」として振る舞わせる
+
+第四層：物理法（JSON Schema）※ v2 以降
+  └── プラグインの I/O 定義・データ型の厳密な定義
+      → コード生成時のデータ不整合を機械的に防ぐ
+      → 将来: npx typescript-json-schema src/types/index.ts SceneState
+```
+
+**CLAUDE.md は簡潔に保つこと。詳細な開発ログや試行錯誤は Obsidian に書く。**
+
+---
+
+## Obsidian 連携ルール
+
+- 重要な設計決定は必ず Obsidian の `decisions/` に記録する
+- 各 Day の作業終了後に `dev-log/` に記録する
+- Obsidian Git Plugin で geography リポジトリと同期
+- Claude Code のチャット履歴は消えるため、重要な決定事項は Obsidian に転記する
+- YouTube 台本の素材は `youtube/` に蓄積する

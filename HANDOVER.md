@@ -131,6 +131,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 |---|---|
 | `main` | メイン開発ブランチ |
 | `restore/day4-baseline` | Day4 完了時点の状態を永久保存（復元作業完了後の安全地点） |
+| `restore/day5-baseline` | Day5 開始前の状態を永久保存（2026-03-18） |
 
 ---
 
@@ -163,7 +164,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 
 ### 🔴 次のセッションで最初にやること
 
-1. Claude Code で `git add -A && git commit -m "docs: CLAUDE.md 群 v4・要件定義書 v1.7・実装計画書 v2.5"` を実行
+1. Claude Code で `git add -A && git commit -m "docs: Day5準備 - CLAUDE.md ハーネス構造追記・MCP設定クリーン・バックアップブランチ"` を実行
 2. Day5 の実装タスクに進む（下記参照）
 
 ### 現在の作業状態
@@ -171,25 +172,34 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 - **ブランチ**: `main`
 - **最後のコミット**: `restore: Day4完了時点の状態に復元`（4efd5ce）
 - **動作確認状態**: ブラウザで grid-wave + 星空の動作確認 ✅（Day4 時点）
-- **未コミットファイル**: CLAUDE.md 群（v4）・docs/要件定義書_v1.7.md・docs/実装計画書_v2.5.md・HANDOVER_TEMPLATE.md・HANDOVER.md
+- **未コミットファイル**: CLAUDE.md（ハーネス構造・ツール役割分担追記）・HANDOVER.md
+- **開発環境**: Cursor に移行済み・左右2つの Claude Code で作業（左：実装・右：相談）
 
 ### 未解決の問題
 
-なし
+なし（MCP failed エラーは解消済み）
 
 ### 次回の本実装タスク（Day5）
 
-1. `src/plugins/geometry/index.ts` — import.meta.glob で Geometry Plugin 自動登録
-2. `src/plugins/particles/index.ts` — Particle Plugin 自動登録
-3. `src/plugins/lights/index.ts` — Light Plugin 自動登録
-4. `tests/core/registry.test.ts` — Plugin 登録・切り替えテスト
-5. `tests/core/command.test.ts` — Command の execute / undo / redo テスト
-6. `git push && git commit -m "feat: Day5 - auto-registration, test foundation"`
+1. `src/core/registry.ts` — PluginRegistry クラスを export・clear() メソッド追加
+2. `tests/core/registry.test.ts` — 複製実装を削除・src/core/registry.ts から import に書き換え
+3. `tests/core/command.test.ts` — 複製実装を削除・src/core/command.ts から import に書き換え
+4. `pnpm test` — グリーン確認
+5. `tests/core/parameterStore.test.ts` — 新規作成（set/get/undo/redo/canUndo/canRedo/setDirect）
+6. `src/core/engine.ts` — 骨格作成（registerGeometryPlugins / registerLightPlugins / registerParticlePlugins を呼び出す initialize()）
+7. `git add -A && git commit -m "feat: Day5 - export PluginRegistry, fix test imports, ParameterStore tests, engine.ts scaffold"`
 
 ### 今回の壁打ち・作業で確定したこと
 
-- Claude Desktop からプロジェクトフォルダに直接書き込みできることを確認
-- CLAUDE.md 群・docs/ の管理は Claude Desktop が担当・Git 操作は Claude Code が担当という役割分担が確定
-- HANDOVER_TEMPLATE.md の2層構造（継続層・引き継ぎ層）を確立
-- 誤って更新したファイルの復元手順を確立（restore/day4-baseline ブランチに保存）
-- 要件定義書 v1.7・実装計画書 v2.5 の完全統合版を docs/ に配置完了
+- Cursor に開発環境を移行（Warp → Cursor）
+- Claude Code を左右2つ起動する作業環境を確立（左：実装・右：相談）
+- MCP failed エラーを解消（github / browsermcp / figma / vercel を ~/.claude.json から削除）
+- restore/day5-baseline ブランチを作成・GitHub にプッシュ済み
+- ハーネス構造（四層）を確立・CLAUDE.md に追記済み
+  - 第一層：意図（Obsidian）
+  - 第二層：憲法（ルート CLAUDE.md）
+  - 第三層：現場法（プラグイン固有 CLAUDE.md）
+  - 第四層：物理法（JSON Schema）※ v2 以降
+- Obsidian 導入方針確定：開発ログ・意思決定記録・YouTube 素材・AIへの指示書管理
+- JSON Schema は v2 以降・CSV 出力は将来の Output Driver として追加
+- CLAUDE.md は簡潔に保つ・詳細は Obsidian に書くという役割分担が確定
