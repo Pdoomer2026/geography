@@ -1,4 +1,4 @@
-# GeoGraphy HANDOVER.md｜復元作業・ドキュメント整備完了｜2026-03-14
+# GeoGraphy HANDOVER.md｜Day7 完了｜2026-03-18
 
 ---
 
@@ -49,6 +49,7 @@ opentype.js Plugin Group（v3）
 
 #### Transition Plugin ルール
 - UI を持たない・SceneState を受け取り変形するだけ
+- **execute() は純粋関数・戻り値は SceneState**（void ではない）
 - v1 実装：Beat Cut / CrossFade のみ
 
 #### FX スタック順序（厳守）
@@ -79,6 +80,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | Day4 | config.ts / AmbientLight Plugin / Starfield Plugin | ✅ |
 | Day5 | Obsidian 導入 / parameterStore.test.ts / engine.ts 骨格 | ✅ |
 | Day6 | ProgramBus / PreviewBus / SimpleMixer scaffold | ✅ |
+| Day7 | CrossFade Transition Plugin / execute() 純粋関数化 / SimpleMixer App.tsx 常時表示 | ✅ |
 
 ---
 
@@ -100,7 +102,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | `geography/CLAUDE.md` | v4 | プラットフォーム思想・Program/Preview・Mixer・Transition・ロードマップ |
 | `src/core/CLAUDE.md` | 最新 | ProgramBus・PreviewBus・SceneState・ENABLED_PLUGIN_GROUPS |
 | `src/plugins/geometry/CLAUDE.md` | 最新 | renderer・enabled フィールド必須 |
-| `src/plugins/transitions/CLAUDE.md` | 新規 | UI を持たない・SceneState のみ操作 |
+| `src/plugins/transitions/CLAUDE.md` | 最新 | UI を持たない・execute() 純粋関数・SceneState のみ操作 |
 | `src/plugins/windows/CLAUDE.md` | 最新 | SimpleMixer の制約・MixerPlugin Interface |
 | `src/plugins/fx/CLAUDE.md` | 最新 | FX スタック順序・renderer 必須 |
 | `src/plugins/lights/CLAUDE.md` | 最新 | renderer 必須 |
@@ -128,6 +130,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | Preview バス | `src/core/previewBus.ts` |
 | SimpleMixer | `src/plugins/windows/simple-mixer/` |
 | Transition Plugin | `src/plugins/transitions/` |
+| CrossFade Plugin | `src/plugins/transitions/crossfade/index.ts` |
 | Obsidian Vault | `/Users/shinbigan/GeoGraphy Vault/` |
 
 ---
@@ -154,6 +157,8 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 - CLAUDE.md 群・docs/ の更新は Claude Desktop から直接行う
 - Git 操作（ブランチ・コミット・プッシュ）は Claude Code から行う
 - `import.meta.glob` を使う場合は `tsconfig.json` に `"types": ["vite/client"]` が必要
+- Claude Desktop から Cursor 内ターミナルの stdout を直接読む手段はない（`.claude/` には会話ログのみ）
+- テスト結果をファイルに書き出す運用：`pnpm test --run 2>&1 | tee .claude/test-latest.txt`
 
 ---
 
@@ -174,41 +179,38 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 ### 🔴 次のセッションで最初にやること
 
 1. `pnpm test --run` でグリーン確認（34 tests）
-2. `pnpm dev` でブラウザ動作確認
-3. Day7 の実装タスクに進む（下記参照）
+2. `pnpm dev` でブラウザ動作確認（SimpleMixer が画面下部に表示されるか目視）
+3. Day 8 の実装タスクに進む（下記参照）
 
 ### 現在の作業状態
 
 - **ブランチ**: `main`
-- **最後のコミット**: `feat: Day6 - ProgramBus, PreviewBus, SimpleMixer scaffold`（d6ab025）
-- **動作確認状態**: ビルド成功・34 tests グリーン ✅・GitHub push 済み ✅
-- **未コミットファイル**: なし（全て push 済み）
+- **最後のコミット**: `feat: Day 7 - SimpleMixer always-on overlay in App`（0ad0a7e）
+- **動作確認状態**: ビルド成功・34 tests グリーン ✅・ブラウザ目視未確認
+- **未コミットファイル**: なし
 - **開発環境**: Cursor / Claude Code（ターミナルで `claude` コマンドで起動）
 
 ### 未解決の問題
 
 なし
 
-### 次回の本実装タスク（Day7）
+### 次回の本実装タスク（Day 8）
 
-1. `src/plugins/transitions/crossfade/index.ts` — CrossFade Transition Plugin
-   - UI を持たない・SceneState のみ操作
-   - `execute(from, to, progress)` で各 LayerState の opacity を線形補間
-   - Beat Cut と合わせて SimpleMixer プルダウンに2つが並ぶ状態にする
+1. **`pnpm dev` でブラウザ動作確認**
+   - SimpleMixer が Three.js Canvas の上に重なって表示されるか確認
+   - Beat Cut / CrossFade の2つがプルダウンに表示されるか確認
 
-2. SimpleMixer と ProgramBus / PreviewBus の接続（Phase 7 の TODO 部分）
-   - クロスフェーダーの値を PreviewBus → ProgramBus に反映
-   - App.tsx に SimpleMixer を常時表示で組み込む
+2. **SimpleMixer ↔ ProgramBus / PreviewBus の本接続**（Phase 7 の TODO 解消）
+   - クロスフェーダーの値を `crossfadePlugin.execute()` に渡す
+   - `previewBus.getCanvas()` を SimpleMixer の PREVIEW エリアに mount する
+   - `programBus.load()` を通じて SceneState を切り替える
 
-3. `pnpm test --run` グリーン確認
-
-4. `git add -A && git commit -m "feat: Day7 - CrossFade, SimpleMixer integration"`
+3. `git add -A && git commit -m "feat: Day8 - SimpleMixer ProgramBus/PreviewBus connection"`
 
 ### 今回のセッションで確定したこと
 
-- Claude Code は Cursor の右パネルではなく、ターミナルで `claude` コマンドで起動する方が確実
-- プランモードはプロンプトで「計画だけ示してください・承認してから実装」と書けば同等の効果
-- `programBus.ts` — engine.ts に依存しない・`load()` は v1 では JSON 保存のみ（Phase 7 で本実装）
-- `previewBus.ts` — Three.js 完全不使用・2D Canvas プレースホルダー（320×180）
-- `SimpleMixer.tsx` — 閉じるボタンなし・MixerPlugin Interface 準拠・v1 は Beat Cut のみプルダウン
-- crossfade Transition Plugin は Day6 スコープ外として Day7 に持ち越し
+- `TransitionPlugin.execute()` 戻り値を `void → SceneState` に変更（純粋関数化）
+- beat-cut は `progress >= 1 ? to : from` で即時切り替えを明示
+- CrossFade の `category` は `'parameter'`（transitions/CLAUDE.md のテーブル「ピクセル」は記述ミス→修正済み）
+- Claude Desktop から Cursor 内ターミナルの stdout を直接読む手段はない（`.claude/` には会話ログのみ）
+- テスト結果をファイルに書き出す運用：`pnpm test --run 2>&1 | tee .claude/test-latest.txt`

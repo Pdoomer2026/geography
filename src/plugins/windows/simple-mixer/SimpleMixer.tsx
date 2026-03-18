@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { TransitionPlugin } from '../../../types'
 import beatCutPlugin from '../../transitions/beat-cut'
 import crossfadePlugin from '../../transitions/crossfade'
+import { programBus } from '../../../core/programBus'
+import { previewBus } from '../../../core/previewBus'
 
 const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin, crossfadePlugin]
 
@@ -14,8 +16,41 @@ const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin, crossfadePlugi
 export function SimpleMixer() {
   const [crossfader, setCrossfader] = useState(0)
   const [transitionId, setTransitionId] = useState(AVAILABLE_TRANSITIONS[0].id)
+  const previewRef = useRef<HTMLDivElement>(null)
 
-  // TODO: Phase 7 — crossfader / transitionId を ProgramBus・PreviewBus に接続する
+  // タスク 1: previewBus.getCanvas() を PREVIEW エリアに mount する
+  useEffect(() => {
+    if (!previewRef.current) return
+    const canvas = previewBus.getCanvas()
+    if (!canvas) return
+    // SimpleMixer 内では 160×90 で表示する（内部解像度 320×180 はそのまま）
+    canvas.style.width = '160px'
+    canvas.style.height = '90px'
+    previewRef.current.appendChild(canvas)
+    return () => {
+      if (canvas.parentNode === previewRef.current) {
+        previewRef.current?.removeChild(canvas)
+      }
+    }
+  }, [])
+
+  // タスク 2: クロスフェーダー変化時に execute() → programBus.load()
+  function handleCrossfaderChange(value: number) {
+    setCrossfader(value)
+    const from = previewBus.getState()
+    const to = programBus.getState()
+    if (!from || !to) return
+    const plugin = AVAILABLE_TRANSITIONS.find((t) => t.id === transitionId)
+    if (!plugin) return
+    const blended = plugin.execute(from, to, value)
+    programBus.load(blended)
+  }
+
+  // タスク 3: Transition 切り替え時にクロスフェーダーを 0 にリセット
+  function handleTransitionChange(id: string) {
+    setTransitionId(id)
+    setCrossfader(0)
+  }
 
   return (
     <div
@@ -55,13 +90,10 @@ export function SimpleMixer() {
         <div>
           <div className="text-[10px] text-[#aaaacc] mb-1 tracking-wider">PREVIEW</div>
           <div
-            className="rounded-sm border border-[#2a2a4e] bg-[#0a0a1a]
-                       flex items-center justify-center text-[#4a4a6e] text-[10px]"
+            ref={previewRef}
+            className="rounded-sm border border-[#2a2a4e] bg-[#0a0a1a] overflow-hidden"
             style={{ width: 160, height: 90 }}
-          >
-            {/* Phase 7: previewBus.getCanvas() を ここに mount する */}
-            PREVIEW
-          </div>
+          />
         </div>
       </div>
 
@@ -70,7 +102,7 @@ export function SimpleMixer() {
         <span className="text-[#7878aa] text-[10px] tracking-wider">TRANSITION</span>
         <select
           value={transitionId}
-          onChange={(e) => setTransitionId(e.target.value)}
+          onChange={(e) => handleTransitionChange(e.target.value)}
           className="bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-0.5
                      text-[#aaaacc] text-[11px] outline-none cursor-pointer flex-1"
         >
@@ -91,7 +123,7 @@ export function SimpleMixer() {
           max={1}
           step={0.01}
           value={crossfader}
-          onChange={(e) => setCrossfader(parseFloat(e.target.value))}
+          onChange={(e) => handleCrossfaderChange(parseFloat(e.target.value))}
           className="flex-1 accent-[#7878ff] h-1.5 cursor-pointer"
         />
         <span className="text-[#4a4a6e] text-[10px] w-8 text-right">PVW</span>

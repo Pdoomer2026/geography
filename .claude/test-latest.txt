@@ -1,0 +1,17 @@
+
+> geography@0.1.0 test /Users/shinbigan/geography
+> vitest --run
+
+
+ RUN  v3.2.4 /Users/shinbigan/geography
+
+ ✓ tests/core/registry.test.ts (8 tests) 2ms
+ ✓ tests/core/command.test.ts (10 tests) 3ms
+ ✓ tests/core/parameterStore.test.ts (13 tests) 2ms
+ ✓ src/lib/utils.test.ts (3 tests) 3ms
+
+ Test Files  4 passed (4)
+      Tests  34 passed (34)
+   Start at  15:30:10
+   Duration  713ms (transform 62ms, setup 65ms, collect 65ms, tests 9ms, environment 1.10s, prepare 186ms)
+
