@@ -78,6 +78,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | Day3 | Plugin Registry / grid-wave Plugin / OrbitControls | ✅ |
 | Day4 | config.ts / AmbientLight Plugin / Starfield Plugin | ✅ |
 | Day5 | Obsidian 導入 / parameterStore.test.ts / engine.ts 骨格 | ✅ |
+| Day6 | ProgramBus / PreviewBus / SimpleMixer scaffold | ✅ |
 
 ---
 
@@ -123,6 +124,9 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | エンジン本体 | `src/core/engine.ts` |
 | Plugin Registry | `src/core/registry.ts` |
 | Parameter Store | `src/core/parameterStore.ts` |
+| Program バス | `src/core/programBus.ts` |
+| Preview バス | `src/core/previewBus.ts` |
+| SimpleMixer | `src/plugins/windows/simple-mixer/` |
 | Transition Plugin | `src/plugins/transitions/` |
 | Obsidian Vault | `/Users/shinbigan/GeoGraphy Vault/` |
 
@@ -135,6 +139,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | `main` | メイン開発ブランチ |
 | `restore/day4-baseline` | Day4 完了時点の状態を永久保存 |
 | `restore/day5-baseline` | Day5 開始前の状態を永久保存（2026-03-18） |
+| `restore/day6-baseline` | Day6 開始前の状態を永久保存（2026-03-18） |
 
 ---
 
@@ -170,47 +175,40 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 
 1. `pnpm test --run` でグリーン確認（34 tests）
 2. `pnpm dev` でブラウザ動作確認
-3. Day6 の実装タスクに進む（下記参照）
+3. Day7 の実装タスクに進む（下記参照）
 
 ### 現在の作業状態
 
 - **ブランチ**: `main`
-- **最後のコミット**: `feat: Day5 - parameterStore tests, engine.ts scaffold`（6890dff）
-- **動作確認状態**: ビルド成功・34 tests グリーン ✅
+- **最後のコミット**: `feat: Day6 - ProgramBus, PreviewBus, SimpleMixer scaffold`（d6ab025）
+- **動作確認状態**: ビルド成功・34 tests グリーン ✅・GitHub push 済み ✅
 - **未コミットファイル**: なし（全て push 済み）
-- **開発環境**: Cursor / Claude Code（左：実装・右：相談）
+- **開発環境**: Cursor / Claude Code（ターミナルで `claude` コマンドで起動）
 
 ### 未解決の問題
 
 なし
 
-### 次回の本実装タスク（Day6）
+### 次回の本実装タスク（Day7）
 
-1. `src/core/programBus.ts` — Program バスクラス作成
-   - フルサイズ Three.js Scene の保持
-   - `load(state: SceneState): void` — SceneState を適用
-   - `dispose(): void` — Scene・Renderer のクリーンアップ
+1. `src/plugins/transitions/crossfade/index.ts` — CrossFade Transition Plugin
+   - UI を持たない・SceneState のみ操作
+   - `execute(from, to, progress)` で各 LayerState の opacity を線形補間
+   - Beat Cut と合わせて SimpleMixer プルダウンに2つが並ぶ状態にする
 
-2. `src/core/previewBus.ts` — Preview バスクラス作成
-   - SceneState（JSON）のみ保持（Three.js Scene は持たない）
-   - 小キャンバス（320×180）でサムネイル描画
-   - `update(state: SceneState): void`
+2. SimpleMixer と ProgramBus / PreviewBus の接続（Phase 7 の TODO 部分）
+   - クロスフェーダーの値を PreviewBus → ProgramBus に反映
+   - App.tsx に SimpleMixer を常時表示で組み込む
 
-3. `src/plugins/windows/simple-mixer/` — SimpleMixer React UI 骨格
-   - MixerPlugin Interface に準拠
-   - クロスフェーダー UI
-   - Transition Plugin プルダウン
+3. `pnpm test --run` グリーン確認
 
-4. `pnpm test --run` グリーン確認
-
-5. `git add -A && git commit -m "feat: Day6 - ProgramBus, PreviewBus, SimpleMixer scaffold"`
+4. `git add -A && git commit -m "feat: Day7 - CrossFade, SimpleMixer integration"`
 
 ### 今回のセッションで確定したこと
 
-- Obsidian を「思考の外部OS」として導入確定
-- GeoGraphy Vault（`/Users/shinbigan/GeoGraphy Vault/`）作成・GitHub geography-vault（Private）と同期
-- Obsidian Git Plugin：10分自動同期設定
-- Claude Desktop MCP 権限を `/Users/shinbigan` 全体に拡張
-- `tsconfig.json` に `"types": ["vite/client"]` 追加（import.meta.glob 対応）
-- engine.ts は既存の `registerGeometryPlugins()` 等を import して使う（重複実装しない）
-- beat は v1 では `0` 固定・v2 以降で BPM クロックから取得
+- Claude Code は Cursor の右パネルではなく、ターミナルで `claude` コマンドで起動する方が確実
+- プランモードはプロンプトで「計画だけ示してください・承認してから実装」と書けば同等の効果
+- `programBus.ts` — engine.ts に依存しない・`load()` は v1 では JSON 保存のみ（Phase 7 で本実装）
+- `previewBus.ts` — Three.js 完全不使用・2D Canvas プレースホルダー（320×180）
+- `SimpleMixer.tsx` — 閉じるボタンなし・MixerPlugin Interface 準拠・v1 は Beat Cut のみプルダウン
+- crossfade Transition Plugin は Day6 スコープ外として Day7 に持ち越し

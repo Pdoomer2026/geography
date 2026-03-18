@@ -18,7 +18,7 @@ interface TransitionPlugin extends PluginBase {
     from: SceneState,
     to: SceneState,
     progress: number  // 0.0 → 1.0
-  ): void
+  ): SceneState  // 副作用なし・純粋関数
   preview: string  // Mixer のプルダウン表示用テキスト
 }
 ```
@@ -30,7 +30,7 @@ interface TransitionPlugin extends PluginBase {
 | Plugin 名 | カテゴリ | 説明 | 実装コスト |
 |---|---|---|---|
 | beat-cut | BPM同期 | 拍の頭でスパッと切り替え・Tempo Driver と連携 | 低 |
-| crossfade | ピクセル | opacity を 0→1 に変化・シェーダー不要 | 低 |
+| crossfade | parameter | opacity を 0→1 に変化・シェーダー不要 | 低 |
 
 ---
 

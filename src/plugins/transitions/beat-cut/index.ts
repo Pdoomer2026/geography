@@ -19,11 +19,9 @@ const beatCutPlugin: TransitionPlugin = {
   category: 'bpm',
   preview: '拍の頭でスパッと切り替え',
 
-  execute(_from: SceneState, _to: SceneState, progress: number): void {
-    // Beat Cut は progress が 1.0 になった瞬間に切り替わる（即時）
-    // 実際のシーン切り替えは SimpleMixer / ProgramBus 側が担当
-    // ここでは progress を受け取るだけ（Phase 7 で本実装）
-    void progress
+  execute(from: SceneState, to: SceneState, progress: number): SceneState {
+    // Beat Cut は progress >= 1.0 の瞬間に to へ即時切り替え
+    return progress >= 1 ? to : from
   },
 }
 

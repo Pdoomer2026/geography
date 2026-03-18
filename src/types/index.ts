@@ -90,7 +90,7 @@ export interface SceneState {
 export interface TransitionPlugin extends PluginBase {
   duration: number
   category: 'pixel' | 'parameter' | 'bpm'
-  execute(from: SceneState, to: SceneState, progress: number): void
+  execute(from: SceneState, to: SceneState, progress: number): SceneState
   /** プルダウン表示用のプレビュー説明文 */
   preview: string
 }

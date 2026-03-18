@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import type { TransitionPlugin } from '../../../types'
 import beatCutPlugin from '../../transitions/beat-cut'
+import crossfadePlugin from '../../transitions/crossfade'
 
-// v1 で利用可能な Transition 一覧（crossfade は v1 スコープ外）
-const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin]
+const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin, crossfadePlugin]
 
 /**
  * SimpleMixer — v1 固定実装の Mixer UI
