@@ -1,28 +1,36 @@
 # Day 12 実装プロンプト｜レイヤーシステム（LayerManager）
 
-## 前提確認
-- ブランチ: `main`
-- 最終コミット: `feat: Day11 - beat cut transition connected to engine`（6e65277）
-- テスト: 38 tests グリーン ✅
+## ⚠️ SDD原則：最初に必ずspecを読むこと
 
-## 今日やること（順番通りに進める）
+```bash
+cat docs/spec/layer-system.spec.md
+```
+
+このspecがSSoT（唯一の真実）。Interface・Constraints・Test Casesに準拠して実装する。
 
 ---
 
-### Step 1: まず動作確認
+## 前提確認
 
 ```bash
 pnpm test --run 2>&1 | tee .claude/test-latest.txt
-pnpm dev
 ```
 
-38 tests グリーン・ブラウザで映像が表示されることを確認してから進む。
+38 tests グリーンを確認してから進む。
 
 ---
 
+## 今日やること（順番通りに進める）
+
+### Step 1: spec確認（必須）
+
+```bash
+cat docs/spec/layer-system.spec.md
+```
+
 ### Step 2: `src/core/layerManager.ts` を新規作成
 
-以下の内容で作成する。
+spec §3 の Interface に準拠して実装する。
 
 ```typescript
 import * as THREE from 'three'
@@ -47,7 +55,6 @@ export class LayerManager {
   private layers: Layer[] = []
   private container: HTMLElement | null = null
 
-  /** コンテナに mount して Layer キャンバスを重ねる */
   initialize(container: HTMLElement): void {
     this.container = container
 
@@ -66,10 +73,9 @@ export class LayerManager {
       const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
       renderer.setSize(container.clientWidth, container.clientHeight)
       renderer.setPixelRatio(window.devicePixelRatio)
-      renderer.setClearColor(0x000000, 0) // 透明背景
+      renderer.setClearColor(0x000000, 0)
 
       const scene = new THREE.Scene()
-
       const camera = new THREE.PerspectiveCamera(
         75,
         container.clientWidth / container.clientHeight,
@@ -78,7 +84,7 @@ export class LayerManager {
       )
       camera.position.z = 5
 
-      const layer: Layer = {
+      this.layers.push({
         id: `layer-${i + 1}`,
         canvas,
         renderer,
@@ -88,18 +94,14 @@ export class LayerManager {
         opacity: 1,
         blendMode: 'normal',
         mute: false,
-      }
-
-      this.layers.push(layer)
+      })
     }
   }
 
-  /** 全レイヤーを取得 */
   getLayers(): Layer[] {
     return this.layers
   }
 
-  /** レイヤーの opacity を更新 */
   setOpacity(layerId: string, opacity: number): void {
     const layer = this.layers.find((l) => l.id === layerId)
     if (!layer) return
@@ -107,7 +109,6 @@ export class LayerManager {
     layer.canvas.style.opacity = String(opacity)
   }
 
-  /** レイヤーの blendMode を更新 */
   setBlendMode(layerId: string, blendMode: CSSBlendMode): void {
     const layer = this.layers.find((l) => l.id === layerId)
     if (!layer) return
@@ -115,7 +116,6 @@ export class LayerManager {
     layer.canvas.style.mixBlendMode = blendMode
   }
 
-  /** レイヤーの mute を切り替え */
   setMute(layerId: string, mute: boolean): void {
     const layer = this.layers.find((l) => l.id === layerId)
     if (!layer) return
@@ -123,7 +123,6 @@ export class LayerManager {
     layer.canvas.style.display = mute ? 'none' : 'block'
   }
 
-  /** 全レイヤーをレンダリング（engine の loop から毎フレーム呼ぶ） */
   render(): void {
     for (const layer of this.layers) {
       if (layer.mute || !layer.plugin) continue
@@ -131,7 +130,6 @@ export class LayerManager {
     }
   }
 
-  /** リサイズ対応 */
   resize(width: number, height: number): void {
     for (const layer of this.layers) {
       layer.canvas.width = width
@@ -142,12 +140,9 @@ export class LayerManager {
     }
   }
 
-  /** クリーンアップ */
   dispose(): void {
     for (const layer of this.layers) {
-      if (layer.plugin) {
-        layer.plugin.destroy(layer.scene)
-      }
+      if (layer.plugin) layer.plugin.destroy(layer.scene)
       layer.renderer.dispose()
       layer.canvas.remove()
     }
@@ -159,148 +154,26 @@ export class LayerManager {
 export const layerManager = new LayerManager()
 ```
 
----
-
 ### Step 3: `engine.ts` に LayerManager を接続
 
-#### 3-1. import を追加（ファイル先頭）
+1. `import { layerManager } from './layerManager'` を追加
+2. `initialize()` で `layerManager.initialize(container)` を呼ぶ
+3. `render()` で `layerManager.render()` を呼ぶ
+4. `onResize` で `layerManager.resize(w, h)` を呼ぶ
+5. `dispose()` で `layerManager.dispose()` を呼ぶ
+6. `getLayers()` メソッドを追加
 
-```typescript
-import { layerManager } from './layerManager'
-```
+### Step 4: `SimpleMixer.tsx` のPROGRAMエリアをレイヤー状態に反映
 
-#### 3-2. `initialize()` に LayerManager の初期化を追加
+`layers.map()` で実際のレイヤー状態（blendMode・mute）を表示する。
 
-`container.appendChild(this.renderer.domElement)` の直後に以下を追加:
+### Step 5: テスト追加（spec §5 のTest Casesに準拠）
 
-```typescript
-// LayerManager 初期化（レイヤーキャンバスを container に重ねる）
-layerManager.initialize(container)
-```
-
-#### 3-3. `private render()` を修正
-
-現在:
-```typescript
-private render(): void {
-  if (!this.renderer || !this.scene || !this.camera) return
-  this.renderer.render(this.scene, this.camera)
-}
-```
-
-変更後:
-```typescript
-private render(): void {
-  if (!this.renderer || !this.scene || !this.camera) return
-  this.renderer.render(this.scene, this.camera)
-  // 各レイヤーをレンダリング
-  layerManager.render()
-}
-```
-
-#### 3-4. `onResize` に LayerManager のリサイズを追加
-
-現在:
-```typescript
-private onResize = (): void => {
-  if (!this.container || !this.renderer || !this.camera) return
-  const w = this.container.clientWidth
-  const h = this.container.clientHeight
-  this.camera.aspect = w / h
-  this.camera.updateProjectionMatrix()
-  this.renderer.setSize(w, h)
-}
-```
-
-変更後:
-```typescript
-private onResize = (): void => {
-  if (!this.container || !this.renderer || !this.camera) return
-  const w = this.container.clientWidth
-  const h = this.container.clientHeight
-  this.camera.aspect = w / h
-  this.camera.updateProjectionMatrix()
-  this.renderer.setSize(w, h)
-  layerManager.resize(w, h)
-}
-```
-
-#### 3-5. `dispose()` に LayerManager のクリーンアップを追加
-
-`window.removeEventListener('resize', this.onResize)` の前に以下を追加:
-
-```typescript
-layerManager.dispose()
-```
-
-#### 3-6. `getLayers()` メソッドを追加（SimpleMixer から参照できるように）
-
-```typescript
-getLayers() {
-  return layerManager.getLayers()
-}
-```
-
----
-
-### Step 4: `SimpleMixer.tsx` の PROGRAM エリアをレイヤー状態に反映
-
-`SimpleMixer.tsx` を修正する。
-
-#### 4-1. import を追加
-
-```typescript
-import { layerManager } from '../../../core/layerManager'
-```
-
-#### 4-2. レイヤー状態を state として持つ
-
-```typescript
-const [layers, setLayers] = useState(() => layerManager.getLayers())
-```
-
-#### 4-3. PROGRAM エリアの JSX を実際のレイヤー状態で置き換え
-
-現在（プレースホルダー）:
-```tsx
-{[0, 1, 2].map((i) => (
-  <div
-    key={i}
-    className="flex-1 rounded-sm border border-[#2a2a4e] bg-[#1a1a2e]
-               flex items-end justify-center pb-1 text-[9px] text-[#4a4a6e]"
-    style={{ height: '100%' }}
-  >
-    L{i + 1}
-  </div>
-))}
-```
-
-変更後:
-```tsx
-{layers.map((layer, i) => (
-  <div
-    key={layer.id}
-    className="flex-1 rounded-sm border border-[#2a2a4e] bg-[#1a1a2e]
-               flex flex-col items-center justify-between py-1 px-0.5"
-    style={{ height: '100%' }}
-  >
-    <span className="text-[9px] text-[#4a4a6e]">L{i + 1}</span>
-    <span className="text-[8px] text-[#3a3a5e]">
-      {layer.mute ? 'MUTE' : layer.blendMode.toUpperCase()}
-    </span>
-  </div>
-))}
-```
-
----
-
-### Step 5: テスト追加
-
-`tests/layerManager.test.ts` を新規作成:
+`tests/core/layerManager.test.ts` を新規作成:
 
 ```typescript
 import { describe, it, expect, beforeEach } from 'vitest'
-import { LayerManager } from '../src/core/layerManager'
+import { LayerManager } from '../../src/core/layerManager'
 
 describe('LayerManager', () => {
   let manager: LayerManager
@@ -314,44 +187,38 @@ describe('LayerManager', () => {
   })
 
   it('dispose() 後は getLayers() が空配列に戻る', () => {
-    // initialize は DOM 環境が必要なため dispose のみテスト
     manager.dispose()
     expect(manager.getLayers()).toHaveLength(0)
   })
 })
 ```
 
----
-
-### Step 6: 動作確認
+### Step 6: テスト確認
 
 ```bash
 pnpm test --run 2>&1 | tee .claude/test-latest.txt
 ```
 
-40 tests（元の 38 + 新規 2）がグリーンであることを確認。
+40 tests グリーンを確認。
 
-`pnpm dev` でブラウザを開き、以下を目視確認:
-- 映像が正常に表示される（レイヤーキャンバスが重なっていても映像が壊れない）
-- SimpleMixer の PROGRAM エリアに L1/L2/L3 のラベルと blendMode が表示される
+### Step 7: ブラウザ目視確認
+
+- 映像が正常に表示される
+- SimpleMixer の PROGRAM エリアに L1/L2/L3 が表示される
 - コンソールエラーがない
 
----
-
-### Step 7: コミット
+### Step 8: コミット
 
 ```bash
-git add -A
-git commit -m "feat: Day12 - layer system"
+git add -A && git commit -m "feat: Day12 - layer system"
 ```
 
 ---
 
-## 注意点
+## 注意点（spec §2 Constraints より）
 
-- `LayerManager.initialize()` は `engine.initialize()` の中から呼ぶ（DOM が存在する状態で呼ぶこと）
-- 各レイヤーの canvas は `alpha: true` + `setClearColor(0x000000, 0)` で透明背景にする
-- `position: absolute` で重ねるため、container は `position: relative` になっている必要がある（App.tsx 側で確認）
-- `pointerEvents: 'none'` を設定してレイヤーキャンバスがマウスイベントを吸収しないようにする
-- テスト環境は DOM がないため `initialize()` はテストしない（dispose のみテスト）
-- `layerManager` はシングルトンで export する（`engine` と同様のパターン）
+- `LayerManager.initialize()` は DOM が存在する状態で呼ぶ（engine.initialize() 内）
+- 各レイヤーは `alpha: true` + `setClearColor(0x000000, 0)` で透明背景
+- `position: absolute` で重ねる → container は `position: relative` が必要
+- `pointerEvents: 'none'` でマウスイベントを吸収しない
+- テスト環境はDOMがないため `initialize()` はテストしない

@@ -25,17 +25,19 @@
 
 ## specファイル一覧（SSoT）
 
-| ファイル | 対象 | フェーズ | 状態 |
+| ファイル | 対象 | 担当Agent | 状態 |
 |---|---|---|---|
-| `command-pattern.spec.md` | Commandパターン・Parameter Store | Phase 2 | ✅ 実装済み・仕様化 |
-| `plugin-registry.spec.md` | Plugin Registry・自動登録 | Phase 2 | ✅ 実装済み・仕様化 |
-| `program-preview-bus.spec.md` | Program/Previewバス・SceneState | Phase 7 | ✅ 実装済み・仕様化 |
-| `transition-plugin.spec.md` | Transition Plugin・execute()純粋関数 | Phase 7 | ✅ 実装済み・仕様化 |
-| `layer-system.spec.md` | レイヤーシステム・CSS合成 | Phase 8 | 🔴 Day12実装対象 |
-| `macro-knob.spec.md` | マクロノブ・MIDIマッピング | Phase 8 | ⬜ 未着手 |
-| `mixer-plugin.spec.md` | MixerPlugin Interface・SimpleMixer | Phase 7 | ⬜ 未着手 |
-| `fx-stack.spec.md` | FXスタック・順序・EffectComposer | Phase 4 | ⬜ 未着手 |
-| `camera-system.spec.md` | カメラモード・AUTO・Lerp | Phase 3 | ⬜ 未着手 |
+| `agent-roles.md` | マルチエージェント担当範囲 | Claude Desktop | ✅ |
+| `command-pattern.spec.md` | Commandパターン・Parameter Store | Claude Code | ✅ 実装済み |
+| `plugin-registry.spec.md` | Plugin Registry・自動登録 | Claude Code | ✅ 実装済み |
+| `program-preview-bus.spec.md` | Program/Previewバス・SceneState | Claude Code | ✅ 実装済み |
+| `transition-plugin.spec.md` | Transition Plugin・execute()純粋関数 | Transition Agent | ✅ 実装済み |
+| `layer-system.spec.md` | レイヤーシステム・CSS合成 | Claude Code | 🔴 Day12実装対象 |
+| `geometry-plugin.spec.md` | Geometry Plugin共通仕様 | Geometry Agent | ⬜ v1未着手分あり |
+| `fx-stack.spec.md` | FXスタック・順序・EffectComposer | FX Agent | ⬜ 未着手 |
+| `mixer-plugin.spec.md` | MixerPlugin Interface・SimpleMixer | Mixer Agent | ✅ v1実装済み |
+| `macro-knob.spec.md` | マクロノブ・MIDIマッピング | Claude Code | ⬜ 未着手 |
+| `camera-system.spec.md` | カメラモード・AUTO・Lerp | Claude Code | ⬜ 未着手 |
 
 ---
 
@@ -48,7 +50,7 @@
 2. Claude Codeへの指示
    「docs/spec/layer-system.spec.md を読んでから実装してください」
 
-3. 実装（Claude Code）
+3. 実装（Claude Code / 各Agent）
    specのInterface・Constraintsに従ってコードを生成
 
 4. テスト実行
@@ -60,9 +62,23 @@
 
 ---
 
-## specファイルのフォーマット
+## マルチエージェント化（v2以降）
 
-各specファイルは以下の構造で統一する：
+各AgentはこのSSoTを読んでから自分の担当範囲を実装する。
+担当範囲の定義: `docs/spec/agent-roles.md`
+
+```
+Claude Desktop  → spec管理・設計
+Claude Code     → core・types・tests・Git
+Geometry Agent  → src/plugins/geometry/**
+FX Agent        → src/plugins/fx/**
+Mixer Agent     → src/plugins/windows/**
+Transition Agent→ src/plugins/transitions/**
+```
+
+---
+
+## specファイルのフォーマット（統一形式）
 
 ```markdown
 # [機能名] Spec

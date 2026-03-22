@@ -1,4 +1,4 @@
-# GeoGraphy - CLAUDE.md v6
+# GeoGraphy - CLAUDE.md v7
 
 ## プロジェクト概要
 
@@ -19,6 +19,7 @@ GeoGraphy は **Spec-Driven Development（SDD）** を採用している。
 - **MUST: 実装前に必ず対応する spec ファイルを読むこと**
 - **MUST: 仕様変更はコードより先に spec ファイルを修正すること**
 - **SDD 全体概要**: `docs/spec/SDD-OVERVIEW.md` を参照
+- **マルチエージェント担当範囲**: `docs/spec/agent-roles.md` を参照
 
 ### SDD 開発サイクル
 
@@ -31,13 +32,20 @@ GeoGraphy は **Spec-Driven Development（SDD）** を採用している。
 
 ### spec ファイル一覧
 
-| ファイル | 対象 | 状態 |
-|---|---|---|
-| `docs/spec/SDD-OVERVIEW.md` | SDD全体の設計思想 | ✅ |
-| `docs/spec/command-pattern.spec.md` | Commandパターン | ✅ 実装済み |
-| `docs/spec/program-preview-bus.spec.md` | Program/Previewバス | ✅ 実装済み |
-| `docs/spec/transition-plugin.spec.md` | Transition Plugin | ✅ 実装済み |
-| `docs/spec/layer-system.spec.md` | レイヤーシステム | 🔴 Day12実装対象 |
+| ファイル | 対象 | 担当 | 状態 |
+|---|---|---|---|
+| `docs/spec/SDD-OVERVIEW.md` | SDD全体の設計思想 | Claude Desktop | ✅ |
+| `docs/spec/agent-roles.md` | マルチエージェント担当範囲 | Claude Desktop | ✅ |
+| `docs/spec/command-pattern.spec.md` | Commandパターン | Claude Code | ✅ 実装済み |
+| `docs/spec/plugin-registry.spec.md` | Plugin Registry | Claude Code | ✅ 実装済み |
+| `docs/spec/program-preview-bus.spec.md` | Program/Previewバス | Claude Code | ✅ 実装済み |
+| `docs/spec/transition-plugin.spec.md` | Transition Plugin | Transition Agent | ✅ 実装済み |
+| `docs/spec/mixer-plugin.spec.md` | MixerPlugin Interface | Mixer Agent | ✅ v1実装済み |
+| `docs/spec/layer-system.spec.md` | レイヤーシステム | Claude Code | 🔴 Day12実装対象 |
+| `docs/spec/geometry-plugin.spec.md` | Geometry Plugin共通 | Geometry Agent | ⬜ v1未着手分あり |
+| `docs/spec/fx-stack.spec.md` | FXスタック | FX Agent | ⬜ 未着手 |
+| `docs/spec/macro-knob.spec.md` | マクロノブ | Claude Code | ⬜ 未着手 |
+| `docs/spec/camera-system.spec.md` | カメラシステム | Claude Code | ⬜ 未着手 |
 
 ---
 
@@ -50,6 +58,7 @@ GeoGraphy は **Spec-Driven Development（SDD）** を採用している。
 - MUST: Transition Plugin は `execute()` を純粋関数として実装すること（戻り値は SceneState）
 - MUST: SimpleMixer は閉じることができない（閉じるボタンを実装してはいけない）
 - MUST: 各モジュールの CLAUDE.md を読んでから実装すること
+- MUST: 共有ファイル（engine.ts・types/index.ts）の変更は Claude Code のみ
 
 ---
 
@@ -65,12 +74,12 @@ GeoGraphy は **Spec-Driven Development（SDD）** を採用している。
 ## アーキテクチャ
 
 ```
-plugins/geometry/    ← 何を描画するか（主役）
+plugins/geometry/    ← 何を描画するか（主役）・Geometry Agent担当
 plugins/particles/   ← 背景・雰囲気
-plugins/fx/          ← エフェクト
+plugins/fx/          ← エフェクト・FX Agent担当
 plugins/lights/      ← ライト
-plugins/transitions/ ← トランジション（UI なし・処理のみ）
-plugins/windows/     ← UI（React FC）
+plugins/transitions/ ← トランジション（UI なし・処理のみ）・Transition Agent担当
+plugins/windows/     ← UI（React FC）・Mixer Agent担当
 drivers/tempo/       ← テンポ取得
 drivers/input/       ← デバイス操作
 drivers/output/      ← 出力先
@@ -107,6 +116,7 @@ Preview バス → SceneState（JSON）+ 小キャンバス（320×180）
 - SimpleMixer は v1 固定実装・v2 で MixerPlugin として Plugin 化
 - MUST: v1 から MixerPlugin Interface に準拠した実装にすること（v2 で設計変更ゼロにするため）
 - Transition Plugin 選択プルダウン・クロスフェーダーを必ず持つ
+- 詳細仕様: `docs/spec/mixer-plugin.spec.md`
 
 ---
 
@@ -118,6 +128,7 @@ AfterImage → Feedback → Bloom → Kaleidoscope → Mirror
 ```
 
 FX デフォルト: Bloom ON（0.8）/ AfterImage ON（0.85）/ RGBShift ON（0.001）/ ColorGrading ON（フラット）
+詳細仕様: `docs/spec/fx-stack.spec.md`
 
 ---
 
@@ -125,7 +136,7 @@ FX デフォルト: Bloom ON（0.8）/ AfterImage ON（0.85）/ RGBShift ON（0.
 
 ```
 geography/CLAUDE.md          ← このファイル（全体方針・SDD原則）
-docs/spec/                   ← SSoT（仕様ファイル群）← NEW
+docs/spec/                   ← SSoT（仕様ファイル群・マルチエージェント定義）
 src/core/CLAUDE.md           ← エンジン・Command・ProgramBus・PreviewBus
 src/plugins/geometry/        ← renderer・enabled フィールドの扱い
 src/plugins/transitions/     ← UI を持たない・execute() 純粋関数
@@ -143,6 +154,10 @@ src/ui/
 
 | ツール | 役割 |
 |---|---|
-| Claude Desktop | **spec制作・仕様の壁打ち**・CLAUDE.md・docs/ の編集 |
-| Claude Code | specを読んでから実装・テスト・Git 操作 |
+| Claude Desktop | **spec制作・仕様の壁打ち**・CLAUDE.md・docs/ の編集・エージェント定義 |
+| Claude Code | specを読んでから実装・テスト・Git 操作・共有ファイル管理 |
+| Geometry Agent（v2〜） | `src/plugins/geometry/**` の追加・改善 |
+| FX Agent（v2〜） | `src/plugins/fx/**` の追加・改善 |
+| Mixer Agent（v2〜） | `src/plugins/windows/**` の追加・改善 |
+| Transition Agent（v2〜） | `src/plugins/transitions/**` の追加・改善 |
 | Obsidian | 開発ログ・意思決定記録・YouTube 素材管理 |
