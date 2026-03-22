@@ -20,6 +20,20 @@
 
 ### 確定した設計原則（変更不可）
 
+#### 開発スタイル：SDD（仕様駆動開発）
+- **SSoT（唯一の真実）**: `docs/spec/` 配下の `.spec.md` ファイル群
+- **MUST: 実装前に対応する spec ファイルを読むこと**
+- **MUST: 仕様変更は spec を先に修正 → 再実装**
+- 詳細: `docs/spec/SDD-OVERVIEW.md`
+
+#### spec ファイル一覧
+| ファイル | 状態 |
+|---|---|
+| `docs/spec/command-pattern.spec.md` | ✅ 実装済み |
+| `docs/spec/program-preview-bus.spec.md` | ✅ 実装済み |
+| `docs/spec/transition-plugin.spec.md` | ✅ 実装済み |
+| `docs/spec/layer-system.spec.md` | 🔴 Day12実装対象 |
+
 #### プラットフォーム思想
 - engine.ts は App.tsx に依存してはいけない・単体で動作できること
 - Plugin には `renderer`・`enabled` フィールドを必ず持たせる
@@ -85,6 +99,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | Day9 | engine.ts に grid-wave create/destroy 統合・初期 SceneState 生成・ProgramBus/PreviewBus に流し込み | ✅ |
 | Day10 | src/core/clock.ts BPM クロック実装・engine.ts に接続・SimpleMixer Tap Tempo ボタン追加 | ✅ |
 | Day11 | engine.ts に Beat Cut 接続（ラップアラウンド検出・swap）・SimpleMixer プルダウン → engine.setTransition() 接続 | ✅ |
+| Day11+ | SDD導入・docs/spec/ ディレクトリ作成・spec4本作成・CLAUDE.md v6更新 | ✅ |
 
 ---
 
@@ -96,6 +111,11 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | `docs/要件定義書_v1.7.md` | v1.4 + 壁打ち追加の完全統合版 | **最新・実装の根拠** |
 | `docs/実装計画書_v2.2.md` | 元の実装計画書 | 参照・保存用 |
 | `docs/実装計画書_v2.5.md` | v2.2 + 壁打ち追加の完全統合版 | **最新・実装の根拠** |
+| `docs/spec/SDD-OVERVIEW.md` | SDD全体の設計思想・開発サイクル | **SSoT管理ファイル** |
+| `docs/spec/command-pattern.spec.md` | Commandパターン仕様 | **SSoT** |
+| `docs/spec/program-preview-bus.spec.md` | Program/Previewバス仕様 | **SSoT** |
+| `docs/spec/transition-plugin.spec.md` | Transition Plugin仕様 | **SSoT** |
+| `docs/spec/layer-system.spec.md` | レイヤーシステム仕様 | **SSoT・Day12実装根拠** |
 
 ---
 
@@ -103,7 +123,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 
 | ファイル | バージョン | 主な内容 |
 |---|---|---|
-| `geography/CLAUDE.md` | v4 | プラットフォーム思想・Program/Preview・Mixer・Transition・ロードマップ |
+| `geography/CLAUDE.md` | **v6** | プラットフォーム思想・SDD原則・spec一覧・ツール役割 |
 | `src/core/CLAUDE.md` | 最新 | ProgramBus・PreviewBus・SceneState・ENABLED_PLUGIN_GROUPS |
 | `src/plugins/geometry/CLAUDE.md` | 最新 | renderer・enabled フィールド必須 |
 | `src/plugins/transitions/CLAUDE.md` | 最新 | UI を持たない・execute() 純粋関数・SceneState のみ操作 |
@@ -121,6 +141,7 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 | ファイル | パス |
 |---|---|
 | ルート CLAUDE.md | `geography/CLAUDE.md` |
+| SDD概要 | `docs/spec/SDD-OVERVIEW.md` |
 | 引き継ぎテンプレート | `geography/HANDOVER_TEMPLATE.md` |
 | 引き継ぎメモ | `geography/HANDOVER.md` |
 | 要件定義書 v1.7（最新） | `docs/要件定義書_v1.7.md` |
@@ -192,14 +213,14 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 
 1. `pnpm test --run` でグリーン確認（38 tests）
 2. `pnpm dev` でブラウザ目視確認
-3. Day 12 の実装タスクに進む（下記参照）
+3. **`docs/spec/layer-system.spec.md` を読んでから** Day12の実装に進む
 
 ### 現在の作業状態
 
 - **ブランチ**: `main`
 - **最後のコミット**: `feat: Day11 - beat cut transition connected to engine`（6e65277）
 - **動作確認状態**: 38 tests グリーン ✅・ブラウザ目視確認済み ✅
-- **未コミットファイル**: なし
+- **未コミットファイル**: `docs/spec/` 新規ファイル群（未コミット）・`CLAUDE.md` v6更新（未コミット）
 - **開発環境**: Cursor / Simple Browser（上部タブ）+ zsh ターミナル
 
 ### 未解決の問題
@@ -208,30 +229,38 @@ Bloom ON（0.8）/ After Image ON（0.85）/ RGB Shift ON（0.001）/ その他 
 
 ### 次回の本実装タスク（Day 12）
 
+**⚠️ SDD原則：実装前に `docs/spec/layer-system.spec.md` を必ず読むこと**
+
 Beat Cut と CrossFade が engine に接続された。
-次は**レイヤーシステム**の実装に進む（Phase 6 完了へ）。
+次は**レイヤーシステム**の実装に進む（Phase 8）。
 
 現状、SimpleMixer の PROGRAM エリアには L1/L2/L3 のプレースホルダーが表示されているが、
 実際のレイヤー（CSS 合成）はまだ実装されていない。
 
+0. **`docs/spec/layer-system.spec.md` を読む**（SDD原則・必須）
+
 1. **`src/core/layerManager.ts` の実装**
+   - spec の Interface・Constraints に準拠すること
    - MAX_LAYERS = 3（config.ts から）
    - 各レイヤーは `position: absolute` で重ねる
-   - CSS `mixBlendMode` で合成（normal / add / multiply / screen / overlay）
+   - CSS `mixBlendMode` で合成
 
-2. **`engine.ts` に LayerManager を接続**
-   - `initialize()` でレイヤーキャンバスを生成
-   - 各レイヤーに Plugin を割り当て
+2. **`tests/core/layerManager.test.ts` を実装**
+   - spec の Test Cases をすべてパスさせること
 
-3. **SimpleMixer の PROGRAM エリアにレイヤー状態を反映**
+3. **`engine.ts` に LayerManager を接続**
 
-4. `git add -A && git commit -m "feat: Day12 - layer system"`
+4. **SimpleMixer の PROGRAM エリアにレイヤー状態を反映**
 
-### 今回のセッション（Day 11）で確定したこと
+5. `git add -A && git commit -m "feat: Day12 - layer system"`
+
+### 今回のセッション（Day 11 + SDD導入）で確定したこと
 
 - `engine.ts` に `prevBeat`・`activeTransitionId` フィールド追加
-- `update()` にビートラップアラウンド検出（`prevBeat > 0.8 && beat < 0.2`）→ programBus/previewBus swap 実装
+- `update()` にビートラップアラウンド検出 → programBus/previewBus swap 実装
 - `setTransition(id)` メソッド追加
 - `SimpleMixer.tsx` の `handleTransitionChange` に `engine.setTransition(id)` 追加
-- Cursor の Simple Browser（上部タブ）+ zsh ターミナルの並列作業環境を確立
+- **SDD（仕様駆動開発）を導入：`docs/spec/` ディレクトリ作成**
+- **spec4本作成：command-pattern / program-preview-bus / transition-plugin / layer-system**
+- **`CLAUDE.md` v6 に更新：SDD原則・spec一覧を追記**
 - テスト: 38 tests グリーン（変化なし）
