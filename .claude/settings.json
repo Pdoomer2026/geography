@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/shinbigan/geography && pnpm tsc --noEmit 2>&1 | tail -10"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "type": "command",
+        "command": "cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run || (echo '❌ INCOMPLETE: tsc または test が失敗しています。修正してから完了にすること' && exit 1)"
+      }
+    ]
+  }
+}

@@ -1,16 +1,50 @@
 # Day 12 実装プロンプト｜レイヤーシステム（LayerManager）
+# Multi-Layered Orchestration × Compiler-Driven Development 対応版
 
-## ⚠️ SDD原則：最初に必ずspecを読むこと
+---
+
+## ⚠️ 実装前に必ず読むこと（SDD原則）
 
 ```bash
 cat docs/spec/layer-system.spec.md
 ```
 
-このspecがSSoT（唯一の真実）。Interface・Constraints・Test Casesに準拠して実装する。
+---
+
+## 完了条件（両方必須）
+
+```bash
+pnpm tsc --noEmit   # 型エラーゼロ
+pnpm test --run     # 全テストグリーン
+```
+
+**anyによる解決は禁止。型エラーは自律的に修正すること。**
 
 ---
 
-## 前提確認
+## 自律修正ループ
+
+1. 実装 → `pnpm tsc --noEmit` を実行
+2. 型エラーが出たら人間に報告せず自律修正
+3. 型エラーゼロ → `pnpm test --run` を実行
+4. 両方通過するまでループ
+5. 各ステップ完了ごとに `docs/progress/day12-layer-system.log.md` に追記
+
+---
+
+## Step 0: プラン提示（実装前に必須）
+
+specを読んだ後、以下を提示してから実装を開始すること：
+- 作成・変更するファイル一覧
+- specのどのConstraintをどう満たすか
+- 型設計（新しいInterfaceが必要か）
+- テストケースの対応
+
+**プラン提示なしにコードを書いてはいけない。**
+
+---
+
+## Step 1: 動作確認
 
 ```bash
 pnpm test --run 2>&1 | tee .claude/test-latest.txt
@@ -20,17 +54,9 @@ pnpm test --run 2>&1 | tee .claude/test-latest.txt
 
 ---
 
-## 今日やること（順番通りに進める）
+## Step 2: `src/core/layerManager.ts` を新規作成
 
-### Step 1: spec確認（必須）
-
-```bash
-cat docs/spec/layer-system.spec.md
-```
-
-### Step 2: `src/core/layerManager.ts` を新規作成
-
-spec §3 の Interface に準拠して実装する。
+spec §3 の Interface・§2 の Constraints に準拠して実装する。
 
 ```typescript
 import * as THREE from 'three'
@@ -57,7 +83,6 @@ export class LayerManager {
 
   initialize(container: HTMLElement): void {
     this.container = container
-
     for (let i = 0; i < MAX_LAYERS; i++) {
       const canvas = document.createElement('canvas')
       canvas.width = container.clientWidth
@@ -98,9 +123,7 @@ export class LayerManager {
     }
   }
 
-  getLayers(): Layer[] {
-    return this.layers
-  }
+  getLayers(): Layer[] { return this.layers }
 
   setOpacity(layerId: string, opacity: number): void {
     const layer = this.layers.find((l) => l.id === layerId)
@@ -154,7 +177,11 @@ export class LayerManager {
 export const layerManager = new LayerManager()
 ```
 
-### Step 3: `engine.ts` に LayerManager を接続
+実装後: `pnpm tsc --noEmit` を実行。型エラーがあれば自律修正。
+
+---
+
+## Step 3: `engine.ts` に LayerManager を接続
 
 1. `import { layerManager } from './layerManager'` を追加
 2. `initialize()` で `layerManager.initialize(container)` を呼ぶ
@@ -163,11 +190,19 @@ export const layerManager = new LayerManager()
 5. `dispose()` で `layerManager.dispose()` を呼ぶ
 6. `getLayers()` メソッドを追加
 
-### Step 4: `SimpleMixer.tsx` のPROGRAMエリアをレイヤー状態に反映
+実装後: `pnpm tsc --noEmit` を実行。
+
+---
+
+## Step 4: `SimpleMixer.tsx` のPROGRAMエリアを実装
 
 `layers.map()` で実際のレイヤー状態（blendMode・mute）を表示する。
 
-### Step 5: テスト追加（spec §5 のTest Casesに準拠）
+実装後: `pnpm tsc --noEmit` を実行。
+
+---
+
+## Step 5: テスト追加（spec §5 のTest Casesに準拠）
 
 `tests/core/layerManager.test.ts` を新規作成:
 
@@ -193,21 +228,27 @@ describe('LayerManager', () => {
 })
 ```
 
-### Step 6: テスト確認
+---
+
+## Step 6: 完了確認
 
 ```bash
-pnpm test --run 2>&1 | tee .claude/test-latest.txt
+pnpm tsc --noEmit && pnpm test --run 2>&1 | tee .claude/test-latest.txt
 ```
 
-40 tests グリーンを確認。
+**両方通過するまでStep 2〜5をループする。**
 
-### Step 7: ブラウザ目視確認
+---
+
+## Step 7: ブラウザ目視確認
 
 - 映像が正常に表示される
 - SimpleMixer の PROGRAM エリアに L1/L2/L3 が表示される
 - コンソールエラーがない
 
-### Step 8: コミット
+---
+
+## Step 8: コミット
 
 ```bash
 git add -A && git commit -m "feat: Day12 - layer system"
@@ -222,3 +263,4 @@ git add -A && git commit -m "feat: Day12 - layer system"
 - `position: absolute` で重ねる → container は `position: relative` が必要
 - `pointerEvents: 'none'` でマウスイベントを吸収しない
 - テスト環境はDOMがないため `initialize()` はテストしない
+- **anyは使わない・型エラーは自律修正**
