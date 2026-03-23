@@ -46,18 +46,31 @@ export function SimpleMixer() {
     return () => window.clearInterval(timer)
   }, [])
 
-  // タスク 1: previewBus.getCanvas() を PREVIEW エリアに mount する
+  // PREVIEW バス: ref が準備できたら canvas を mount して表示する
   useEffect(() => {
     if (!previewRef.current) return
+    const container = previewRef.current
+
+    // まだ mount されていなければ mount する（canvas を container に追加）
+    if (!previewBus.getCanvas()) {
+      previewBus.mount(container)
+    }
+
+    // canvas を 160×90 で表示（内部解像度 320×180 はそのまま）
     const canvas = previewBus.getCanvas()
     if (!canvas) return
-    // SimpleMixer 内では 160×90 で表示する（内部解像度 320×180 はそのまま）
     canvas.style.width = '160px'
     canvas.style.height = '90px'
-    previewRef.current.appendChild(canvas)
+
+    // 既に別のコンテナに入っていれば移動する
+    if (canvas.parentNode !== container) {
+      container.appendChild(canvas)
+    }
+
     return () => {
-      if (canvas.parentNode === previewRef.current) {
-        previewRef.current?.removeChild(canvas)
+      // クリーンアップ: canvas を container から除去（previewBus は dispose しない）
+      if (canvas.parentNode === container) {
+        container.removeChild(canvas)
       }
     }
   }, [])

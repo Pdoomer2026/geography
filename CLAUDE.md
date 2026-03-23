@@ -1,4 +1,4 @@
-# GeoGraphy - CLAUDE.md v7
+# GeoGraphy - CLAUDE.md v8
 
 ## プロジェクト概要
 
@@ -8,6 +8,36 @@
 - **要件定義書**: docs/要件定義書_v1.7.md
 - **実装計画書**: docs/実装計画書_v2.5.md
   → フェーズ詳細・ロードマップはこちらを参照すること（CLAUDE.md には書かない）
+
+---
+
+## 開発環境制約（重要・セッション開始時に必ず確認）
+
+Claude はセッション開始時に利用可能な MCP ツールを確認することで自分の実行環境を把握できる。
+
+| ツール | 可否 | 用途 |
+|---|---|---|
+| filesystem MCP | ✅ | ファイルの読み書き（Claude Desktop 環境の証拠） |
+| Claude in Chrome MCP | ✅ | ブラウザ操作・JS実行・スクリーンショット |
+| bash / ターミナル MCP | ❌ | **使用不可** |
+
+- `pnpm tsc --noEmit` / `pnpm test --run` / `pnpm dev` / `git` コマンドは **慎太郎さんが手動で実行して結果を貼り付けること**
+- Claude は「ターミナルを試みる → 失敗 → 気づく」という無駄なステップを踏まない
+- filesystem MCP が使えていれば Claude Desktop 環境と判断してよい
+- **MUST: Claude がターミナルコマンドの実行を求めるときは、必ずコピペ可能なコマンドを作って渡すこと**
+
+### コマンド依頼の形式（必ずこの形式で渡す）
+
+```bash
+# [目的の説明]
+[実行するコマンド]
+```
+
+例：
+```bash
+# tsc + テスト確認
+cd /Users/shinbigan/geography && pnpm tsc --noEmit 2>&1 && pnpm test --run 2>&1
+```
 
 ---
 
@@ -28,11 +58,12 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 ```
 1. docs/spec/[機能].spec.md を確認（または新規作成）
 2. プランを提示・承認を得てから実装開始
-3. 実装後 pnpm tsc --noEmit → 型エラーがあれば自律修正
-4. pnpm test --run → 全テストグリーン
-5. 両方通過するまでループ
-6. docs/progress/[task].log.md にステップ完了を記録
-7. 仕様変更が必要な場合 → spec を先に修正 → 再実装
+3. 実装後 → 慎太郎さんに pnpm tsc --noEmit を実行してもらい結果を貼り付けてもらう
+4. 型エラーがあれば自律修正 → 再度コマンドを渡す
+5. 慎太郎さんに pnpm test --run を実行してもらい結果を貼り付けてもらう
+6. 全テストグリーンになるまでループ
+7. docs/progress/[task].log.md にステップ完了を記録
+8. 仕様変更が必要な場合 → spec を先に修正 → 再実装
 ```
 
 ### spec ファイル一覧
@@ -69,6 +100,7 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 - MUST: SimpleMixer は閉じることができない（閉じるボタンを実装してはいけない）
 - MUST: 各モジュールの CLAUDE.md を読んでから実装すること
 - MUST: 共有ファイル（engine.ts・types/index.ts）の変更は Claude Code のみ
+- MUST: ターミナルコマンドの実行を求めるときは必ずコピペ可能なコマンドを作って渡すこと
 
 ---
 
