@@ -8,7 +8,8 @@ import { registerParticlePlugins } from '../plugins/particles'
 import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
-import type { Layer, SceneState } from '../types'
+import { macroKnobManager } from './macroKnob'
+import type { Layer, MacroKnobConfig, SceneState } from '../types'
 
 // engine.ts は App.tsx に依存してはいけない・単体で動作できること
 
@@ -31,6 +32,9 @@ export class Engine {
   async initialize(container: HTMLElement): Promise<void> {
     this.container = container
     layerManager.initialize(container)
+
+    // MacroKnobManager に ParameterStore を注入
+    macroKnobManager.init(this.parameterStore)
 
     // Plugin 自動登録（各 index.ts に実装済みの関数を利用）
     await registerGeometryPlugins()
@@ -73,6 +77,20 @@ export class Engine {
 
   setTransition(id: string): void {
     this.activeTransitionId = id
+  }
+
+  // --- MacroKnob ---
+
+  getMacroKnobs(): MacroKnobConfig[] {
+    return macroKnobManager.getKnobs()
+  }
+
+  /**
+   * MIDI CC を受け取り MacroKnobManager に転送する
+   * 将来の MIDI Driver から呼ぶエントリーポイント
+   */
+  handleMidiCC(cc: number, value: number): void {
+    macroKnobManager.handleMidiCC(cc, value)
   }
 
   // --- レンダーループ ---

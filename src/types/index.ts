@@ -137,3 +137,37 @@ export interface ModulatorDriver {
   name: string
   getValue(paramId: string): number | null
 }
+
+// ============================================================
+// Macro Knob System（spec: docs/spec/macro-knob.spec.md）
+// ============================================================
+
+/** v1: linear のみ / v2 で exp・log・s-curve を追加予定 */
+export type CurveType = 'linear'
+
+export interface MacroAssign {
+  paramId: string
+  min: number
+  max: number
+  curve: CurveType
+}
+
+export interface MacroKnobConfig {
+  /** 'macro-1' 〜 'macro-32' */
+  id: string
+  /** 表示名（例: 'CHAOS'） */
+  name: string
+  /** MIDI CC番号: 0〜127 */
+  midiCC: number
+  /** 最大 MACRO_KNOB_MAX_ASSIGNS 個 */
+  assigns: MacroAssign[]
+}
+
+export interface MacroKnobManager {
+  getKnobs(): MacroKnobConfig[]
+  setKnob(id: string, config: MacroKnobConfig): void
+  /** value: 0〜127 の MIDI CC値を受け取り、各 assign の paramId を Command 経由で更新 */
+  handleMidiCC(cc: number, value: number): void
+  /** 0.0〜1.0 に正規化した現在値を返す */
+  getValue(knobId: string): number
+}
