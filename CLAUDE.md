@@ -47,9 +47,9 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 | `docs/spec/transition-plugin.spec.md` | Transition Plugin | Transition Agent | ✅ 実装済み |
 | `docs/spec/mixer-plugin.spec.md` | MixerPlugin Interface | Mixer Agent | ✅ 実装済み |
 | `docs/spec/layer-system.spec.md` | レイヤーシステム | Claude Code | ✅ Day12実装済み |
+| `docs/spec/macro-knob.spec.md` | マクロノブ | Claude Code | 🔴 Day13実装対象 |
 | `docs/spec/geometry-plugin.spec.md` | Geometry Plugin共通 | Geometry Agent | ⬜ v1未着手分あり |
 | `docs/spec/fx-stack.spec.md` | FXスタック | FX Agent | ⬜ 未着手 |
-| `docs/spec/macro-knob.spec.md` | マクロノブ | Claude Code | ⬜ Day13実装対象 |
 | `docs/spec/camera-system.spec.md` | カメラシステム | Claude Code | ⬜ 未着手 |
 
 ---
@@ -124,8 +124,6 @@ Preview バス → SceneState（JSON）+ 小キャンバス（320×180）
 
 - `layerManager` シングルトンで管理（`src/core/layerManager.ts`）
 - MAX_LAYERS = 3 / CSS mixBlendMode で合成 / WebGL RenderTarget 不要
-- 各レイヤーは独立した THREE.WebGLRenderer / THREE.Scene / PerspectiveCamera
-- `position: absolute` + `alpha: true` + `setClearColor(0x000000, 0)` で透明背景
 - 詳細仕様: `docs/spec/layer-system.spec.md`
 
 ---
@@ -133,7 +131,7 @@ Preview バス → SceneState（JSON）+ 小キャンバス（320×180）
 ## Mixer Plugin ルール
 
 - SimpleMixer は v1 固定実装・v2 で MixerPlugin として Plugin 化
-- MUST: v1 から MixerPlugin Interface に準拠した実装にすること（v2 で設計変更ゼロにするため）
+- MUST: v1 から MixerPlugin Interface に準拠した実装にすること
 - Transition Plugin 選択プルダウン・クロスフェーダーを必ず持つ
 - 詳細仕様: `docs/spec/mixer-plugin.spec.md`
 
@@ -146,7 +144,6 @@ AfterImage → Feedback → Bloom → Kaleidoscope → Mirror
 → ZoomBlur → RGBShift → CRT → Glitch → ColorGrading（最後）
 ```
 
-FX デフォルト: Bloom ON（0.8）/ AfterImage ON（0.85）/ RGBShift ON（0.001）/ ColorGrading ON（フラット）
 詳細仕様: `docs/spec/fx-stack.spec.md`
 
 ---
