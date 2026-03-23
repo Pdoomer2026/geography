@@ -50,7 +50,9 @@ export class FxStack implements IFxStack {
 
   update(delta: number, beat: number): void {
     for (const plugin of this.getOrdered()) {
-      if (!plugin.enabled) continue
+      // enabled に関わらず常に update() を呼ぶ。
+      // 各プラグインの update() 内で this.pass.enabled = this.enabled を設定するため、
+      // ここで skip すると pass.enabled が true のまま残りエフェクトが切れない。
       plugin.update(delta, beat)
     }
   }

@@ -31,6 +31,7 @@ const makeFxPlugin = (id: string, enabled = true): FXPlugin & { _pass: MockPass 
       c.addPass(pass)
     },
     update(_delta: number, _beat: number) {
+      // 実際のプラグインと同様に pass.enabled を this.enabled に同期する
       pass.enabled = this.enabled
     },
     destroy() {
@@ -109,7 +110,7 @@ describe('FxStack', () => {
     expect(ids[ids.length - 1]).toBe('color-grading')
   })
 
-  // TC-2: enabled=false のFXはpass.enabled = false
+  // TC-2: enabled フラグと pass.enabled の同期
   it('TC-2: setEnabled(false) で plugin.enabled が false になる', () => {
     const bloom = makeFxPlugin('bloom', true)
     stack.register(bloom)
@@ -118,22 +119,30 @@ describe('FxStack', () => {
     expect(stack.getPlugin('bloom')?.enabled).toBe(false)
   })
 
-  it('TC-2: enabled=false の plugin は update() でスキップされる', () => {
+  it('TC-2: enabled=false の plugin でも update() は呼ばれ、pass.enabled が false に反映される', () => {
+    // 修正理由: fxStack.update() で enabled=false をスキップすると
+    // 各プラグインの update() 内の pass.enabled = this.enabled が実行されず、
+    // Three.js の pass.enabled が true のまま残りエフェクトがOFFにならないバグを修正。
+    // enabled に関わらず常に update() を呼び、pass.enabled を毎フレーム同期させる。
     const bloom = makeFxPlugin('bloom', false)
     const updateSpy = vi.spyOn(bloom, 'update')
     stack.register(bloom)
 
     stack.update(0.016, 0)
-    expect(updateSpy).not.toHaveBeenCalled()
+
+    expect(updateSpy).toHaveBeenCalledOnce()
+    expect(bloom._pass.enabled).toBe(false)
   })
 
-  it('TC-2: enabled=true の plugin は update() が呼ばれる', () => {
+  it('TC-2: enabled=true の plugin は update() が呼ばれ、pass.enabled が true のまま', () => {
     const bloom = makeFxPlugin('bloom', true)
     const updateSpy = vi.spyOn(bloom, 'update')
     stack.register(bloom)
 
     stack.update(0.016, 0)
+
     expect(updateSpy).toHaveBeenCalledOnce()
+    expect(bloom._pass.enabled).toBe(true)
   })
 
   // TC-3: destroy() 後に pass.dispose() が呼ばれる

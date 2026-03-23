@@ -8,7 +8,11 @@ const ambientPlugin: LightPlugin = {
   id: 'ambient',
   name: 'Ambient Light',
   renderer: 'threejs',
-  enabled: true,
+  // Light Plugin はレイヤーに単独で割り当てるものではなく、
+  // geometry/particle シーンに直接追加するもの。
+  // registry.list().filter(enabled) でレイヤー割り当てから除外するため false にする。
+  // v2 で Light Plugin 専用の管理システムを実装予定。
+  enabled: false,
   params: structuredClone(defaultParams),
 
   create(scene) {

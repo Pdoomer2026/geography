@@ -10,7 +10,7 @@ import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
 import { macroKnobManager } from './macroKnob'
-import type { FXPlugin, Layer, MacroKnobConfig, SceneState } from '../types'
+import type { FXPlugin, GeometryPlugin, Layer, MacroKnobConfig, SceneState } from '../types'
 
 // engine.ts は App.tsx に依存してはいけない・単体で動作できること
 
@@ -34,57 +34,62 @@ export class Engine {
     this.container = container
     layerManager.initialize(container)
 
-    // MacroKnobManager に ParameterStore を注入
     macroKnobManager.init(this.parameterStore)
 
-    // Plugin 自動登録（各 index.ts に実装済みの関数を利用）
+    // Plugin 自動登録
+    // 登録順（Map の insert order）: geometry → lights(enabled=false) → particles
+    // → registry.list().filter(enabled) = [grid-wave, starfield]
     await registerGeometryPlugins()
     await registerLightPlugins()
     await registerParticlePlugins()
 
-    // タスク 1: 登録済み Plugin の create() を scene に適用
-    const enabledPlugins = registry.list().filter((plugin) => plugin.enabled)
-    enabledPlugins.slice(0, layerManager.getLayers().length).forEach((plugin, index) => {
-      layerManager.setPlugin(`layer-${index + 1}`, plugin)
+    const allPlugins = registry.list().filter((p) => p.enabled)
+    // allPlugins[0] = grid-wave (geometry) → layer-1 + FX
+    // allPlugins[1] = starfield (particle)  → layer-2 + blendMode: add（背景として透過合成）
+    // allPlugins[2以降] → mute
+
+    const layers = layerManager.getLayers()
+
+    allPlugins.slice(0, layers.length).forEach((plugin, index) => {
+      layerManager.setPlugin(`layer-${index + 1}`, plugin as GeometryPlugin)
     })
 
-    // 未使用レイヤーは mute して描画を避ける
-    for (let i = enabledPlugins.length; i < layerManager.getLayers().length; i++) {
+    // 未使用レイヤーは mute
+    for (let i = allPlugins.length; i < layers.length; i++) {
       layerManager.setMute(`layer-${i + 1}`, true)
     }
 
-    // タスク 2: mute でないレイヤーにのみ FX を構築（GPU 節約）
-    for (const layer of layerManager.getLayers()) {
-      if (layer.mute) continue
-      layerManager.setupFx(layer.id, createFxPlugins())
+    // starfield (layer-2) は加算合成で背景として透過表示
+    // → 黒い部分は透過、星の光の粒だけが前面に重なる
+    if (allPlugins.length >= 2) {
+      layerManager.setBlendMode('layer-2', 'add')
     }
 
-    // タスク 3: 初期 SceneState を生成して ProgramBus・PreviewBus に渡す
-    // SceneState 用に代表 FX インスタンスを 1 セット生成（layer-1 の fxStack から取得）
-    const layer1FxPlugins = layerManager.getLayers()[0]?.fxStack.getOrdered() ?? []
+    // FX は geometry レイヤー（layer-1）のみに適用
+    layerManager.setupFx('layer-1', createFxPlugins())
+
+    // 初期 SceneState
+    const fxPlugins = layers[0]?.fxStack.getOrdered() ?? []
     const initialState: SceneState = {
-      layers: registry.list()
-        .filter((p) => p.enabled)
-        .map((p) => ({
-          geometryId: p.id,
-          geometryParams: Object.fromEntries(
-            Object.entries(p.params).map(([k, v]) => [k, v.value])
+      layers: allPlugins.slice(0, 1).map((p) => ({
+        geometryId: p.id,
+        geometryParams: Object.fromEntries(
+          Object.entries(p.params).map(([k, v]) => [k, v.value])
+        ),
+        fxStack: fxPlugins.map((fx) => ({
+          fxId: fx.id,
+          params: Object.fromEntries(
+            Object.entries(fx.params).map(([k, v]) => [k, v.value])
           ),
-          fxStack: layer1FxPlugins.map((fx) => ({
-            fxId: fx.id,
-            params: Object.fromEntries(
-              Object.entries(fx.params).map(([k, v]) => [k, v.value])
-            ),
-            enabled: fx.enabled,
-          })),
-          opacity: 1,
-          blendMode: 'normal',
+          enabled: fx.enabled,
         })),
+        opacity: 1,
+        blendMode: 'normal',
+      })),
     }
     programBus.load(initialState)
     previewBus.update(initialState)
 
-    // リサイズ対応
     window.addEventListener('resize', this.onResize)
   }
 
@@ -100,34 +105,20 @@ export class Engine {
     return macroKnobManager.getKnobs()
   }
 
-  /**
-   * MIDI CC を受け取り MacroKnobManager に転送する
-   * 将来の MIDI Driver から呼ぶエントリーポイント
-   */
   handleMidiCC(cc: number, value: number): void {
     macroKnobManager.handleMidiCC(cc, value)
   }
 
-  // --- FX コントロール API ---
+  // --- FX コントロール API（layer-1 = geometry レイヤー対象）---
 
-  /**
-   * layer-1 の FX プラグイン一覧を FX_STACK_ORDER 順で返す。
-   * FxControlPanel の表示用。
-   */
   getFxPlugins(): FXPlugin[] {
     return layerManager.getLayers()[0]?.fxStack.getOrdered() ?? []
   }
 
-  /**
-   * layer-1 の指定 FX の enabled を切り替える。
-   */
   setFxEnabled(fxId: string, enabled: boolean): void {
     layerManager.getLayers()[0]?.fxStack.setEnabled(fxId, enabled)
   }
 
-  /**
-   * layer-1 の指定 FX の指定パラメーター値を更新する。
-   */
   setFxParam(fxId: string, paramKey: string, value: number): void {
     const plugin = layerManager.getLayers()[0]?.fxStack.getPlugin(fxId)
     if (plugin && paramKey in plugin.params) {
@@ -161,7 +152,6 @@ export class Engine {
   private update(delta: number): void {
     const beat = this.clock.getBeat()
 
-    // Beat Cut: beat が 0 を通過した瞬間（ラップアラウンド検出）に Program/Preview を swap
     if (this.activeTransitionId === 'beat-cut') {
       if (this.prevBeat > 0.8 && beat < 0.2) {
         const programState = programBus.getState()
@@ -190,7 +180,6 @@ export class Engine {
 
   dispose(): void {
     this.stop()
-
     window.removeEventListener('resize', this.onResize)
     layerManager.dispose()
     this.container = null
@@ -201,5 +190,4 @@ export class Engine {
   }
 }
 
-// シングルトンインスタンス
 export const engine = new Engine()
