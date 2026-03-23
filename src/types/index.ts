@@ -83,6 +83,12 @@ export interface IFxStack {
   dispose(): void
   setEnabled(fxId: string, enabled: boolean): void
   getPlugin(fxId: string): FXPlugin | undefined
+  /**
+   * Setup APPLY 用：enabledIds に含まれるものだけ create()、
+   * それ以外は destroy() してから composer を再構築する。
+   * spec: docs/spec/plugin-lifecycle.spec.md §6
+   */
+  applySetup(enabledIds: string[], composer: unknown): void
 }
 
 export interface Layer {

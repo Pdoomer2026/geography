@@ -59,8 +59,6 @@ export class LayerManager {
       const layerId = `layer-${i + 1}`
       const fxStack = new FxStack()
 
-      // EffectComposer は FX 登録後に setupComposer() で構築する
-      // ここでは null を入れておき、型合わせのためダミーを作成
       const composer = new EffectComposer(renderer)
       const renderPass = new RenderPass(scene, camera)
       renderPass.clear = true
@@ -90,7 +88,7 @@ export class LayerManager {
   /**
    * FXPlugin 群を受け取り、fxStack に register して
    * EffectComposer に addPass する。
-   * engine.initialize() の中で mute でないレイヤーのみ呼ぶ。
+   * engine.initialize() の中で全レイヤーに対して呼ぶ。
    */
   setupFx(layerId: string, fxPlugins: FXPlugin[]): void {
     const layer = this.layers.find((l) => l.id === layerId)
@@ -99,7 +97,20 @@ export class LayerManager {
 
     for (const fx of fxPlugins) {
       layer.fxStack.register(fx)
-      fx.create(composer) // EffectComposer に直接 addPass
+      fx.create(composer)
+    }
+  }
+
+  /**
+   * Setup APPLY 用：Plugin Lifecycle spec §6
+   * 全レイヤーに対して fxStack.applySetup() を呼ぶ。
+   * enabledIds に含まれる FX だけ create()、それ以外は destroy() して composer を再構築。
+   */
+  applyFxSetup(enabledIds: string[]): void {
+    for (const layer of this.layers) {
+      const composer = this.composers.get(layer.id)
+      if (!composer) continue
+      layer.fxStack.applySetup(enabledIds, composer)
     }
   }
 

@@ -38,16 +38,11 @@ export class Engine {
     macroKnobManager.init(this.parameterStore)
 
     // Plugin 自動登録
-    // 登録順（Map の insert order）: geometry → lights(enabled=false) → particles
-    // → registry.list().filter(enabled) = [grid-wave, starfield]
     await registerGeometryPlugins()
     await registerLightPlugins()
     await registerParticlePlugins()
 
     const allPlugins = registry.list().filter((p) => p.enabled)
-    // allPlugins[0] = grid-wave (geometry) → layer-1 + FX
-    // allPlugins[1] = starfield (particle)  → layer-2 + blendMode: add（背景として透過合成）
-    // allPlugins[2以降] → mute
 
     const layers = layerManager.getLayers()
 
@@ -61,7 +56,6 @@ export class Engine {
     }
 
     // starfield (layer-2) は加算合成で背景として透過表示
-    // → 黒い部分は透過、星の光の粒だけが前面に重なる
     if (allPlugins.length >= 2) {
       layerManager.setBlendMode('layer-2', 'add')
     }
@@ -130,6 +124,15 @@ export class Engine {
     if (plugin && paramKey in plugin.params) {
       plugin.params[paramKey].value = value
     }
+  }
+
+  /**
+   * Setup APPLY 用：Plugin Lifecycle spec §6
+   * enabledIds に含まれる FX だけ create()、それ以外は destroy() して composer を再構築。
+   * 全レイヤーに対して適用する。
+   */
+  applyFxSetup(enabledIds: string[]): void {
+    layerManager.applyFxSetup(enabledIds)
   }
 
   // --- レンダーループ ---
