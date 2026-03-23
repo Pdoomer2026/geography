@@ -78,8 +78,8 @@ Object.values(modules).forEach((m: any) => registry.register(m.default))
 | カテゴリ | Plugin | 状態 |
 |---|---|---|
 | wave | grid-wave | ✅ 実装済み |
-| terrain | contour | ⬜ 未着手 |
-| tunnel | grid-tunnel | ⬜ 未着手 |
+| terrain | contour | ✅ 実装済み |
+| tunnel | grid-tunnel | ✅ 実装済み |
 
 ---
 

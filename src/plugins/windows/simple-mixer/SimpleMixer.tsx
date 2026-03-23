@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Layer, TransitionPlugin } from '../../../types'
+import type { CSSBlendMode, Layer, TransitionPlugin } from '../../../types'
 import beatCutPlugin from '../../transitions/beat-cut'
 import crossfadePlugin from '../../transitions/crossfade'
 import { programBus } from '../../../core/programBus'
@@ -7,6 +7,14 @@ import { previewBus } from '../../../core/previewBus'
 import { engine } from '../../../core/engine'
 
 const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin, crossfadePlugin]
+
+const BLEND_MODES: { value: CSSBlendMode; label: string }[] = [
+  { value: 'normal',   label: 'Normal' },
+  { value: 'add',      label: 'Add' },
+  { value: 'multiply', label: 'Multiply' },
+  { value: 'screen',   label: 'Screen' },
+  { value: 'overlay',  label: 'Overlay' },
+]
 
 /**
  * SimpleMixer — v1 固定実装の Mixer UI
@@ -117,7 +125,7 @@ export function SimpleMixer() {
           <div className="text-[10px] text-[#aaaacc] mb-1 tracking-wider">PROGRAM</div>
           <div
             className="flex gap-1 items-stretch"
-            style={{ height: 110 }}
+            style={{ height: 130 }}
           >
             {layers.map((layer, i) => (
               <div
@@ -147,8 +155,20 @@ export function SimpleMixer() {
                   ))}
                 </select>
 
-                {/* blendMode */}
-                <div className="text-[#5f5f8f] text-center">{layer.blendMode}</div>
+                {/* blendMode プルダウン */}
+                <select
+                  value={layer.blendMode}
+                  onChange={(e) =>
+                    engine.setLayerBlendMode(layer.id, e.target.value as CSSBlendMode)
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full bg-[#0a0a1a] border border-[#2a2a4e] rounded text-[8px] text-[#aaaacc] outline-none cursor-pointer mb-1"
+                  style={{ padding: '1px 2px' }}
+                >
+                  {BLEND_MODES.map((bm) => (
+                    <option key={bm.value} value={bm.value}>{bm.label}</option>
+                  ))}
+                </select>
 
                 {/* MUTE/LIVE トグル */}
                 <div

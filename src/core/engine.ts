@@ -10,7 +10,7 @@ import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
 import { macroKnobManager } from './macroKnob'
-import type { FXPlugin, GeometryPlugin, Layer, MacroKnobConfig, SceneState } from '../types'
+import type { CSSBlendMode, FXPlugin, GeometryPlugin, Layer, MacroKnobConfig, SceneState } from '../types'
 
 // engine.ts は App.tsx に依存してはいけない・単体で動作できること
 
@@ -191,6 +191,10 @@ export class Engine {
 
   setLayerMute(layerId: string, mute: boolean): void {
     layerManager.setMute(layerId, mute)
+  }
+
+  setLayerBlendMode(layerId: string, blendMode: CSSBlendMode): void {
+    layerManager.setBlendMode(layerId, blendMode)
   }
 
   /** Registry に登録されている全 Plugin 一覧（プルダウン選択肢用） */
