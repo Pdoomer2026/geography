@@ -6,7 +6,7 @@
  *   → ZoomBlur → RGBShift → CRT → Glitch → ColorGrading（必ず最後）
  */
 
-import type { FXPlugin } from '../types'
+import type { FXPlugin, IFxStack } from '../types'
 
 export const FX_STACK_ORDER = [
   'after-image',
@@ -23,7 +23,7 @@ export const FX_STACK_ORDER = [
 
 export type FxId = (typeof FX_STACK_ORDER)[number]
 
-export class FxStack {
+export class FxStack implements IFxStack {
   private plugins: Map<FxId, FXPlugin> = new Map()
 
   register(plugin: FXPlugin): void {
@@ -62,14 +62,14 @@ export class FxStack {
     this.plugins.clear()
   }
 
-  setEnabled(fxId: FxId, enabled: boolean): void {
-    const plugin = this.plugins.get(fxId)
+  setEnabled(fxId: string, enabled: boolean): void {
+    const plugin = this.plugins.get(fxId as FxId)
     if (plugin) {
       plugin.enabled = enabled
     }
   }
 
-  getPlugin(fxId: FxId): FXPlugin | undefined {
-    return this.plugins.get(fxId)
+  getPlugin(fxId: string): FXPlugin | undefined {
+    return this.plugins.get(fxId as FxId)
   }
 }

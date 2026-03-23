@@ -5,6 +5,10 @@ import { LayerManager } from '../../src/core/layerManager'
 
 const rendererDispose = vi.fn()
 const rendererRender = vi.fn()
+const composerRender = vi.fn()
+const composerDispose = vi.fn()
+const composerSetSize = vi.fn()
+const composerAddPass = vi.fn()
 
 vi.mock('three', () => {
   class Scene {}
@@ -36,6 +40,33 @@ vi.mock('three', () => {
   }
 })
 
+vi.mock('three/examples/jsm/postprocessing/EffectComposer.js', () => {
+  class EffectComposer {
+    passes: unknown[] = []
+
+    constructor(_renderer: unknown) {}
+
+    addPass(pass: unknown): void {
+      this.passes.push(pass)
+      composerAddPass(pass)
+    }
+
+    render = composerRender
+    dispose = composerDispose
+    setSize = composerSetSize
+  }
+
+  return { EffectComposer }
+})
+
+vi.mock('three/examples/jsm/postprocessing/RenderPass.js', () => {
+  class RenderPass {
+    constructor(_scene: unknown, _camera: unknown) {}
+  }
+
+  return { RenderPass }
+})
+
 describe('LayerManager', () => {
   let manager: LayerManager
   let container: HTMLDivElement
@@ -43,6 +74,10 @@ describe('LayerManager', () => {
   beforeEach(() => {
     rendererDispose.mockClear()
     rendererRender.mockClear()
+    composerRender.mockClear()
+    composerDispose.mockClear()
+    composerSetSize.mockClear()
+    composerAddPass.mockClear()
     manager = new LayerManager()
     container = document.createElement('div')
     Object.defineProperty(container, 'clientWidth', { configurable: true, value: 640 })
@@ -59,6 +94,13 @@ describe('LayerManager', () => {
     manager.initialize(container)
     manager.getLayers().forEach((layer) => {
       expect(layer.plugin).toBeNull()
+    })
+  })
+
+  it('初期状態で各レイヤーにFxStackが存在する', () => {
+    manager.initialize(container)
+    manager.getLayers().forEach((layer) => {
+      expect(layer.fxStack).toBeDefined()
     })
   })
 
@@ -92,5 +134,28 @@ describe('LayerManager', () => {
     manager.initialize(container)
     manager.dispose()
     expect(rendererDispose).toHaveBeenCalledTimes(MAX_LAYERS)
+  })
+
+  it('dispose後にcomposer.disposeが呼ばれる', () => {
+    manager.initialize(container)
+    manager.dispose()
+    expect(composerDispose).toHaveBeenCalledTimes(MAX_LAYERS)
+  })
+
+  it('setupFx でFXプラグインがfxStackに登録される', () => {
+    manager.initialize(container)
+    const fxPlugin = {
+      id: 'bloom',
+      name: 'Bloom',
+      renderer: 'threejs',
+      enabled: true,
+      params: {},
+      create: vi.fn(),
+      update: vi.fn(),
+      destroy: vi.fn(),
+    }
+    manager.setupFx('layer-1', [fxPlugin])
+    expect(fxPlugin.create).toHaveBeenCalledOnce()
+    expect(manager.getLayers()[0].fxStack.getOrdered()).toHaveLength(1)
   })
 })

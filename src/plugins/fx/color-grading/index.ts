@@ -63,7 +63,6 @@ export class ColorGradingPlugin implements FXPlugin {
   create(composer: unknown): void {
     const c = composer as EffectComposer
     this.pass = new ShaderPass(ColorGradingShader)
-    this.pass.renderToScreen = true
     this.pass.enabled = this.enabled
     c.addPass(this.pass)
   }

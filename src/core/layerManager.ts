@@ -1,9 +1,13 @@
 import * as THREE from 'three'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { MAX_LAYERS } from './config'
-import type { CSSBlendMode, GeometryPlugin, Layer } from '../types'
+import { FxStack } from './fxStack'
+import type { CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from '../types'
 
 export class LayerManager {
   private layers: Layer[] = []
+  private composers: Map<string, EffectComposer> = new Map()
 
   initialize(container: HTMLElement): void {
     this.dispose()
@@ -31,18 +35,31 @@ export class LayerManager {
       renderer.setSize(container.clientWidth, container.clientHeight)
       renderer.setPixelRatio(window.devicePixelRatio)
       renderer.setClearColor(0x000000, 0)
+      renderer.autoClear = false
 
       const scene = new THREE.Scene()
       const camera = new THREE.PerspectiveCamera(
         75,
         container.clientWidth / container.clientHeight,
         0.1,
-        1000
+        1000,
       )
       camera.position.z = 5
 
+      const layerId = `layer-${i + 1}`
+      const fxStack = new FxStack()
+
+      // EffectComposer は FX 登録後に setupComposer() で構築する
+      // ここでは null を入れておき、型合わせのためダミーを作成
+      const composer = new EffectComposer(renderer)
+      const renderPass = new RenderPass(scene, camera)
+      renderPass.clear = true
+      composer.addPass(renderPass)
+
+      this.composers.set(layerId, composer)
+
       this.layers.push({
-        id: `layer-${i + 1}`,
+        id: layerId,
         canvas,
         renderer,
         scene,
@@ -50,7 +67,7 @@ export class LayerManager {
         plugin: null,
         opacity: 1,
         blendMode: 'normal',
-        fx: [],
+        fxStack,
         mute: false,
       })
     }
@@ -58,6 +75,22 @@ export class LayerManager {
 
   getLayers(): Layer[] {
     return this.layers
+  }
+
+  /**
+   * FXPlugin 群を受け取り、fxStack に register して
+   * EffectComposer に addPass する。
+   * engine.initialize() の中で mute でないレイヤーのみ呼ぶ。
+   */
+  setupFx(layerId: string, fxPlugins: FXPlugin[]): void {
+    const layer = this.layers.find((l) => l.id === layerId)
+    const composer = this.composers.get(layerId)
+    if (!layer || !composer) return
+
+    for (const fx of fxPlugins) {
+      layer.fxStack.register(fx)
+      fx.create(composer) // EffectComposer に直接 addPass
+    }
   }
 
   setPlugin(layerId: string, plugin: GeometryPlugin): void {
@@ -96,8 +129,17 @@ export class LayerManager {
   update(delta: number, beat: number): void {
     for (const layer of this.layers) {
       if (layer.mute || !layer.plugin) continue
+
       layer.plugin.update(delta, beat)
-      layer.renderer.render(layer.scene, layer.camera)
+      layer.fxStack.update(delta, beat)
+
+      const composer = this.composers.get(layer.id)
+      const hasFx = layer.fxStack.getOrdered().length > 0
+      if (composer && hasFx) {
+        composer.render(delta)
+      } else {
+        layer.renderer.render(layer.scene, layer.camera)
+      }
     }
   }
 
@@ -108,6 +150,11 @@ export class LayerManager {
       layer.renderer.setSize(width, height)
       layer.camera.aspect = width / height
       layer.camera.updateProjectionMatrix()
+
+      const composer = this.composers.get(layer.id)
+      if (composer) {
+        composer.setSize(width, height)
+      }
     }
   }
 
@@ -116,11 +163,17 @@ export class LayerManager {
       if (layer.plugin) {
         layer.plugin.destroy(layer.scene)
       }
+      layer.fxStack.dispose()
       layer.renderer.dispose()
       layer.canvas.remove()
     }
 
+    for (const composer of this.composers.values()) {
+      composer.dispose()
+    }
+
     this.layers = []
+    this.composers.clear()
   }
 }
 

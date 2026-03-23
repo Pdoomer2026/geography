@@ -5,11 +5,12 @@ import { Clock } from './clock'
 import { registerGeometryPlugins } from '../plugins/geometry'
 import { registerLightPlugins } from '../plugins/lights'
 import { registerParticlePlugins } from '../plugins/particles'
+import { createFxPlugins } from '../plugins/fx'
 import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
 import { macroKnobManager } from './macroKnob'
-import type { Layer, MacroKnobConfig, SceneState } from '../types'
+import type { FXPlugin, Layer, MacroKnobConfig, SceneState } from '../types'
 
 // engine.ts は App.tsx に依存してはいけない・単体で動作できること
 
@@ -52,7 +53,15 @@ export class Engine {
       layerManager.setMute(`layer-${i + 1}`, true)
     }
 
-    // タスク 2: 初期 SceneState を生成して ProgramBus・PreviewBus に渡す
+    // タスク 2: mute でないレイヤーにのみ FX を構築（GPU 節約）
+    for (const layer of layerManager.getLayers()) {
+      if (layer.mute) continue
+      layerManager.setupFx(layer.id, createFxPlugins())
+    }
+
+    // タスク 3: 初期 SceneState を生成して ProgramBus・PreviewBus に渡す
+    // SceneState 用に代表 FX インスタンスを 1 セット生成（layer-1 の fxStack から取得）
+    const layer1FxPlugins = layerManager.getLayers()[0]?.fxStack.getOrdered() ?? []
     const initialState: SceneState = {
       layers: registry.list()
         .filter((p) => p.enabled)
@@ -61,7 +70,13 @@ export class Engine {
           geometryParams: Object.fromEntries(
             Object.entries(p.params).map(([k, v]) => [k, v.value])
           ),
-          fxStack: [],
+          fxStack: layer1FxPlugins.map((fx) => ({
+            fxId: fx.id,
+            params: Object.fromEntries(
+              Object.entries(fx.params).map(([k, v]) => [k, v.value])
+            ),
+            enabled: fx.enabled,
+          })),
           opacity: 1,
           blendMode: 'normal',
         })),
@@ -93,6 +108,33 @@ export class Engine {
     macroKnobManager.handleMidiCC(cc, value)
   }
 
+  // --- FX コントロール API ---
+
+  /**
+   * layer-1 の FX プラグイン一覧を FX_STACK_ORDER 順で返す。
+   * FxControlPanel の表示用。
+   */
+  getFxPlugins(): FXPlugin[] {
+    return layerManager.getLayers()[0]?.fxStack.getOrdered() ?? []
+  }
+
+  /**
+   * layer-1 の指定 FX の enabled を切り替える。
+   */
+  setFxEnabled(fxId: string, enabled: boolean): void {
+    layerManager.getLayers()[0]?.fxStack.setEnabled(fxId, enabled)
+  }
+
+  /**
+   * layer-1 の指定 FX の指定パラメーター値を更新する。
+   */
+  setFxParam(fxId: string, paramKey: string, value: number): void {
+    const plugin = layerManager.getLayers()[0]?.fxStack.getPlugin(fxId)
+    if (plugin && paramKey in plugin.params) {
+      plugin.params[paramKey].value = value
+    }
+  }
+
   // --- レンダーループ ---
 
   start(): void {
@@ -114,7 +156,6 @@ export class Engine {
     this.animationId = requestAnimationFrame(this.loop)
     const delta = this.threeClock.getDelta()
     this.update(delta)
-    this.render()
   }
 
   private update(delta: number): void {
@@ -134,10 +175,6 @@ export class Engine {
 
     this.prevBeat = beat
     layerManager.update(delta, beat)
-  }
-
-  private render(): void {
-    // LayerManager 側でレンダリング済み（互換性維持のため空実装）
   }
 
   // --- リサイズ ---

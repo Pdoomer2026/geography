@@ -60,6 +60,20 @@ export type CSSBlendMode =
   | 'screen'
   | 'overlay'
 
+/**
+ * FxStack の公開インターフェース（循環参照回避のため types/ 内に定義）
+ * 実装は src/core/fxStack.ts。
+ */
+export interface IFxStack {
+  register(plugin: FXPlugin): void
+  getOrdered(): FXPlugin[]
+  buildComposer(composer: unknown): void
+  update(delta: number, beat: number): void
+  dispose(): void
+  setEnabled(fxId: string, enabled: boolean): void
+  getPlugin(fxId: string): FXPlugin | undefined
+}
+
 export interface Layer {
   id: string
   canvas: HTMLCanvasElement
@@ -69,7 +83,8 @@ export interface Layer {
   plugin: GeometryPlugin | null
   opacity: number
   blendMode: CSSBlendMode
-  fx: FXPlugin[]
+  /** FX ポストプロセッシングスタック */
+  fxStack: IFxStack
   mute: boolean
 }
 

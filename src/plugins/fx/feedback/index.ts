@@ -52,8 +52,9 @@ export class FeedbackPlugin implements FXPlugin {
 
   create(composer: unknown): void {
     const c = composer as EffectComposer
-    const w = c.renderer.domElement.width
-    const h = c.renderer.domElement.height
+    // renderer が存在しない環境（テスト等）でも安全に動作するよう fallback
+    const w = (c.renderer?.domElement?.width) ?? 256
+    const h = (c.renderer?.domElement?.height) ?? 256
     this.renderTarget = new THREE.WebGLRenderTarget(w, h)
     this.pass = new ShaderPass(FeedbackShader)
     this.pass.uniforms['tFeedback'].value = this.renderTarget.texture
