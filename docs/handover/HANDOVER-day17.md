@@ -14,7 +14,8 @@
 | ファイル | パス |
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md` |
-| 引き継ぎメモ | `HANDOVER.md` |
+| 引き継ぎメモ（最新） | `HANDOVER.md` |
+| 引き継ぎメモ（過去） | `docs/handover/HANDOVER-day{N}.md` |
 | 型定義 | `src/types/index.ts` |
 | エンジン本体 | `src/core/engine.ts` |
 | FxStack コア | `src/core/fxStack.ts` |
@@ -34,34 +35,49 @@
 
 ## 今回のセッション（Day17）で完了したこと
 
-### FX コントロール UI パネル実装
-
-**変更・追加ファイル一覧**
+### 1. FX コントロール UI パネル実装
 
 | ファイル | 変更内容 |
 |---|---|
 | `docs/spec/fx-control-ui.spec.md` | 新規作成（SDD原則）|
-| `src/core/engine.ts` | `getFxPlugins()` / `setFxEnabled()` / `setFxParam()` の3メソッド追加 |
+| `src/core/engine.ts` | `getFxPlugins()` / `setFxEnabled()` / `setFxParam()` 追加 |
 | `src/ui/FxControlPanel.tsx` | 新規作成（ON/OFF トグル + パラメータースライダー + 折りたたみ）|
-| `src/ui/App.tsx` | `FxControlPanel` を追加 |
+| `src/ui/App.tsx` | `FxControlPanel` 追加 |
 | `tests/core/engine.test.ts` | 新規作成（7テスト）|
-| `docs/progress/day17-fx-control-ui.log.md` | 進捗ログ記録 |
-| `HANDOVER.md` | `-prompt.md` ファイル依存を排除・自己完結化 |
 
 **コミット**: `feat: Day17 - FX control UI panel (71 tests)` (`8b17bd1`)
 
+### 2. Fキー本番モード（全UI非表示）実装
+
+| ファイル | 変更内容 |
+|---|---|
+| `src/ui/App.tsx` | `uiVisible` state 追加・Fキー/ESCキー/fullscreenchange イベント処理 |
+
+- **F キー** → 全UI非表示 + フルスクリーン（映像のみ表示）
+- **ESC キー** → 全UI復帰
+- ブラウザのフルスクリーン解除でも UI が自動復帰
+- `input` / `select` にフォーカス中はキー操作を無視
+
+**コミット**: `feat: Day17 - fullscreen mode (F key / ESC)` (`4cf7aad`)
+
+### 3. HANDOVER.md アーカイブ体制の整備
+
+- `docs/handover/` ディレクトリ新設
+- 毎セッション終了時に `docs/handover/HANDOVER-day{N}.md` にコピー保存
+- `HANDOVER.md` の `-prompt.md` ファイル依存を完全排除
+
+**コミット**: `docs: add handover archive system (docs/handover/)` (`3f997a4`)
+
 ### 重要な設計決定
 
-1. **`engine.getFxPlugins()`**: `layerManager.getLayers()[0].fxStack.getOrdered()` を公開 API 化。UI は engine 経由でのみ FX にアクセス（fxStack を直接触らない）
-2. **`setFxParam()` は Command 非経由**: v1 ではリアルタイム性を優先して `params[key].value` を直接更新。v2 で Command 化予定
-3. **200ms ポーリング**: SimpleMixer と同パターンで `engine.getFxPlugins()` を定期同期
-4. **ON のFXのみスライダー展開**: OFF のFXはトグルのみ表示（視認性向上）
-5. **折りたたみ可能**: SimpleMixer と異なり `collapsed` state で折りたたみ対応（画面スペース節約）
+1. **`uiVisible` state 1本で管理**: v2 で `{ macro, fx, mixer }` の個別制御に拡張予定
+2. **フルスクリーン API + キーイベントの組み合わせ**: `fullscreenchange` イベントでブラウザ標準の ESC にも対応
+3. **`setFxParam()` は Command 非経由**: v1 ではリアルタイム性優先。v2 で Command 化予定
 
 ## 現在の状態（重要）
 
 - **ブランチ**: `main`
-- **最後のコミット**: `feat: Day17 - FX control UI panel (71 tests)` (`8b17bd1`)
+- **最後のコミット**: `feat: Day17 - fullscreen mode (F key / ESC)` (`4cf7aad`)
 - **テスト**: 71 tests グリーン（Day16の64 → +7）
 - **tsc**: PASS（型エラーゼロ）
 - **未コミットファイル**: なし
@@ -69,24 +85,22 @@
 ## GeoGraphy UI 現状レイアウト
 
 ```
+【通常モード（uiVisible: true）】
 ┌─────────────────────────────────────────┐  ┌──────────────────────┐
 │  MACRO KNOBS  32 × MIDI   0 ASSIGNED    │  │  FX CONTROLS    [－] │
 │  [#1][#2]...[#32]                       │  │  AfterImage  [ON]    │
-└─────────────────────────────────────────┘  │    damp ──●── 0.85  │
-                                             │  Bloom       [ON]    │
-         ← Starfield パーティクル背景 →      │    strength ─●─ 0.80 │
-                                             │  Feedback    [OFF]   │
-┌─────────────────────────────────────────┐  │  ...                 │
-│  SIMPLE MIXER                           │  │  ColorGrading [ON]   │
-│  PROGRAM: [L1 normal LIVE][L2][L3]     │  └──────────────────────┘
-│  PREVIEW: (空)                          │
-│  TRANSITION: [Beat Cut ▼]              │
-│  PGM ──●──────── PVW                   │
-│  [TAP]  128 BPM                         │
+└─────────────────────────────────────────┘  │  Bloom       [ON]    │
+                                             │  ...                 │
+         ← Starfield パーティクル背景 →      └──────────────────────┘
+┌─────────────────────────────────────────┐
+│  SIMPLE MIXER  ...                      │  右下: F: 全UI非表示
 └─────────────────────────────────────────┘
+
+【本番モード（F キー / uiVisible: false）】
+         ← 映像のみ・フルスクリーン →        右下: ESC: UI表示に戻る
 ```
 
-## engine / FX コントロール API 現状
+## engine FX コントロール API 現状
 
 ```typescript
 engine.getFxPlugins(): FXPlugin[]          // FX_STACK_ORDER順で10件
@@ -105,22 +119,20 @@ RenderPass → AfterImage(ON) → Feedback(OFF) → Bloom(ON) → Kaleidoscope(O
 
 優先順位は慎太郎さんと相談。
 
-1. **grid-wave カメラ位置改善**
-   - 現在 `camera.position.z = 5`（正面）なのでグリッドが見えにくい
-   - `layerManager.ts` の camera 初期化を `camera.position.set(0, 8, 12)` に変更
-   - 合わせて `camera-system.spec.md` を作成（SDD原則）
+1. **個別UI表示/非表示（フェーズ2）**
+   - `uiVisible` を `{ macro: bool, fx: bool, mixer: bool }` に拡張
+   - キーボードショートカットで個別制御（例: `1`=Macro / `2`=FX / `3`=Mixer）
 
-2. **FxControlPanel の UX 改善**
-   - スライダーのステップ数が粗い → `step` 値の調整
-   - RGB Shift の Amount が 0.00 表示（実際は 0.001）→ 表示精度の修正
+2. **grid-wave カメラ位置改善**
+   - 現在 `camera.position.z = 5`（正面）→ `camera.position.set(0, 8, 12)`（斜め上）
+   - `camera-system.spec.md` を作成してから実装（SDD原則）
+
+3. **FxControlPanel の UX 改善**
+   - RGB Shift の Amount が `0.00` 表示（実際は `0.001`）→ 表示精度の修正
    - パネルスクロール対応（全FX表示時に画面からはみ出る可能性）
 
-3. **setFxParam を Command パターン経由に変更**
-   - 現在は直接 `params[key].value` を更新（v1 許容）
+4. **setFxParam を Command パターン経由に変更**
    - v2 では undo/redo 対応のため Command 化が必要
-
-4. **grid-wave Plugin のパラメーター拡充**
-   - 現状パラメーターが少ない → speed / amplitude / color 等を追加
 
 ### 次回セッション開始時の確認コマンド
 
@@ -130,9 +142,18 @@ pnpm tsc --noEmit && pnpm test --run   # 71 tests グリーン確認
 pnpm dev                                # ブラウザ目視確認
 ```
 
+## セッション終了時の作業手順（必ず守ること）
+
+```
+1. HANDOVER.md を当日完了内容に更新
+2. docs/handover/HANDOVER-day{N}.md にコピー保存
+3. git add -A && git commit   ← 必ずここで commit
+4. 次の実装へ
+```
+
 ## ハマりポイント（次回の参考）
 
-- `HANDOVER.md` のスタートプロンプトに `cat .claude/dayN-prompt.md` を書かない（ファイルが存在しないとエラーになる）→ HANDOVER.md の「次回やること」を直接読む
+- `HANDOVER.md` のスタートプロンプトに `cat .claude/dayN-prompt.md` を書かない → HANDOVER.md の「次回やること」を直接読む
 - シングルトン FX Plugin を複数レイヤーに渡すとクラッシュ → 必ず `createFxPlugins()` を使う
 - `types/index.ts` から `core/` を import すると循環参照になりやすい → interface で回避
 - `EffectComposer.passes` を直接 splice するとバッファ状態が壊れる → `setupFx()` パターンを維持
