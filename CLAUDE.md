@@ -11,23 +11,28 @@
 
 ---
 
-## 開発スタイル：仕様駆動開発（SDD）
+## 開発スタイル：SDD × CDD（仕様駆動 × コンパイラ駆動）
 
-GeoGraphy は **Spec-Driven Development（SDD）** を採用している。
+GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Development）** を採用している。
 
 - **SSoT（唯一の真実の情報源）**: `docs/spec/` ディレクトリ配下の `.spec.md` ファイル群
 - **MUST: 実装前に必ず対応する spec ファイルを読むこと**
 - **MUST: 仕様変更はコードより先に spec ファイルを修正すること**
+- **MUST: 完了条件 = `pnpm tsc --noEmit`（型エラーゼロ）+ `pnpm test --run`（全テストグリーン）両方通過**
+- **MUST: `any` による型解決は禁止。型エラーは自律的に修正すること**
 - **SDD 全体概要**: `docs/spec/SDD-OVERVIEW.md` を参照
 - **マルチエージェント担当範囲**: `docs/spec/agent-roles.md` を参照
 
-### SDD 開発サイクル
+### 開発サイクル
 
 ```
 1. docs/spec/[機能].spec.md を確認（または新規作成）
-2. spec の Interface・Constraints に従って実装
-3. spec の Test Cases がすべてパスすることを確認
-4. 仕様変更が必要な場合 → spec を先に修正 → 再実装
+2. プランを提示・承認を得てから実装開始
+3. 実装後 pnpm tsc --noEmit → 型エラーがあれば自律修正
+4. pnpm test --run → 全テストグリーン
+5. 両方通過するまでループ
+6. docs/progress/[task].log.md にステップ完了を記録
+7. 仕様変更が必要な場合 → spec を先に修正 → 再実装
 ```
 
 ### spec ファイル一覧
@@ -40,11 +45,11 @@ GeoGraphy は **Spec-Driven Development（SDD）** を採用している。
 | `docs/spec/plugin-registry.spec.md` | Plugin Registry | Claude Code | ✅ 実装済み |
 | `docs/spec/program-preview-bus.spec.md` | Program/Previewバス | Claude Code | ✅ 実装済み |
 | `docs/spec/transition-plugin.spec.md` | Transition Plugin | Transition Agent | ✅ 実装済み |
-| `docs/spec/mixer-plugin.spec.md` | MixerPlugin Interface | Mixer Agent | ✅ v1実装済み |
-| `docs/spec/layer-system.spec.md` | レイヤーシステム | Claude Code | 🔴 Day12実装対象 |
+| `docs/spec/mixer-plugin.spec.md` | MixerPlugin Interface | Mixer Agent | ✅ 実装済み |
+| `docs/spec/layer-system.spec.md` | レイヤーシステム | Claude Code | ✅ Day12実装済み |
 | `docs/spec/geometry-plugin.spec.md` | Geometry Plugin共通 | Geometry Agent | ⬜ v1未着手分あり |
 | `docs/spec/fx-stack.spec.md` | FXスタック | FX Agent | ⬜ 未着手 |
-| `docs/spec/macro-knob.spec.md` | マクロノブ | Claude Code | ⬜ 未着手 |
+| `docs/spec/macro-knob.spec.md` | マクロノブ | Claude Code | ⬜ Day13実装対象 |
 | `docs/spec/camera-system.spec.md` | カメラシステム | Claude Code | ⬜ 未着手 |
 
 ---
@@ -52,6 +57,10 @@ GeoGraphy は **Spec-Driven Development（SDD）** を採用している。
 ## MUST: 絶対に守るルール
 
 - MUST: 実装前に `docs/spec/[対象].spec.md` を読むこと（SDD原則）
+- MUST: プランを提示・承認を得てから実装を開始すること
+- MUST: `pnpm tsc --noEmit` + `pnpm test --run` 両方通過を完了条件とすること（CDD原則）
+- MUST: `any` による型解決は禁止。型エラーは自律修正すること
+- MUST: 各ステップ完了ごとに `docs/progress/[task].log.md` に追記すること
 - MUST: `engine.ts` は `App.tsx` に依存してはいけない・単体で動作できること
 - MUST: Parameter Store の変更は必ず Command 経由でのみ行うこと（直接代入禁止）
 - MUST: Plugin には `renderer`・`enabled` フィールドを持たせること（PluginBase 参照）
@@ -65,8 +74,8 @@ GeoGraphy は **Spec-Driven Development（SDD）** を採用している。
 ## 開発の基本ルール
 
 1. 一度に全部作らない → 1ファイルずつ確認しながら進める
-2. 必ず説明してから実装する → 「何をするか」を先に伝える
-3. 動作確認を必ずはさむ → 実装 → 確認 → 次へ
+2. 必ずプランを提示してから実装する → 「何をするか」を先に伝える
+3. 動作確認を必ずはさむ → 実装 → tsc + test → ブラウザ確認 → 次へ
 4. YouTube で解説できる理解度を保つ → ブラックボックスにしない
 
 ---
@@ -111,6 +120,16 @@ Preview バス → SceneState（JSON）+ 小キャンバス（320×180）
 
 ---
 
+## レイヤーシステム（Day12実装済み）
+
+- `layerManager` シングルトンで管理（`src/core/layerManager.ts`）
+- MAX_LAYERS = 3 / CSS mixBlendMode で合成 / WebGL RenderTarget 不要
+- 各レイヤーは独立した THREE.WebGLRenderer / THREE.Scene / PerspectiveCamera
+- `position: absolute` + `alpha: true` + `setClearColor(0x000000, 0)` で透明背景
+- 詳細仕様: `docs/spec/layer-system.spec.md`
+
+---
+
 ## Mixer Plugin ルール
 
 - SimpleMixer は v1 固定実装・v2 で MixerPlugin として Plugin 化
@@ -135,9 +154,11 @@ FX デフォルト: Bloom ON（0.8）/ AfterImage ON（0.85）/ RGBShift ON（0.
 ## CLAUDE.md の階層
 
 ```
-geography/CLAUDE.md          ← このファイル（全体方針・SDD原則）
+geography/CLAUDE.md          ← このファイル（全体方針・SDD×CDD原則）
 docs/spec/                   ← SSoT（仕様ファイル群・マルチエージェント定義）
-src/core/CLAUDE.md           ← エンジン・Command・ProgramBus・PreviewBus
+docs/progress/               ← 自律開発の進捗ログ
+docs/recipes/                ← 成功した実装パターンの蓄積
+src/core/CLAUDE.md           ← エンジン・Command・LayerManager・Bus設計
 src/plugins/geometry/        ← renderer・enabled フィールドの扱い
 src/plugins/transitions/     ← UI を持たない・execute() 純粋関数
 src/plugins/windows/         ← SimpleMixer の制約・MixerPlugin Interface
@@ -155,7 +176,7 @@ src/ui/
 | ツール | 役割 |
 |---|---|
 | Claude Desktop | **spec制作・仕様の壁打ち**・CLAUDE.md・docs/ の編集・エージェント定義 |
-| Claude Code | specを読んでから実装・テスト・Git 操作・共有ファイル管理 |
+| Claude Code | specを読んでから実装・tsc+test両方通過・Git 操作・共有ファイル管理 |
 | Geometry Agent（v2〜） | `src/plugins/geometry/**` の追加・改善 |
 | FX Agent（v2〜） | `src/plugins/fx/**` の追加・改善 |
 | Mixer Agent（v2〜） | `src/plugins/windows/**` の追加・改善 |
