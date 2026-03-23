@@ -19,12 +19,18 @@ export function SimpleMixer() {
   const [transitionId, setTransitionId] = useState(AVAILABLE_TRANSITIONS[0].id)
   const [displayBpm, setDisplayBpm] = useState(128)
   const [layers, setLayers] = useState<Layer[]>([])
+  const [registeredPlugins, setRegisteredPlugins] = useState<{ id: string; name: string }[]>([])
   const previewRef = useRef<HTMLDivElement>(null)
   const tapTimesRef = useRef<number[]>([])
 
   useEffect(() => {
     const syncLayers = () => {
       setLayers([...engine.getLayers()])
+      // registeredPlugins は Registry が確定してから取得する（空なら毎回試みる）
+      const plugins = engine.getRegisteredPlugins()
+      if (plugins.length > 0) {
+        setRegisteredPlugins(plugins)
+      }
     }
 
     syncLayers()
@@ -110,19 +116,48 @@ export function SimpleMixer() {
         <div className="flex-1">
           <div className="text-[10px] text-[#aaaacc] mb-1 tracking-wider">PROGRAM</div>
           <div
-            className="flex gap-1 items-end"
-            style={{ height: 80 }}
+            className="flex gap-1 items-stretch"
+            style={{ height: 110 }}
           >
             {layers.map((layer, i) => (
               <div
                 key={layer.id}
-                className="flex-1 rounded-sm border border-[#2a2a4e] bg-[#1a1a2e]
-                           flex flex-col justify-end px-1 pb-1 text-[9px]"
-                style={{ height: '100%' }}
+                className="flex-1 rounded-sm border flex flex-col justify-between px-1 py-1 text-[9px] select-none"
+                style={{
+                  height: '100%',
+                  background: layer.mute ? '#0a0a14' : '#1a1a2e',
+                  borderColor: layer.mute ? '#1a1a3e' : '#2a2a4e',
+                  opacity: layer.mute ? 0.6 : 1,
+                }}
               >
-                <div className="text-[#8f8fd1] text-center">L{i + 1}</div>
+                {/* レイヤー番号 */}
+                <div className="text-[#8f8fd1] text-center mb-1">L{i + 1}</div>
+
+                {/* Plugin プルダウン */}
+                <select
+                  value={layer.plugin?.id ?? ''}
+                  onChange={(e) => engine.setLayerPlugin(layer.id, e.target.value === '' ? null : e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full bg-[#0a0a1a] border border-[#2a2a4e] rounded text-[8px] text-[#aaaacc] outline-none cursor-pointer mb-1"
+                  style={{ padding: '1px 2px' }}
+                >
+                  <option value="">None</option>
+                  {registeredPlugins.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+
+                {/* blendMode */}
                 <div className="text-[#5f5f8f] text-center">{layer.blendMode}</div>
-                <div className="text-[#4a4a6e] text-center">{layer.mute ? 'MUTE' : 'LIVE'}</div>
+
+                {/* MUTE/LIVE トグル */}
+                <div
+                  onClick={() => engine.setLayerMute(layer.id, !layer.mute)}
+                  className="text-center font-bold cursor-pointer mt-1"
+                  style={{ color: layer.mute ? '#ff4444' : '#44ff88' }}
+                >
+                  {layer.mute ? 'MUTE' : 'LIVE'}
+                </div>
               </div>
             ))}
           </div>

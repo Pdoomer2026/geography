@@ -188,6 +188,28 @@ export class Engine {
   getLayers(): Layer[] {
     return layerManager.getLayers()
   }
+
+  setLayerMute(layerId: string, mute: boolean): void {
+    layerManager.setMute(layerId, mute)
+  }
+
+  /** Registry に登録されている全 Plugin 一覧（プルダウン選択肢用） */
+  getRegisteredPlugins(): { id: string; name: string }[] {
+    return registry.list().map((p) => ({ id: p.id, name: p.name }))
+  }
+
+  /** レイヤーに Plugin をセット。pluginId が null なら None（plugin=null・mute=true） */
+  setLayerPlugin(layerId: string, pluginId: string | null): void {
+    if (pluginId === null) {
+      layerManager.setPlugin(layerId, null)
+      layerManager.setMute(layerId, true)
+      return
+    }
+    const plugin = registry.get(pluginId)
+    if (!plugin) return
+    layerManager.setPlugin(layerId, plugin as GeometryPlugin)
+    layerManager.setMute(layerId, false)
+  }
 }
 
 export const engine = new Engine()

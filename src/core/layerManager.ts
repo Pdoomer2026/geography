@@ -93,7 +93,7 @@ export class LayerManager {
     }
   }
 
-  setPlugin(layerId: string, plugin: GeometryPlugin): void {
+  setPlugin(layerId: string, plugin: GeometryPlugin | null): void {
     const layer = this.layers.find((entry) => entry.id === layerId)
     if (!layer) return
 
@@ -102,7 +102,9 @@ export class LayerManager {
     }
 
     layer.plugin = plugin
-    plugin.create(layer.scene)
+    if (plugin) {
+      plugin.create(layer.scene)
+    }
   }
 
   setOpacity(layerId: string, opacity: number): void {
