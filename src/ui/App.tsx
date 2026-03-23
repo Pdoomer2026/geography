@@ -6,6 +6,7 @@ import gridWavePlugin from '../plugins/geometry/wave/grid-wave'
 import starfieldPlugin from '../plugins/particles/starfield'
 import ambientPlugin from '../plugins/lights/ambient'
 import { SimpleMixer } from '../plugins/windows/simple-mixer/SimpleMixer'
+import { MacroKnobPanel } from './MacroKnobPanel'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
@@ -79,6 +80,9 @@ export default function App() {
         ref={mountRef}
         style={{ width: '100vw', height: '100vh', background: '#000' }}
       />
+      {/* マクロノブパネル（固定・閉じ不可） */}
+      <MacroKnobPanel />
+      {/* ミキサー（固定・閉じ不可） */}
       <SimpleMixer />
     </>
   )
