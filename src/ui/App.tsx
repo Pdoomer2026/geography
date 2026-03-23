@@ -6,7 +6,7 @@ import { FxControlPanel } from './FxControlPanel'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
-  const [uiVisible, setUiVisible] = useState(true)
+  const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true })
 
   useEffect(() => {
     if (!mountRef.current) return
@@ -19,27 +19,38 @@ export default function App() {
     }
   }, [])
 
-  // F キー → 全UI非表示 + フルスクリーン
-  // ESC キー → 全UI表示に戻る（フルスクリーン解除は ESC がブラウザ標準で行う）
+  // 1 キー → Macro トグル
+  // 2 キー → FX トグル
+  // 3 キー → Mixer トグル
+  // F キー → 全UI非表示 + フルスクリーン（本番モード）
+  // H キー → 全UI非表示のみ（Hide）
+  // S キー → 全UI表示（Show）
+  // ESC  → フルスクリーン解除のみ（ブラウザ標準）
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       // input/select にフォーカス中は無視
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
 
+      if (e.key === '1') setUiVisible((v) => ({ ...v, macro: !v.macro }))
+      if (e.key === '2') setUiVisible((v) => ({ ...v, fx: !v.fx }))
+      if (e.key === '3') setUiVisible((v) => ({ ...v, mixer: !v.mixer }))
       if (e.key === 'f' || e.key === 'F') {
-        setUiVisible(false)
+        setUiVisible({ macro: false, fx: false, mixer: false })
         document.documentElement.requestFullscreen?.().catch(() => {})
       }
-      if (e.key === 'Escape') {
-        setUiVisible(true)
+      if (e.key === 'h' || e.key === 'H') {
+        setUiVisible({ macro: false, fx: false, mixer: false })
+      }
+      if (e.key === 's' || e.key === 'S') {
+        setUiVisible({ macro: true, fx: true, mixer: true })
       }
     }
 
     // フルスクリーン解除（ESC・ブラウザ標準）でも UI を戻す
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
-        setUiVisible(true)
+        setUiVisible({ macro: true, fx: true, mixer: true })
       }
     }
 
@@ -57,30 +68,16 @@ export default function App() {
         ref={mountRef}
         style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative' }}
       />
-      {/* F キーで全UI非表示・ESC で再表示 */}
-      {uiVisible && (
-        <>
-          <MacroKnobPanel />
-          <FxControlPanel />
-          <SimpleMixer />
-          {/* 操作ヒント */}
-          <div
-            className="fixed bottom-1 right-2 text-[9px] text-[#3a3a5e] select-none pointer-events-none"
-            style={{ zIndex: 100 }}
-          >
-            F: 全UI非表示（本番モード）
-          </div>
-        </>
-      )}
-      {/* 本番モード中のヒント */}
-      {!uiVisible && (
-        <div
-          className="fixed bottom-1 right-2 text-[9px] text-[#2a2a4e] select-none pointer-events-none"
-          style={{ zIndex: 100 }}
-        >
-          ESC: UI表示に戻る
-        </div>
-      )}
+      {uiVisible.macro && <MacroKnobPanel />}
+      {uiVisible.fx && <FxControlPanel />}
+      {uiVisible.mixer && <SimpleMixer />}
+      {/* 操作ヒント */}
+      <div
+        className="fixed bottom-1 right-2 text-[9px] text-[#3a3a5e] select-none pointer-events-none"
+        style={{ zIndex: 100 }}
+      >
+        1:Macro 2:FX 3:Mixer | H:Hide S:Show F:全非表示+全画面
+      </div>
     </>
   )
 }
