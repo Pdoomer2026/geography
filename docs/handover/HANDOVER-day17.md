@@ -15,7 +15,6 @@
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md` |
 | 引き継ぎメモ | `HANDOVER.md` |
-| 過去の引き継ぎメモ | `docs/handover/HANDOVER-day{N}.md` |
 | 型定義 | `src/types/index.ts` |
 | エンジン本体 | `src/core/engine.ts` |
 | FxStack コア | `src/core/fxStack.ts` |
@@ -112,7 +111,8 @@ RenderPass → AfterImage(ON) → Feedback(OFF) → Bloom(ON) → Kaleidoscope(O
    - 合わせて `camera-system.spec.md` を作成（SDD原則）
 
 2. **FxControlPanel の UX 改善**
-   - RGB Shift の Amount が `0.00` 表示（実際は `0.001`）→ 表示精度の修正
+   - スライダーのステップ数が粗い → `step` 値の調整
+   - RGB Shift の Amount が 0.00 表示（実際は 0.001）→ 表示精度の修正
    - パネルスクロール対応（全FX表示時に画面からはみ出る可能性）
 
 3. **setFxParam を Command パターン経由に変更**
@@ -132,7 +132,7 @@ pnpm dev                                # ブラウザ目視確認
 
 ## ハマりポイント（次回の参考）
 
-- `HANDOVER.md` のスタートプロンプトに `cat .claude/dayN-prompt.md` を書かない → HANDOVER.md の「次回やること」を直接読む
+- `HANDOVER.md` のスタートプロンプトに `cat .claude/dayN-prompt.md` を書かない（ファイルが存在しないとエラーになる）→ HANDOVER.md の「次回やること」を直接読む
 - シングルトン FX Plugin を複数レイヤーに渡すとクラッシュ → 必ず `createFxPlugins()` を使う
 - `types/index.ts` から `core/` を import すると循環参照になりやすい → interface で回避
 - `EffectComposer.passes` を直接 splice するとバッファ状態が壊れる → `setupFx()` パターンを維持
