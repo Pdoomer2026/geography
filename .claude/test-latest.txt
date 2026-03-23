@@ -7,12 +7,13 @@
 
  ✓ tests/core/registry.test.ts (8 tests) 2ms
  ✓ tests/core/command.test.ts (10 tests) 3ms
- ✓ src/lib/utils.test.ts (3 tests) 3ms
  ✓ tests/clock.test.ts (4 tests) 2ms
- ✓ tests/core/parameterStore.test.ts (13 tests) 3ms
+ ✓ src/lib/utils.test.ts (3 tests) 5ms
+ ✓ tests/core/parameterStore.test.ts (13 tests) 2ms
+ ✓ tests/core/layerManager.test.ts (5 tests) 8ms
 
- Test Files  5 passed (5)
-      Tests  38 passed (38)
-   Start at  15:52:53
-   Duration  692ms (transform 79ms, setup 53ms, collect 108ms, tests 12ms, environment 1.39s, prepare 230ms)
+ Test Files  6 passed (6)
+      Tests  43 passed (43)
+   Start at  12:31:49
+   Duration  537ms (transform 107ms, setup 52ms, collect 165ms, tests 22ms, environment 1.46s, prepare 276ms)
 

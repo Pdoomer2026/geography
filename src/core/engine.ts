@@ -7,14 +7,12 @@ import { registerLightPlugins } from '../plugins/lights'
 import { registerParticlePlugins } from '../plugins/particles'
 import { programBus } from './programBus'
 import { previewBus } from './previewBus'
-import type { SceneState } from '../types'
+import { layerManager } from './layerManager'
+import type { Layer, SceneState } from '../types'
 
 // engine.ts は App.tsx に依存してはいけない・単体で動作できること
 
 export class Engine {
-  private renderer: THREE.WebGLRenderer | null = null
-  private scene: THREE.Scene | null = null
-  private camera: THREE.PerspectiveCamera | null = null
   private animationId: number | null = null
   private container: HTMLElement | null = null
   private threeClock: THREE.Clock = new THREE.Clock()
@@ -32,21 +30,7 @@ export class Engine {
 
   async initialize(container: HTMLElement): Promise<void> {
     this.container = container
-
-    // Three.js 基盤セットアップ
-    this.scene = new THREE.Scene()
-    this.camera = new THREE.PerspectiveCamera(
-      75,
-      container.clientWidth / container.clientHeight,
-      0.1,
-      1000
-    )
-    this.camera.position.z = 5
-
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-    this.renderer.setSize(container.clientWidth, container.clientHeight)
-    this.renderer.setPixelRatio(window.devicePixelRatio)
-    container.appendChild(this.renderer.domElement)
+    layerManager.initialize(container)
 
     // Plugin 自動登録（各 index.ts に実装済みの関数を利用）
     await registerGeometryPlugins()
@@ -54,10 +38,14 @@ export class Engine {
     await registerParticlePlugins()
 
     // タスク 1: 登録済み Plugin の create() を scene に適用
-    for (const plugin of registry.list()) {
-      if (plugin.enabled && this.scene) {
-        plugin.create(this.scene)
-      }
+    const enabledPlugins = registry.list().filter((plugin) => plugin.enabled)
+    enabledPlugins.slice(0, layerManager.getLayers().length).forEach((plugin, index) => {
+      layerManager.setPlugin(`layer-${index + 1}`, plugin)
+    })
+
+    // 未使用レイヤーは mute して描画を避ける
+    for (let i = enabledPlugins.length; i < layerManager.getLayers().length; i++) {
+      layerManager.setMute(`layer-${i + 1}`, true)
     }
 
     // タスク 2: 初期 SceneState を生成して ProgramBus・PreviewBus に渡す
@@ -127,28 +115,20 @@ export class Engine {
     }
 
     this.prevBeat = beat
-
-    for (const plugin of registry.list()) {
-      if (plugin.enabled && this.scene) {
-        plugin.update?.(delta, beat)
-      }
-    }
+    layerManager.update(delta, beat)
   }
 
   private render(): void {
-    if (!this.renderer || !this.scene || !this.camera) return
-    this.renderer.render(this.scene, this.camera)
+    // LayerManager 側でレンダリング済み（互換性維持のため空実装）
   }
 
   // --- リサイズ ---
 
   private onResize = (): void => {
-    if (!this.container || !this.renderer || !this.camera) return
+    if (!this.container) return
     const w = this.container.clientWidth
     const h = this.container.clientHeight
-    this.camera.aspect = w / h
-    this.camera.updateProjectionMatrix()
-    this.renderer.setSize(w, h)
+    layerManager.resize(w, h)
   }
 
   // --- クリーンアップ ---
@@ -156,20 +136,13 @@ export class Engine {
   dispose(): void {
     this.stop()
 
-    // タスク 3: Plugin のクリーンアップ
-    if (this.scene) {
-      for (const plugin of registry.list()) {
-        plugin.destroy?.(this.scene)
-      }
-    }
-
     window.removeEventListener('resize', this.onResize)
-    this.renderer?.dispose()
-    this.renderer?.domElement.remove()
-    this.renderer = null
-    this.scene = null
-    this.camera = null
+    layerManager.dispose()
     this.container = null
+  }
+
+  getLayers(): Layer[] {
+    return layerManager.getLayers()
   }
 }
 

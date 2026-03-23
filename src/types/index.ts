@@ -53,6 +53,26 @@ export interface FXPlugin extends PluginBase {
   params: Record<string, PluginParam>
 }
 
+export type CSSBlendMode =
+  | 'normal'
+  | 'add'
+  | 'multiply'
+  | 'screen'
+  | 'overlay'
+
+export interface Layer {
+  id: string
+  canvas: HTMLCanvasElement
+  renderer: THREE.WebGLRenderer
+  scene: THREE.Scene
+  camera: THREE.PerspectiveCamera
+  plugin: GeometryPlugin | null
+  opacity: number
+  blendMode: CSSBlendMode
+  fx: FXPlugin[]
+  mute: boolean
+}
+
 // ============================================================
 // Window Plugin
 // ============================================================

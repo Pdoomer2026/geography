@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { TransitionPlugin } from '../../../types'
+import type { Layer, TransitionPlugin } from '../../../types'
 import beatCutPlugin from '../../transitions/beat-cut'
 import crossfadePlugin from '../../transitions/crossfade'
 import { programBus } from '../../../core/programBus'
@@ -18,8 +18,19 @@ export function SimpleMixer() {
   const [crossfader, setCrossfader] = useState(0)
   const [transitionId, setTransitionId] = useState(AVAILABLE_TRANSITIONS[0].id)
   const [displayBpm, setDisplayBpm] = useState(128)
+  const [layers, setLayers] = useState<Layer[]>([])
   const previewRef = useRef<HTMLDivElement>(null)
   const tapTimesRef = useRef<number[]>([])
+
+  useEffect(() => {
+    const syncLayers = () => {
+      setLayers([...engine.getLayers()])
+    }
+
+    syncLayers()
+    const timer = window.setInterval(syncLayers, 200)
+    return () => window.clearInterval(timer)
+  }, [])
 
   // タスク 1: previewBus.getCanvas() を PREVIEW エリアに mount する
   useEffect(() => {
@@ -102,14 +113,16 @@ export function SimpleMixer() {
             className="flex gap-1 items-end"
             style={{ height: 80 }}
           >
-            {[0, 1, 2].map((i) => (
+            {layers.map((layer, i) => (
               <div
-                key={i}
+                key={layer.id}
                 className="flex-1 rounded-sm border border-[#2a2a4e] bg-[#1a1a2e]
-                           flex items-end justify-center pb-1 text-[9px] text-[#4a4a6e]"
+                           flex flex-col justify-end px-1 pb-1 text-[9px]"
                 style={{ height: '100%' }}
               >
-                L{i + 1}
+                <div className="text-[#8f8fd1] text-center">L{i + 1}</div>
+                <div className="text-[#5f5f8f] text-center">{layer.blendMode}</div>
+                <div className="text-[#4a4a6e] text-center">{layer.mute ? 'MUTE' : 'LIVE'}</div>
               </div>
             ))}
           </div>
