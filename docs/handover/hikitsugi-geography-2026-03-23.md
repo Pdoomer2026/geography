@@ -1,18 +1,13 @@
-# GeoGraphy 引き継ぎメモ｜Day14｜2026-03-23
+# GeoGraphy 引き継ぎメモ｜Day15完了→Day16へ｜2026-03-23
 
 ## プロジェクト概要
-- **アプリ名**: GeoGraphy（Geometry × 地形 × Graph のダブルミーニング）
+- **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
 - **目的**: No-Texture・Plugin駆動・マルチライブラリ対応のブラウザベース映像制作プラットフォーム
-- **スタック**: Vite / React 18 / TypeScript / Three.js r160+ / pnpm v10.32+
+- **スタック**: Vite / React 18 / TypeScript / Three.js r160(0.170) / pnpm / shadcn/ui / Framer Motion
 - **開発スタイル**: SDD × CDD（仕様駆動 × コンパイラ駆動）
-  - 実装前に `docs/spec/[機能].spec.md` を必ず読む
-  - 完了条件: `pnpm tsc --noEmit` + `pnpm test --run` 両方通過
-  - `any` 禁止・型エラーは自律修正
 - **GitHub**: https://github.com/Pdoomer2026/geography
 - **開発サーバー**: `pnpm dev`（ポート5173〜5176）
 - **プロジェクトルート**: `/Users/shinbigan/geography`
-
----
 
 ## 重要ファイルパス
 
@@ -21,98 +16,55 @@
 | CLAUDE.md（全体方針） | `CLAUDE.md` |
 | 引き継ぎメモ | `HANDOVER.md` |
 | 型定義 | `src/types/index.ts` |
-| エンジン設定定数 | `src/core/config.ts` |
 | エンジン本体 | `src/core/engine.ts` |
-| MacroKnobManager | `src/core/macroKnob.ts` |
+| FxStack コア | `src/core/fxStack.ts` ← Day15新規 |
 | LayerManager | `src/core/layerManager.ts` |
-| BPM クロック | `src/core/clock.ts` |
-| ParameterStore | `src/core/parameterStore.ts` |
-| Plugin Registry | `src/core/registry.ts` |
-| Program バス | `src/core/programBus.ts` |
-| Preview バス | `src/core/previewBus.ts` |
-| **MacroKnobPanel UI** | `src/ui/MacroKnobPanel.tsx` ← Day14新規 |
-| App ルート | `src/ui/App.tsx` |
-| SimpleMixer | `src/plugins/windows/simple-mixer/SimpleMixer.tsx` |
+| FX Plugins（全10個） | `src/plugins/fx/` ← Day15新規 |
+| FX バレルエクスポート | `src/plugins/fx/index.ts` |
 | FX spec | `docs/spec/fx-stack.spec.md` |
-| Day14進捗ログ | `docs/progress/day14-macro-knob-panel.log.md` |
+| Day15進捗ログ | `docs/progress/day15-fx-stack.log.md` |
 
----
+## 今回のセッション（Day15）で完了したこと
 
-## 今回のセッション（Day14）で完了したこと
-
-- `src/ui/MacroKnobPanel.tsx` 新規作成
-  - `KnobCell`：SVGアーク（-135°〜+135°）で値を可視化・MIDI CC割り当て済みは赤ドット表示
-  - `EditDialog`：ノブ名（最大8文字・大文字）・MIDI CC（0〜127）を編集するモーダル
-  - `MacroKnobPanel`：8×4グリッド固定パネル・**閉じるボタンなし**（spec §2 MUST）
-  - 200ms ポーリングで `macroKnobManager.getKnobs()` / `getValue()` から状態取得
-- `src/ui/App.tsx` 変更
-  - `<MacroKnobPanel />` を追加（画面上部中央固定）
-  - 既存ロジック変更なし
-- `docs/progress/day14-macro-knob-panel.log.md` 作成
-- **git push 完了**（コミット: `797ec70..75a08f3`）
-
----
+- `src/core/fxStack.ts` 作成（FxStack クラス・FX_STACK_ORDER 定数）
+- FX Plugin 10個を全て実装（after-image / feedback / bloom / kaleidoscope / mirror / zoom-blur / rgb-shift / crt / glitch / color-grading）
+- `src/plugins/fx/index.ts` バレルエクスポート + `getAllFxPlugins()`
+- `tests/core/fxStack.test.ts` 11テスト（TC-1順序・TC-2 enabled・TC-3 dispose）
+- git push 完了（1431c40）
 
 ## 現在の状態（重要）
 
-- **ブランチ**: `main`
-- **最後のコミット**: `feat: Day14 - MacroKnobPanel UI (8x4 grid, edit dialog, MIDI CC indicator)`（75a08f3）
-- **テスト数**: 50 tests グリーン
-- **tsc**: PASS（型エラーゼロ）
-- **未コミットファイル**: なし
-
-### 現在のUI レイアウト
-
-```
-┌─────────────────────────────────────────┐
-│  MACRO KNOBS  32 × MIDI   N ASSIGNED    │  ← 画面上部中央（固定・閉じ不可）
-│  [#1][#2][#3][#4][#5][#6][#7][#8]      │
-│  [#9]...[#16]                           │
-│  [#17]...[#24]                          │
-│  [#25]...[#32]                          │
-└─────────────────────────────────────────┘
-       ← Three.js グリッドウェーブ背景 →
-┌─────────────────────────────────────────┐
-│  SIMPLE MIXER                           │  ← 画面下部中央（固定・閉じ不可）
-│  PROGRAM │ PREVIEW                      │
-│  TRANSITION: [Beat Cut ▼]              │
-│  PGM ──●──────── PVW                   │
-│  [TAP]  128 BPM                         │
-└─────────────────────────────────────────┘
-```
-
----
+- **ブランチ**: main / 最終コミット: 1431c40
+- **tsc**: エラーゼロ
+- **tests**: 61 passed（50 → +11）
+- **FxStack**: 実装済みだが engine.ts への統合はまだ（映像にFXはかかっていない）
+- **ブラウザ表示**: グリッドウェーブ背景 + MacroKnobPanel + SimpleMixer 正常動作中
 
 ## 発生した問題と解決策
 
-- **問題なし** — 型エラーゼロ・テスト全通過・ブラウザ目視確認済み
-- Cursorターミナルへのフォーカス問題 → ターミナルの黒いエリアをクリックしてからEnter
+- 問題: `create_file` ツールがプロジェクトに書き込めなかった → 解決: `filesystem:write_file` を使う
+- 問題: `AfterImagePass` が型エラー → 解決: three 0.170 では `AfterimagePass`（小文字 i）が正しい
+- 問題: `feedback/index.ts` で未使用の `composerRef` フィールドが残存 → 解決: フィールドごと削除
 
----
+## 次回やること（Day16）
 
-## 次回やること（Day15候補）
+1. **engine.ts への FxStack 統合**（最優先）
+   - `layerManager` の各レイヤーに `EffectComposer` を生成・紐付け
+   - `layerManager.update()` 内で `fxStack.update(delta, beat)` を呼ぶ
+   - `RenderPass` → FX passes → 画面出力のパイプライン構築
+   - spec: `docs/spec/fx-stack.spec.md`
 
-### 優先度 HIGH
-1. **FXスタック実装**
-   - spec確認: `docs/spec/fx-stack.spec.md` を読んでから実装
-   - Three.js `EffectComposer` + `postprocessing` パッケージ導入
-   - 実装順序（厳守）: AfterImage → Feedback → Bloom → Kaleidoscope → Mirror → ZoomBlur → RGBShift → CRT → Glitch → ColorGrading
-   - デフォルトON: Bloom（strength:0.8）・AfterImage（damp:0.85）・RGBShift（amount:0.001）・ColorGrading（saturation/contrast/brightness: 1.0）
-   - テスト: `tests/plugins/fx/` に TC-1〜TC-3 を実装
+2. **FX コントロール UI**（engine統合後）
+   - ON/OFF パネル・パラメータースライダー
 
-### 優先度 MEDIUM
-2. **カメラシステム spec 作成 → 実装**（`docs/spec/camera-system.spec.md` 未存在）
-3. **MacroKnob assigns UI**（EditDialogにassigns追加/削除UIを追加）
-
----
+3. **カメラシステム**（spec未存在・別途）
+   - `docs/spec/camera-system.spec.md` の作成から
 
 ## 環境メモ
 
-- **pnpm 必須**（npm / yarn 不可）
-- **完了条件は必ず両方**: `pnpm tsc --noEmit` AND `pnpm test --run`
-- `engine.ts` の `threeClock`（THREE.Clock）と `clock`（BPM Clock）は別物・混同厳禁
-- `MacroKnobPanel` は `src/ui/` 配下（App.tsx と同階層）
-- `macroKnobManager` は `src/core/macroKnob.ts` からシングルトン直接import（engine経由不要）
-- Beat Cut ラップアラウンド検出: `prevBeat > 0.8 && beat < 0.2`
-- FX スタック順序は変更禁止（spec §2 MUST）
-- Claude.ai Projects + MCP（filesystem）で開発フロー確立済み
+- `filesystem:write_file` を使う（`create_file` はプロジェクトに書き込めない）
+- `AfterimagePass` は小文字 i（three 0.170 の正式クラス名）
+- `FX_STACK_ORDER` は変更禁止・ColorGrading は必ず最後
+- `pnpm` 必須（npm / yarn 不可）
+- 完了条件は必ず両方: `pnpm tsc --noEmit` AND `pnpm test --run`
+- `engine.ts` の `threeClock`（THREE.Clock）と `clock`（BPM Clock）は別物・混同しないこと
