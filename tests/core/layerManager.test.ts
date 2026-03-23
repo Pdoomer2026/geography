@@ -14,8 +14,9 @@ vi.mock('three', () => {
   class Scene {}
 
   class PerspectiveCamera {
-    position = { z: 0 }
+    position = { x: 0, y: 0, z: 0, set(x: number, y: number, z: number) { this.x = x; this.y = y; this.z = z } }
     aspect = 1
+    lookAt = vi.fn()
 
     updateProjectionMatrix(): void {}
   }

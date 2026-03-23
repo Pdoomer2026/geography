@@ -125,7 +125,7 @@ export function SimpleMixer() {
           <div className="text-[10px] text-[#aaaacc] mb-1 tracking-wider">PROGRAM</div>
           <div
             className="flex gap-1 items-stretch"
-            style={{ height: 130 }}
+            style={{ height: 150 }}
           >
             {layers.map((layer, i) => (
               <div
@@ -169,6 +169,22 @@ export function SimpleMixer() {
                     <option key={bm.value} value={bm.value}>{bm.label}</option>
                   ))}
                 </select>
+
+                {/* Opacity スライダー */}
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-[#4a4a6e]" style={{ minWidth: 14 }}>α</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={layer.opacity}
+                    onChange={(e) => engine.setLayerOpacity(layer.id, parseFloat(e.target.value))}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex-1 accent-[#7878ff] cursor-pointer"
+                    style={{ height: 3 }}
+                  />
+                </div>
 
                 {/* MUTE/LIVE トグル */}
                 <div

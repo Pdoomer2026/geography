@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { registry } from './registry'
 import { ParameterStore } from './parameterStore'
 import { Clock } from './clock'
+import { MAX_LAYERS } from './config'
 import { registerGeometryPlugins } from '../plugins/geometry'
 import { registerLightPlugins } from '../plugins/lights'
 import { registerParticlePlugins } from '../plugins/particles'
@@ -65,8 +66,10 @@ export class Engine {
       layerManager.setBlendMode('layer-2', 'add')
     }
 
-    // FX は geometry レイヤー（layer-1）のみに適用
-    layerManager.setupFx('layer-1', createFxPlugins())
+    // FX は全レイヤーに適用（各レイヤーが独立した FX スタックを持つ）
+    for (let i = 1; i <= MAX_LAYERS; i++) {
+      layerManager.setupFx(`layer-${i}`, createFxPlugins())
+    }
 
     // 初期 SceneState
     const fxPlugins = layers[0]?.fxStack.getOrdered() ?? []
@@ -109,18 +112,21 @@ export class Engine {
     macroKnobManager.handleMidiCC(cc, value)
   }
 
-  // --- FX コントロール API（layer-1 = geometry レイヤー対象）---
+  // --- FX コントロール API（layerId 対応）---
 
-  getFxPlugins(): FXPlugin[] {
-    return layerManager.getLayers()[0]?.fxStack.getOrdered() ?? []
+  getFxPlugins(layerId: string = 'layer-1'): FXPlugin[] {
+    const layer = layerManager.getLayers().find((l) => l.id === layerId)
+    return layer?.fxStack.getOrdered() ?? []
   }
 
-  setFxEnabled(fxId: string, enabled: boolean): void {
-    layerManager.getLayers()[0]?.fxStack.setEnabled(fxId, enabled)
+  setFxEnabled(fxId: string, enabled: boolean, layerId: string = 'layer-1'): void {
+    const layer = layerManager.getLayers().find((l) => l.id === layerId)
+    layer?.fxStack.setEnabled(fxId, enabled)
   }
 
-  setFxParam(fxId: string, paramKey: string, value: number): void {
-    const plugin = layerManager.getLayers()[0]?.fxStack.getPlugin(fxId)
+  setFxParam(fxId: string, paramKey: string, value: number, layerId: string = 'layer-1'): void {
+    const layer = layerManager.getLayers().find((l) => l.id === layerId)
+    const plugin = layer?.fxStack.getPlugin(fxId)
     if (plugin && paramKey in plugin.params) {
       plugin.params[paramKey].value = value
     }
@@ -191,6 +197,10 @@ export class Engine {
 
   setLayerMute(layerId: string, mute: boolean): void {
     layerManager.setMute(layerId, mute)
+  }
+
+  setLayerOpacity(layerId: string, opacity: number): void {
+    layerManager.setOpacity(layerId, opacity)
   }
 
   setLayerBlendMode(layerId: string, blendMode: CSSBlendMode): void {

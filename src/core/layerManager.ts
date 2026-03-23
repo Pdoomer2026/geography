@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { MAX_LAYERS } from './config'
+import { DEFAULT_CAMERA_PRESET, MAX_LAYERS } from './config'
 import { FxStack } from './fxStack'
 import type { CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from '../types'
 
@@ -44,7 +44,17 @@ export class LayerManager {
         0.1,
         1000,
       )
-      camera.position.z = 5
+      // 初期カメラは DEFAULT_CAMERA_PRESET（setPlugin 時にプリセットが上書きされる）
+      camera.position.set(
+        DEFAULT_CAMERA_PRESET.position.x,
+        DEFAULT_CAMERA_PRESET.position.y,
+        DEFAULT_CAMERA_PRESET.position.z,
+      )
+      camera.lookAt(
+        DEFAULT_CAMERA_PRESET.lookAt.x,
+        DEFAULT_CAMERA_PRESET.lookAt.y,
+        DEFAULT_CAMERA_PRESET.lookAt.z,
+      )
 
       const layerId = `layer-${i + 1}`
       const fxStack = new FxStack()
@@ -105,6 +115,11 @@ export class LayerManager {
     if (plugin) {
       plugin.create(layer.scene)
     }
+
+    // カメラプリセット適用（spec: camera-system.spec.md）
+    const preset = plugin?.cameraPreset ?? DEFAULT_CAMERA_PRESET
+    layer.camera.position.set(preset.position.x, preset.position.y, preset.position.z)
+    layer.camera.lookAt(preset.lookAt.x, preset.lookAt.y, preset.lookAt.z)
   }
 
   setOpacity(layerId: string, opacity: number): void {

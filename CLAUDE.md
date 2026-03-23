@@ -50,7 +50,8 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 | `docs/spec/macro-knob.spec.md` | マクロノブ | Claude Code | 🔴 Day13実装対象 |
 | `docs/spec/geometry-plugin.spec.md` | Geometry Plugin共通 | Geometry Agent | ⬜ v1未着手分あり |
 | `docs/spec/fx-stack.spec.md` | FXスタック | FX Agent | ⬜ 未着手 |
-| `docs/spec/camera-system.spec.md` | カメラシステム | Claude Code | ⬜ 未着手 |
+| `docs/spec/camera-system.spec.md` | カメラシステム | Claude Code | ✅ Day21実装済み |
+| `docs/spec/plugin-lifecycle.spec.md` | Plugin ライフサイクル | Claude Code | ⬜ Day22以降実装 |
 
 ---
 

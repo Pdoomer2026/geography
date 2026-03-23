@@ -12,6 +12,10 @@ const contourPlugin: GeometryPlugin = {
   renderer: 'threejs',
   enabled: true,
   params: structuredClone(defaultParams),
+  cameraPreset: {
+    position: { x: 0, y: 10, z: 14 },
+    lookAt:   { x: 0, y: 0,  z: 0  },
+  },
 
   create(scene: THREE.Scene): void {
     const segments = Math.round(this.params.segments.value)

@@ -26,6 +26,15 @@ export interface PluginParam {
 }
 
 // ============================================================
+// Camera System（spec: docs/spec/camera-system.spec.md）
+// ============================================================
+
+export interface CameraPreset {
+  position: { x: number; y: number; z: number }
+  lookAt: { x: number; y: number; z: number }
+}
+
+// ============================================================
 // Geometry / Particle / Light Plugin
 // ============================================================
 
@@ -34,6 +43,8 @@ export interface GeometryPlugin extends PluginBase {
   update(delta: number, beat: number): void
   destroy(scene: THREE.Scene): void
   params: Record<string, PluginParam>
+  /** 推奨カメラ位置。未定義時は DEFAULT_CAMERA_PRESET を使用 */
+  cameraPreset?: CameraPreset
 }
 
 /** Particle Plugin は Geometry Plugin と同じ Interface */

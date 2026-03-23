@@ -2,29 +2,32 @@ import { useEffect, useState } from 'react'
 import { engine } from '../core/engine'
 import type { FXPlugin } from '../types'
 
+const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
+type LayerId = (typeof LAYER_TABS)[number]
+
 /**
  * FxControlPanel
- * layer-1 の FX スタックをリアルタイムに ON/OFF + パラメーター調整するパネル。
+ * [L1][L2][L3] タブで対象レイヤーを切り替えて FX スタックを操作するパネル。
  * 折りたたみ可能。200ms ポーリングで FX 状態を同期。
  */
 export function FxControlPanel() {
   const [collapsed, setCollapsed] = useState(false)
+  const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
   const [fxPlugins, setFxPlugins] = useState<FXPlugin[]>([])
 
-  // 200ms ポーリングで engine から FX 一覧を取得
   useEffect(() => {
-    const sync = () => setFxPlugins([...engine.getFxPlugins()])
+    const sync = () => setFxPlugins([...engine.getFxPlugins(activeLayer)])
     sync()
     const timer = window.setInterval(sync, 200)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [activeLayer])
 
   function handleToggle(fxId: string, enabled: boolean) {
-    engine.setFxEnabled(fxId, enabled)
+    engine.setFxEnabled(fxId, enabled, activeLayer)
   }
 
   function handleParam(fxId: string, paramKey: string, value: number) {
-    engine.setFxParam(fxId, paramKey, value)
+    engine.setFxParam(fxId, paramKey, value, activeLayer)
   }
 
   return (
@@ -38,7 +41,26 @@ export function FxControlPanel() {
       >
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] text-[#7878aa] tracking-widest">FX CONTROLS</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-[#7878aa] tracking-widest">FX CONTROLS</span>
+            {/* レイヤー切り替えタブ */}
+            <div className="flex gap-1">
+              {LAYER_TABS.map((id, i) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveLayer(id)}
+                  className="text-[9px] rounded px-1.5 py-0.5 border transition-colors"
+                  style={{
+                    background: activeLayer === id ? '#2a2a6e' : '#1a1a2e',
+                    borderColor: activeLayer === id ? '#5a5aaa' : '#2a2a4e',
+                    color: activeLayer === id ? '#aaaaee' : '#4a4a6e',
+                  }}
+                >
+                  L{i + 1}
+                </button>
+              ))}
+            </div>
+          </div>
           <button
             onClick={() => setCollapsed((c) => !c)}
             className="text-[#4a4a6e] hover:text-[#aaaacc] transition-colors text-[11px] leading-none"
