@@ -80,4 +80,41 @@ contextBridge.exposeInMainWorld('geoAPI', {
    */
   removeAutosaveListener: () =>
     ipcRenderer.removeAllListeners('request-autosave-data'),
+
+  /**
+   * メニューバーからの操作イベントをまとめて登録する
+   * @param {object} handlers
+   * @param {() => void} handlers.onNew
+   * @param {(filePath: string, data: string) => void} handlers.onOpen
+   * @param {() => void} handlers.onSave
+   * @param {(filePath: string) => void} handlers.onSaveAs
+   * @param {() => void} handlers.onPreferences
+   */
+  onMenuEvents: (handlers) => {
+    if (handlers.onNew)         ipcRenderer.on('menu:new',         () => handlers.onNew())
+    if (handlers.onOpen)        ipcRenderer.on('menu:open',        (_e, filePath, data) => handlers.onOpen(filePath, data))
+    if (handlers.onSave)        ipcRenderer.on('menu:save',        () => handlers.onSave())
+    if (handlers.onSaveAs)      ipcRenderer.on('menu:save-as',     (_e, filePath) => handlers.onSaveAs(filePath))
+    if (handlers.onPreferences) ipcRenderer.on('menu:preferences', () => handlers.onPreferences())
+  },
+
+  /**
+   * onMenuEvents で登録したリスナーをすべて解除する
+   */
+  removeMenuListeners: () => {
+    ipcRenderer.removeAllListeners('menu:new')
+    ipcRenderer.removeAllListeners('menu:open')
+    ipcRenderer.removeAllListeners('menu:save')
+    ipcRenderer.removeAllListeners('menu:save-as')
+    ipcRenderer.removeAllListeners('menu:preferences')
+  },
+
+  /**
+   * Save 完了後に main へファイルを書き込む
+   * renderer が engine.buildProject() した JSON を渡す
+   * @param {string} filePath
+   * @param {string} data JSON 文字列
+   */
+  saveProjectFile: (filePath, data) =>
+    ipcRenderer.invoke('save-file', filePath, data),
 })

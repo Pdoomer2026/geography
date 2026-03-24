@@ -58,6 +58,21 @@ declare global {
 
       /** onRequestAutosave で登録したリスナーを解除する */
       removeAutosaveListener(): void
+
+      /** メニューバーからの操作イベントをまとめて登録する */
+      onMenuEvents(handlers: {
+        onNew?: () => void
+        onOpen?: (filePath: string, data: string) => void
+        onSave?: () => void
+        onSaveAs?: (filePath: string) => void
+        onPreferences?: () => void
+      }): void
+
+      /** onMenuEvents で登録したリスナーをすべて解除する */
+      removeMenuListeners(): void
+
+      /** Save 完了後に main へファイルを書き込む */
+      saveProjectFile(filePath: string, data: string): Promise<{ success: boolean }>
     }
   }
 }

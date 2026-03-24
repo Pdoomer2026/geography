@@ -8,17 +8,15 @@
 
 import { useState } from 'react'
 import { engine } from '../core/engine'
-import type { GeoGraphyProject } from '../types'
 
 // ----------------------------------------------------------------
 // 型定義
 // ----------------------------------------------------------------
 
-type TabId = 'setup' | 'project' | 'plugins' | 'audio' | 'midi' | 'output'
+type TabId = 'setup' | 'plugins' | 'audio' | 'midi' | 'output'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'setup',   label: 'Setup'   },
-  { id: 'project', label: 'Project' },
   { id: 'plugins', label: 'Plugins' },
   { id: 'audio',   label: 'Audio'   },
   { id: 'midi',    label: 'MIDI'    },
@@ -58,23 +56,6 @@ const FX_ORDER = [
   'after-image', 'feedback', 'bloom', 'kaleidoscope', 'mirror',
   'zoom-blur', 'rgb-shift', 'crt', 'glitch', 'color-grading',
 ]
-
-// LocalStorage キー（ブラウザ環境フォールバック用）
-const LS_PROJECT_KEY = 'geography:project-v2'
-const LS_RECENT_KEY  = 'geography:recent-v2'
-
-// Electron 環境かどうか
-const isElectron = typeof window !== 'undefined' && !!window.geoAPI
-
-// ----------------------------------------------------------------
-// Recent エントリー型
-// ----------------------------------------------------------------
-
-interface RecentEntry {
-  name: string
-  savedAt: string
-  filePath?: string // Electron 環境では実際のファイルパスを保持
-}
 
 // ----------------------------------------------------------------
 // コンポーネント
@@ -129,7 +110,6 @@ export function PreferencesPanel({ open, onClose }: PreferencesPanelProps) {
         {/* コンテンツ */}
         <div className="p-4" style={{ minHeight: 280 }}>
           {activeTab === 'setup'   && <SetupTab onApply={onClose} />}
-          {activeTab === 'project' && <ProjectTab />}
           {(activeTab === 'plugins' || activeTab === 'audio' ||
             activeTab === 'midi'   || activeTab === 'output') && <ComingSoonTab />}
         </div>
@@ -263,253 +243,6 @@ function CheckItem({ id, label, checked, onChange }: CheckItemProps) {
         {label}
       </span>
     </label>
-  )
-}
-
-// ----------------------------------------------------------------
-// Project タブ
-// ----------------------------------------------------------------
-
-function ProjectTab() {
-  const [projectName, setProjectName] = useState<string>('autosave')
-  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null)
-
-  const [recent, setRecent] = useState<RecentEntry[]>(() => {
-    const raw = localStorage.getItem(LS_RECENT_KEY)
-    if (!raw) return []
-    try {
-      return JSON.parse(raw) as RecentEntry[]
-    } catch {
-      return []
-    }
-  })
-
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'loading' | 'error'>('idle')
-
-  function updateRecent(name: string, filePath?: string) {
-    const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
-    const next: RecentEntry[] = [
-      { name, savedAt: now, filePath },
-      ...recent.filter((r) => r.name !== name),
-    ].slice(0, 5)
-    setRecent(next)
-    localStorage.setItem(LS_RECENT_KEY, JSON.stringify(next))
-  }
-
-  // ── Save ──────────────────────────────────────────────────────
-
-  async function handleSave() {
-    setStatus('saving')
-    try {
-      const project = engine.buildProject(projectName)
-      const json = JSON.stringify(project, null, 2)
-
-      if (isElectron && window.geoAPI) {
-        let targetPath = currentFilePath
-        if (!targetPath) {
-          const result = await window.geoAPI.showSaveDialog()
-          if (result.canceled || !result.filePath) {
-            setStatus('idle')
-            return
-          }
-          targetPath = result.filePath
-        }
-        await window.geoAPI.saveFile(targetPath, json)
-        setCurrentFilePath(targetPath)
-        updateRecent(projectName, targetPath)
-      } else {
-        localStorage.setItem(LS_PROJECT_KEY, json)
-        updateRecent(projectName)
-      }
-
-      setStatus('saved')
-      setTimeout(() => setStatus('idle'), 1500)
-    } catch {
-      setStatus('error')
-      setTimeout(() => setStatus('idle'), 2000)
-    }
-  }
-
-  // ── Save As ───────────────────────────────────────────────────
-
-  async function handleSaveAs() {
-    setStatus('saving')
-    try {
-      if (isElectron && window.geoAPI) {
-        const result = await window.geoAPI.showSaveDialog()
-        if (result.canceled || !result.filePath) {
-          setStatus('idle')
-          return
-        }
-        const filePath = result.filePath
-        const name =
-          filePath.split('/').pop()?.replace(/\.geography$/, '') ?? projectName
-
-        const project = engine.buildProject(name)
-        await window.geoAPI.saveFile(filePath, JSON.stringify(project, null, 2))
-        setProjectName(name)
-        setCurrentFilePath(filePath)
-        updateRecent(name, filePath)
-      } else {
-        const name = window.prompt('プロジェクト名を入力してください', projectName)
-        if (!name) {
-          setStatus('idle')
-          return
-        }
-        const project = engine.buildProject(name)
-        localStorage.setItem(LS_PROJECT_KEY, JSON.stringify(project, null, 2))
-        setProjectName(name)
-        updateRecent(name)
-      }
-
-      setStatus('saved')
-      setTimeout(() => setStatus('idle'), 1500)
-    } catch {
-      setStatus('error')
-      setTimeout(() => setStatus('idle'), 2000)
-    }
-  }
-
-  // ── Load ──────────────────────────────────────────────────────
-
-  async function handleLoad() {
-    setStatus('loading')
-    try {
-      if (isElectron && window.geoAPI) {
-        const result = await window.geoAPI.showOpenDialog()
-        if (result.canceled || result.filePaths.length === 0) {
-          setStatus('idle')
-          return
-        }
-        const filePath = result.filePaths[0]
-        const raw = await window.geoAPI.loadFile(filePath)
-        const project = JSON.parse(raw) as GeoGraphyProject
-        engine.restoreProject(project)
-        setProjectName(project.name)
-        setCurrentFilePath(filePath)
-        updateRecent(project.name, filePath)
-      } else {
-        const raw = localStorage.getItem(LS_PROJECT_KEY)
-        if (!raw) {
-          window.alert('保存済みプロジェクトが見つかりません')
-          setStatus('idle')
-          return
-        }
-        const project = JSON.parse(raw) as GeoGraphyProject
-        engine.restoreProject(project)
-        setProjectName(project.name)
-        window.alert(`"${project.name}" を読み込みました`)
-      }
-
-      setStatus('idle')
-    } catch {
-      setStatus('error')
-      setTimeout(() => setStatus('idle'), 2000)
-    }
-  }
-
-  const saveLabel =
-    status === 'saving' ? '...'     :
-    status === 'saved'  ? '✓ Saved' :
-    status === 'error'  ? '✗ Error' :
-    'Save'
-
-  const loadLabel =
-    status === 'loading' ? '...'     :
-    status === 'error'   ? '✗ Error' :
-    'Load'
-
-  return (
-    <div className="flex flex-col gap-5">
-      <section>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="text-[10px] text-[#7878aa] tracking-widest">PROJECT</div>
-          {isElectron && (
-            <span className="text-[9px] text-[#3a5a3a] border border-[#2a4a2a] rounded px-1">
-              ELECTRON
-            </span>
-          )}
-        </div>
-
-        <div className="text-[11px] text-[#5a5a8e] mb-3">
-          現在のプロジェクト:{' '}
-          <span className="text-[#aaaacc]">{projectName}.geography</span>
-        </div>
-
-        {/* プロジェクト名入力 */}
-        <div className="mb-3">
-          <input
-            type="text"
-            value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-            placeholder="project name"
-            className="w-full px-2 py-1 text-[11px] rounded border outline-none"
-            style={{
-              background: '#0a0a1e',
-              borderColor: '#2a2a4e',
-              color: '#aaaacc',
-            }}
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <ProjectButton onClick={handleSave} disabled={status === 'saving'}>
-            {saveLabel}
-          </ProjectButton>
-          <ProjectButton onClick={handleSaveAs} disabled={status === 'saving'}>
-            Save As...
-          </ProjectButton>
-          <ProjectButton onClick={handleLoad} disabled={status === 'loading'}>
-            {loadLabel}
-          </ProjectButton>
-        </div>
-      </section>
-
-      {recent.length > 0 && (
-        <section>
-          <div className="border-t border-[#2a2a4e] pt-4">
-            <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">最近のファイル</div>
-            <div className="flex flex-col gap-1.5">
-              {recent.map((r) => (
-                <div
-                  key={r.name + r.savedAt}
-                  className="flex items-center justify-between text-[11px]"
-                >
-                  <span className="text-[#aaaacc]">{r.name}.geography</span>
-                  <span className="text-[#3a3a5e]">{r.savedAt}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-    </div>
-  )
-}
-
-function ProjectButton({
-  onClick,
-  children,
-  disabled = false,
-}: {
-  onClick: () => void
-  children: React.ReactNode
-  disabled?: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="px-4 py-1.5 text-[11px] rounded border transition-colors"
-      style={{
-        background: '#1a1a2e',
-        borderColor: '#2a2a4e',
-        color: disabled ? '#2a2a4e' : '#7878aa',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
-    >
-      {children}
-    </button>
   )
 }
 

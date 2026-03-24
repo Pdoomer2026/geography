@@ -5,11 +5,14 @@ import { MacroKnobPanel } from './MacroKnobPanel'
 import { FxControlPanel } from './FxControlPanel'
 import { PreferencesPanel } from './PreferencesPanel'
 import { useAutosave } from './useAutosave'
+import type { GeoGraphyProject } from '../types'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
   const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true })
   const [prefsOpen, setPrefsOpen] = useState(false)
+  // 現在開いているファイルパス（Save 時に使用）
+  const currentFilePathRef = useRef<string | null>(null)
 
   // Electron 自動保存（起動時復元 + 終了時保存）
   useAutosave()
@@ -24,6 +27,70 @@ export default function App() {
       engine.dispose()
     }
   }, [])
+
+  // ── メニューバーイベント受信 ────────────────────────────────────
+  useEffect(() => {
+    if (!window.geoAPI) return
+
+    window.geoAPI.onMenuEvents({
+      // File > New
+      onNew: () => {
+        engine.restoreProject({
+          version: '1.0.0',
+          name: 'untitled',
+          savedAt: '',
+          setup: { geometry: [], fx: [] },
+          sceneState: { layers: [] },
+          presetRefs: {},
+        })
+        currentFilePathRef.current = null
+      },
+
+      // File > Open / Open Recent
+      onOpen: (filePath: string, data: string) => {
+        try {
+          const project = JSON.parse(data) as GeoGraphyProject
+          engine.restoreProject(project)
+          currentFilePathRef.current = filePath
+        } catch (e) {
+          console.warn('[GeoGraphy] プロジェクトの読み込みに失敗:', e)
+        }
+      },
+
+      // File > Save
+      onSave: async () => {
+        if (!window.geoAPI) return
+        const filePath = currentFilePathRef.current
+        if (!filePath) {
+          // 未保存の場合は Save As... にフォールバック
+          window.geoAPI.onMenuEvents({ onSaveAs: handleSaveAs })
+          return
+        }
+        const project = engine.buildProject(
+          filePath.split('/').pop()?.replace(/\.geography$/, '') ?? 'untitled'
+        )
+        await window.geoAPI.saveProjectFile(filePath, JSON.stringify(project, null, 2))
+      },
+
+      // File > Save As...
+      onSaveAs: handleSaveAs,
+
+      // GeoGraphy > Preferences...
+      onPreferences: () => setPrefsOpen((o) => !o),
+    })
+
+    return () => {
+      window.geoAPI?.removeMenuListeners()
+    }
+  }, [])
+
+  async function handleSaveAs(filePath: string) {
+    if (!window.geoAPI) return
+    const name = filePath.split('/').pop()?.replace(/\.geography$/, '') ?? 'untitled'
+    const project = engine.buildProject(name)
+    await window.geoAPI.saveProjectFile(filePath, JSON.stringify(project, null, 2))
+    currentFilePathRef.current = filePath
+  }
 
   // 1 キー → Macro トグル
   // 2 キー → FX トグル
@@ -90,29 +157,6 @@ export default function App() {
           zIndex: 400,
         }}
       />
-
-      {/* ⚙ ボタン（常時表示・H キーでも消えない）
-          top: 40 → 赤黄緑ボタン（~28px）の下に配置 */}
-      <button
-        onClick={() => setPrefsOpen((o) => !o)}
-        className="fixed z-[500] font-mono text-xs transition-colors"
-        style={{
-          top: 40,
-          left: 8,
-          width: 32,
-          height: 32,
-          background: prefsOpen ? '#2a2a6e' : '#1a1a2e',
-          border: `1px solid ${prefsOpen ? '#5a5aaa' : '#2a2a4e'}`,
-          borderRadius: 6,
-          color: prefsOpen ? '#aaaaee' : '#4a4a6e',
-          cursor: 'pointer',
-          // @ts-expect-error Electron 専用 CSS プロパティ（型定義なし）
-          WebkitAppRegion: 'no-drag',
-        }}
-        aria-label="Preferences"
-      >
-        ⚙
-      </button>
 
       {/* Preferences パネル */}
       <PreferencesPanel open={prefsOpen} onClose={() => setPrefsOpen(false)} />
