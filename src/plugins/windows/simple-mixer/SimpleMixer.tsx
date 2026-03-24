@@ -5,6 +5,7 @@ import crossfadePlugin from '../../transitions/crossfade'
 import { programBus } from '../../../core/programBus'
 import { previewBus } from '../../../core/previewBus'
 import { engine } from '../../../core/engine'
+import { useDraggable } from '../../../ui/useDraggable'
 
 const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin, crossfadePlugin]
 
@@ -30,6 +31,10 @@ export function SimpleMixer() {
   const [registeredPlugins, setRegisteredPlugins] = useState<{ id: string; name: string }[]>([])
   const previewRef = useRef<HTMLDivElement>(null)
   const tapTimesRef = useRef<number[]>([])
+  const { pos, handleMouseDown } = useDraggable({
+    x: Math.max(0, window.innerWidth / 2 - 260),
+    y: Math.max(0, window.innerHeight - 300),
+  })
 
   useEffect(() => {
     const syncLayers = () => {
@@ -121,13 +126,16 @@ export function SimpleMixer() {
 
   return (
     <div
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50
-                 bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg
+      className="fixed z-50 bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg
                  text-white font-mono text-xs select-none"
-      style={{ width: 520, padding: '12px 16px' }}
+      style={{ left: pos.x, top: pos.y, width: 520, padding: '12px 16px' }}
     >
-      {/* ヘッダー */}
-      <div className="text-[10px] text-[#7878aa] mb-2 tracking-widest">
+      {/* ヘッダー（ドラッグハンドル） */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="text-[10px] text-[#7878aa] mb-2 tracking-widest"
+        style={{ cursor: 'grab' }}
+      >
         SIMPLE MIXER
       </div>
 

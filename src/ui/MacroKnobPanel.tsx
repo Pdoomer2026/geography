@@ -9,6 +9,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { macroKnobManager } from '../core/macroKnob'
+import { useDraggable } from './useDraggable'
 import type { MacroKnobConfig } from '../types'
 
 // 8列 × 4行 = 32ノブ
@@ -207,6 +208,7 @@ export function MacroKnobPanel() {
   const [knobs, setKnobs] = useState<MacroKnobConfig[]>([])
   const [values, setValues] = useState<number[]>(new Array(32).fill(0))
   const [editingId, setEditingId] = useState<string | null>(null)
+  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth / 2 - 200, y: 16 })
 
   // 200ms ごとにノブ状態を同期
   useEffect(() => {
@@ -244,13 +246,16 @@ export function MacroKnobPanel() {
     <>
       {/* メインパネル（閉じるボタンなし — spec §2 MUST） */}
       <div
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-50
-                   bg-[#0a0a18] border border-[#2a2a4e] rounded-lg
+        className="fixed z-50 bg-[#0a0a18] border border-[#2a2a4e] rounded-lg
                    text-white font-mono select-none"
-        style={{ padding: '10px 12px' }}
+        style={{ left: pos.x, top: pos.y, padding: '10px 12px' }}
       >
-        {/* ヘッダー */}
-        <div className="text-[9px] text-[#5a5a88] mb-2 tracking-widest flex items-center gap-2">
+        {/* ヘッダー（ドラッグハンドル） */}
+        <div
+          onMouseDown={handleMouseDown}
+          className="text-[9px] text-[#5a5a88] mb-2 tracking-widest flex items-center gap-2"
+          style={{ cursor: 'grab' }}
+        >
           <span>MACRO KNOBS</span>
           <span className="text-[#3a3a5e]">32 × MIDI</span>
           <span className="ml-auto text-[#3a3a5e]">

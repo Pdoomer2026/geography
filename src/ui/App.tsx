@@ -76,12 +76,28 @@ export default function App() {
         style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative' }}
       />
 
-      {/* ⚙ ボタン（常時表示・H キーでも消えない） */}
+      {/* ウィンドウドラッグ領域（titleBarStyle: hiddenInset 対応）
+          上部 28px をドラッグ可能に。ボタン類は z-index を高くして no-drag で上書き。 */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 28,
+          // @ts-expect-error Electron 専用 CSS プロパティ（型定義なし）
+          WebkitAppRegion: 'drag',
+          zIndex: 400,
+        }}
+      />
+
+      {/* ⚙ ボタン（常時表示・H キーでも消えない）
+          top: 40 → 赤黄緑ボタン（~28px）の下に配置 */}
       <button
         onClick={() => setPrefsOpen((o) => !o)}
-        className="fixed z-[300] font-mono text-xs transition-colors"
+        className="fixed z-[500] font-mono text-xs transition-colors"
         style={{
-          top: 8,
+          top: 40,
           left: 8,
           width: 32,
           height: 32,
@@ -90,6 +106,8 @@ export default function App() {
           borderRadius: 6,
           color: prefsOpen ? '#aaaaee' : '#4a4a6e',
           cursor: 'pointer',
+          // @ts-expect-error Electron 専用 CSS プロパティ（型定義なし）
+          WebkitAppRegion: 'no-drag',
         }}
         aria-label="Preferences"
       >

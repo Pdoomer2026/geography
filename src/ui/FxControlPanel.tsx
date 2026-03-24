@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { engine } from '../core/engine'
+import { useDraggable } from './useDraggable'
 import type { FXPlugin } from '../types'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
@@ -14,6 +15,7 @@ export function FxControlPanel() {
   const [collapsed, setCollapsed] = useState(false)
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
   const [fxPlugins, setFxPlugins] = useState<FXPlugin[]>([])
+  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 300, y: 16 })
 
   useEffect(() => {
     const sync = () => setFxPlugins([...engine.getFxPlugins(activeLayer)])
@@ -32,15 +34,19 @@ export function FxControlPanel() {
 
   return (
     <div
-      className="fixed right-4 top-4 z-50 font-mono text-xs select-none"
-      style={{ width: 280 }}
+      className="fixed z-50 font-mono text-xs select-none"
+      style={{ left: pos.x, top: pos.y, width: 280 }}
     >
       <div
         className="bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg overflow-hidden"
         style={{ padding: '10px 14px' }}
       >
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between mb-2">
+        {/* ヘッダー（ドラッグハンドル） */}
+        <div
+          onMouseDown={handleMouseDown}
+          className="flex items-center justify-between mb-2"
+          style={{ cursor: 'grab' }}
+        >
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-[#7878aa] tracking-widest">FX CONTROLS</span>
             {/* レイヤー切り替えタブ */}
