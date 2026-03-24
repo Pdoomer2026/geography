@@ -1,4 +1,4 @@
-# GeoGraphy - CLAUDE.md v8
+# GeoGraphy - CLAUDE.md v9
 
 ## プロジェクト概要
 
@@ -64,7 +64,19 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 6. 全テストグリーンになるまでループ
 7. docs/progress/[task].log.md にステップ完了を記録
 8. 仕様変更が必要な場合 → spec を先に修正 → 再実装
+9. セッション終了時に git commit + Day タグを打つ（MUST）
 ```
+
+### Day タグの打ち方（セッション終了時に必ず実行）
+
+```bash
+# DayN を今日の番号に置き換える
+git tag dayN && git push origin dayN
+```
+
+- タグは「その Day の最後の feat: コミット」に打つ
+- `git checkout day12` のように任意の日に戻れる
+- HANDOVER.md の「現在のコミット」欄にもタグ名を記載すること
 
 ### spec ファイル一覧
 
@@ -93,6 +105,7 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 - MUST: `pnpm tsc --noEmit` + `pnpm test --run` 両方通過を完了条件とすること（CDD原則）
 - MUST: `any` による型解決は禁止。型エラーは自律修正すること
 - MUST: 各ステップ完了ごとに `docs/progress/[task].log.md` に追記すること
+- MUST: セッション終了時に `git commit` + `git tag dayN && git push origin dayN` を実行すること
 - MUST: `engine.ts` は `App.tsx` に依存してはいけない・単体で動作できること
 - MUST: Parameter Store の変更は必ず Command 経由でのみ行うこと（直接代入禁止）
 - MUST: Plugin には `renderer`・`enabled` フィールドを持たせること（PluginBase 参照）
