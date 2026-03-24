@@ -23,6 +23,7 @@ const isDev = process.env.NODE_ENV !== 'production'
 const GEO_DIR = join(homedir(), 'Documents', 'GeoGraphy')
 const PROJECTS_DIR = join(GEO_DIR, 'projects')
 const PRESETS_DIR = join(GEO_DIR, 'presets')
+const AUTOSAVE_PATH = join(GEO_DIR, 'autosave.geography')
 
 /** アプリ起動時に必要なディレクトリを作成 */
 async function ensureDirectories() {
@@ -32,6 +33,9 @@ async function ensureDirectories() {
     }
   }
 }
+
+// before-quit で使う終了フラグ（グローバル変数を避けクロージャで管理）
+let autosaveDone = false
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -60,6 +64,8 @@ function createWindow() {
     // 本番時: ビルド済み index.html をロード
     win.loadFile(join(__dirname, '../dist/index.html'))
   }
+
+  return win
 }
 
 // ── IPC ハンドラー（geoAPI の実装）────────────────────────────────
@@ -97,11 +103,74 @@ ipcMain.handle('get-data-dir', () => {
   return { geoDir: GEO_DIR, projectsDir: PROJECTS_DIR, presetsDir: PRESETS_DIR }
 })
 
+/**
+ * autosave.geography に書き込む。
+ * 書き込み完了後に 'autosave-complete' イベントを emit して
+ * before-quit ハンドラーに通知する。
+ */
+ipcMain.handle('autosave', async (_event, data) => {
+  await writeFile(AUTOSAVE_PATH, data, 'utf-8')
+  ipcMain.emit('autosave-complete')
+  return { success: true }
+})
+
+/** autosave.geography を読み込む（なければ null） */
+ipcMain.handle('get-autosave', async () => {
+  if (!existsSync(AUTOSAVE_PATH)) return null
+  return await readFile(AUTOSAVE_PATH, 'utf-8')
+})
+
 // ── アプリライフサイクル ────────────────────────────────────────────
 
 app.whenReady().then(async () => {
   await ensureDirectories()
   createWindow()
+
+  /**
+   * before-quit: renderer に自動保存データを要求し、
+   * autosave IPC 完了後に再度 quit() する。
+   *
+   * フロー:
+   *   1. before-quit イベント → event.preventDefault() で終了を一時停止
+   *   2. renderer に 'request-autosave-data' を送信
+   *   3. renderer が engine.buildProject() → geoAPI.autosave(json) を実行
+   *   4. autosave IPC ハンドラーが完了 → 'autosave-complete' イベントを emit
+   *   5. ここで autosaveDone=true にして app.quit() を再呼び出し
+   *   6. タイムアウト（3秒）: renderer が応答しなくても強制終了
+   */
+  app.on('before-quit', (event) => {
+    if (autosaveDone) return
+
+    event.preventDefault()
+
+    const allWindows = BrowserWindow.getAllWindows()
+    if (allWindows.length === 0) {
+      autosaveDone = true
+      app.quit()
+      return
+    }
+
+    let timeoutId = null
+
+    const finish = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      autosaveDone = true
+      app.quit()
+    }
+
+    // autosave 完了通知を一度だけ受け取る
+    ipcMain.once('autosave-complete', finish)
+
+    // 3秒タイムアウト（renderer が応答しない場合の安全弁）
+    timeoutId = setTimeout(() => {
+      ipcMain.removeListener('autosave-complete', finish)
+      autosaveDone = true
+      app.quit()
+    }, 3000)
+
+    // renderer に自動保存を依頼
+    allWindows[0].webContents.send('request-autosave-data')
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

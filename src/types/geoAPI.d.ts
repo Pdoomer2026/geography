@@ -34,6 +34,30 @@ declare global {
         projectsDir: string
         presetsDir: string
       }>
+
+      /**
+       * autosave.geography に現在の状態を書き込む（アプリ終了時に呼ぶ）
+       * renderer → main の IPC 経由で ~/Documents/GeoGraphy/autosave.geography に保存する。
+       */
+      autosave(data: string): Promise<{ success: boolean }>
+
+      /**
+       * autosave.geography の内容を読み込む（起動時に呼ぶ）
+       * ファイルが存在しない場合は null を返す。
+       */
+      getAutosave(): Promise<string | null>
+
+      /**
+       * main からの自動保存リクエストを受信するリスナーを登録する。
+       * main が 'request-autosave-data' を送ったとき callback が呼ばれる。
+       * callback の引数 sendData に JSON 文字列を渡すと autosave IPC が実行される。
+       */
+      onRequestAutosave(
+        callback: (sendData: (json: string) => void) => void
+      ): void
+
+      /** onRequestAutosave で登録したリスナーを解除する */
+      removeAutosaveListener(): void
     }
   }
 }

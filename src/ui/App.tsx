@@ -4,11 +4,15 @@ import { SimpleMixer } from '../plugins/windows/simple-mixer/SimpleMixer'
 import { MacroKnobPanel } from './MacroKnobPanel'
 import { FxControlPanel } from './FxControlPanel'
 import { PreferencesPanel } from './PreferencesPanel'
+import { useAutosave } from './useAutosave'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
   const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true })
   const [prefsOpen, setPrefsOpen] = useState(false)
+
+  // Electron 自動保存（起動時復元 + 終了時保存）
+  useAutosave()
 
   useEffect(() => {
     if (!mountRef.current) return

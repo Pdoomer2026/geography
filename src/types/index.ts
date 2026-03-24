@@ -203,3 +203,32 @@ export interface MacroKnobManager {
   /** 0.0〜1.0 に正規化した現在値を返す */
   getValue(knobId: string): number
 }
+
+// ============================================================
+// Project File（spec: docs/spec/project-file.spec.md §3）
+// ============================================================
+
+/**
+ * GeoGraphy プロジェクトファイル（.geography）の型定義。
+ * ファイルフォーマットバージョンは version フィールドで管理する。
+ */
+export interface GeoGraphyProject {
+  /** フォーマットバージョン（例: "1.0.0"） */
+  version: string
+  /** 保存日時（ISO 8601） */
+  savedAt: string
+  /** プロジェクト名 */
+  name: string
+  /** Setup: 使うプラグインの選択状態 */
+  setup: {
+    geometry: string[]
+    fx: string[]
+  }
+  /** 現在の描画状態（SceneState 型と同一） */
+  sceneState: SceneState
+  /** 各プラグインのプリセットファイル参照（任意） */
+  presetRefs: Record<string, string>
+}
+
+/** プロジェクトファイルのフォーマットバージョン */
+export const PROJECT_FILE_VERSION = '1.0.0'

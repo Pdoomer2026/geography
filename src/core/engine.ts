@@ -11,7 +11,16 @@ import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
 import { macroKnobManager } from './macroKnob'
-import type { CSSBlendMode, FXPlugin, GeometryPlugin, Layer, MacroKnobConfig, SceneState } from '../types'
+import type {
+  CSSBlendMode,
+  FXPlugin,
+  GeometryPlugin,
+  Layer,
+  MacroKnobConfig,
+  SceneState,
+  GeoGraphyProject,
+} from '../types'
+import { PROJECT_FILE_VERSION } from '../types'
 
 // engine.ts は App.tsx に依存してはいけない・単体で動作できること
 
@@ -133,6 +142,102 @@ export class Engine {
    */
   applyFxSetup(enabledIds: string[]): void {
     layerManager.applyFxSetup(enabledIds)
+  }
+
+  /**
+   * Setup APPLY 用：選択された Geometry Plugin を各レイヤーに割り当てる。
+   * spec: project-file.spec.md §5 Step 1
+   *
+   * - selectedIds[0] → layer-1、selectedIds[1] → layer-2、selectedIds[2] → layer-3
+   * - selectedIds の長さを超えるレイヤーは plugin=null・mute=true
+   * - selectedIds が空のとき全レイヤー mute
+   */
+  applyGeometrySetup(selectedIds: string[]): void {
+    const layers = layerManager.getLayers()
+    layers.forEach((layer, index) => {
+      const pluginId = selectedIds[index] ?? null
+      this.setLayerPlugin(layer.id, pluginId)
+    })
+  }
+
+  // --- SceneState serialize / deserialize ---
+
+  /**
+   * 現在の描画状態を SceneState として取得する。
+   * spec: project-file.spec.md §3
+   */
+  getSceneState(): SceneState {
+    const layers = layerManager.getLayers()
+    return {
+      layers: layers
+        .filter((layer) => !layer.mute && layer.plugin !== null)
+        .map((layer) => {
+          const plugin = layer.plugin!
+          const fxPlugins = layer.fxStack.getOrdered()
+          return {
+            geometryId: plugin.id,
+            geometryParams: Object.fromEntries(
+              Object.entries(plugin.params).map(([k, v]) => [k, v.value])
+            ),
+            fxStack: fxPlugins.map((fx) => ({
+              fxId: fx.id,
+              params: Object.fromEntries(
+                Object.entries(fx.params).map(([k, v]) => [k, v.value])
+              ),
+              enabled: fx.enabled,
+            })),
+            opacity: layer.opacity,
+            blendMode: layer.blendMode,
+          }
+        }),
+    }
+  }
+
+  /**
+   * SceneState を Program バスに適用する。
+   * spec: project-file.spec.md §5 Step 2
+   */
+  loadSceneState(state: SceneState): void {
+    programBus.load(state)
+    previewBus.update(state)
+  }
+
+  /**
+   * 現在の状態から GeoGraphyProject オブジェクトを構築する。
+   * spec: project-file.spec.md §3
+   */
+  buildProject(name: string): GeoGraphyProject {
+    const layers = layerManager.getLayers()
+    const selectedGeometryIds = layers
+      .filter((l) => !l.mute && l.plugin !== null)
+      .map((l) => l.plugin!.id)
+
+    const enabledFxIds = this.getFxPlugins('layer-1')
+      .filter((fx) => fx.enabled)
+      .map((fx) => fx.id)
+
+    return {
+      version: PROJECT_FILE_VERSION,
+      savedAt: new Date().toISOString(),
+      name,
+      setup: {
+        geometry: selectedGeometryIds,
+        fx: enabledFxIds,
+      },
+      sceneState: this.getSceneState(),
+      presetRefs: {},
+    }
+  }
+
+  /**
+   * GeoGraphyProject を読み込んで状態を復元する。
+   * spec: project-file.spec.md §5
+   * - setup.geometry → applyGeometrySetup() でレイヤーを復元
+   * - sceneState → loadSceneState() で Program バスに適用
+   */
+  restoreProject(project: GeoGraphyProject): void {
+    this.applyGeometrySetup(project.setup.geometry)
+    this.loadSceneState(project.sceneState)
   }
 
   // --- レンダーループ ---

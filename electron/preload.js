@@ -49,4 +49,35 @@ contextBridge.exposeInMainWorld('geoAPI', {
    */
   getDataDir: () =>
     ipcRenderer.invoke('get-data-dir'),
+
+  /**
+   * autosave.geography に現在の状態を書き込む（アプリ終了時に呼ぶ）
+   * @param {string} data JSON 文字列
+   */
+  autosave: (data) =>
+    ipcRenderer.invoke('autosave', data),
+
+  /**
+   * autosave.geography の内容を読み込む（起動時に呼ぶ）
+   * ファイルが存在しない場合は null を返す。
+   * @returns {Promise<string | null>}
+   */
+  getAutosave: () =>
+    ipcRenderer.invoke('get-autosave'),
+
+  /**
+   * renderer → main への自動保存データ送信チャンネルを登録する。
+   * main が 'request-autosave-data' を送ったとき callback が呼ばれる。
+   * @param {(sendData: (json: string) => void) => void} callback
+   */
+  onRequestAutosave: (callback) =>
+    ipcRenderer.on('request-autosave-data', (_event) => {
+      callback((json) => ipcRenderer.invoke('autosave', json))
+    }),
+
+  /**
+   * onRequestAutosave で登録したリスナーを解除する
+   */
+  removeAutosaveListener: () =>
+    ipcRenderer.removeAllListeners('request-autosave-data'),
 })

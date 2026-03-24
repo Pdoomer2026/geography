@@ -8,6 +8,7 @@
 
 import { useState } from 'react'
 import { engine } from '../core/engine'
+import type { GeoGraphyProject } from '../types'
 
 // ----------------------------------------------------------------
 // 型定義
@@ -59,21 +60,15 @@ const FX_ORDER = [
 ]
 
 // LocalStorage キー（ブラウザ環境フォールバック用）
-const LS_PROJECT_KEY = 'geography:project'
-const LS_RECENT_KEY  = 'geography:recent'
+const LS_PROJECT_KEY = 'geography:project-v2'
+const LS_RECENT_KEY  = 'geography:recent-v2'
 
 // Electron 環境かどうか
 const isElectron = typeof window !== 'undefined' && !!window.geoAPI
 
 // ----------------------------------------------------------------
-// プロジェクト型
+// Recent エントリー型
 // ----------------------------------------------------------------
-
-interface ProjectFile {
-  name: string
-  savedAt: string
-  data: string
-}
 
 interface RecentEntry {
   name: string
@@ -172,9 +167,17 @@ function SetupTab({ onApply }: { onApply: () => void }) {
   }
 
   function handleApply() {
-    // Plugin Lifecycle spec §6: チェックされた FX だけ create()、それ以外は destroy()
-    const enabledIds = FX_ORDER.filter((fxId) => selectedFx[fxId] ?? false)
-    engine.applyFxSetup(enabledIds)
+    // Geometry: チェックされた Plugin を順番通りに各レイヤーへ割り当て
+    // allGeometry の登録順を維持して selectedGeometry でフィルタ
+    const selectedGeometryIds = allGeometry
+      .filter((p) => selectedGeometry.has(p.id))
+      .map((p) => p.id)
+    engine.applyGeometrySetup(selectedGeometryIds)
+
+    // FX: チェックされた FX だけ create()、それ以外は destroy()
+    const enabledFxIds = FX_ORDER.filter((fxId) => selectedFx[fxId] ?? false)
+    engine.applyFxSetup(enabledFxIds)
+
     onApply()
   }
 
@@ -268,16 +271,7 @@ function CheckItem({ id, label, checked, onChange }: CheckItemProps) {
 // ----------------------------------------------------------------
 
 function ProjectTab() {
-  const [projectName, setProjectName] = useState<string>(() => {
-    const raw = localStorage.getItem(LS_PROJECT_KEY)
-    if (!raw) return 'autosave'
-    try {
-      return (JSON.parse(raw) as ProjectFile).name
-    } catch {
-      return 'autosave'
-    }
-  })
-
+  const [projectName, setProjectName] = useState<string>('autosave')
   const [currentFilePath, setCurrentFilePath] = useState<string | null>(null)
 
   const [recent, setRecent] = useState<RecentEntry[]>(() => {
@@ -290,7 +284,7 @@ function ProjectTab() {
     }
   })
 
-  const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'loading' | 'error'>('idle')
 
   function updateRecent(name: string, filePath?: string) {
     const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
@@ -302,37 +296,32 @@ function ProjectTab() {
     localStorage.setItem(LS_RECENT_KEY, JSON.stringify(next))
   }
 
-  function buildProjectData(name: string): string {
-    const project: ProjectFile = {
-      name,
-      savedAt: new Date().toISOString(),
-      data: '',
-    }
-    return JSON.stringify(project, null, 2)
-  }
-
   // ── Save ──────────────────────────────────────────────────────
 
   async function handleSave() {
+    setStatus('saving')
     try {
-      if (isElectron && window.geoAPI) {
-        // Electron: ファイルパスが決まっていれば上書き、なければ Save As と同じ
-        const targetPath = currentFilePath
-          ?? (await (async () => {
-            const r = await window.geoAPI!.showSaveDialog()
-            if (r.canceled || !r.filePath) return null
-            return r.filePath
-          })())
+      const project = engine.buildProject(projectName)
+      const json = JSON.stringify(project, null, 2)
 
-        if (!targetPath) return
-        await window.geoAPI.saveFile(targetPath, buildProjectData(projectName))
+      if (isElectron && window.geoAPI) {
+        let targetPath = currentFilePath
+        if (!targetPath) {
+          const result = await window.geoAPI.showSaveDialog()
+          if (result.canceled || !result.filePath) {
+            setStatus('idle')
+            return
+          }
+          targetPath = result.filePath
+        }
+        await window.geoAPI.saveFile(targetPath, json)
         setCurrentFilePath(targetPath)
         updateRecent(projectName, targetPath)
       } else {
-        // ブラウザ: LocalStorage フォールバック
-        localStorage.setItem(LS_PROJECT_KEY, buildProjectData(projectName))
+        localStorage.setItem(LS_PROJECT_KEY, json)
         updateRecent(projectName)
       }
+
       setStatus('saved')
       setTimeout(() => setStatus('idle'), 1500)
     } catch {
@@ -344,32 +333,37 @@ function ProjectTab() {
   // ── Save As ───────────────────────────────────────────────────
 
   async function handleSaveAs() {
+    setStatus('saving')
     try {
       if (isElectron && window.geoAPI) {
-        // Electron: OS ネイティブの保存ダイアログ
         const result = await window.geoAPI.showSaveDialog()
-        if (result.canceled || !result.filePath) return
-
+        if (result.canceled || !result.filePath) {
+          setStatus('idle')
+          return
+        }
         const filePath = result.filePath
-        // ファイル名からプロジェクト名を推定（拡張子を除く）
-        const name = filePath.split('/').pop()?.replace('.geography', '') ?? projectName
+        const name =
+          filePath.split('/').pop()?.replace(/\.geography$/, '') ?? projectName
 
-        await window.geoAPI.saveFile(filePath, buildProjectData(name))
+        const project = engine.buildProject(name)
+        await window.geoAPI.saveFile(filePath, JSON.stringify(project, null, 2))
         setProjectName(name)
         setCurrentFilePath(filePath)
         updateRecent(name, filePath)
-        setStatus('saved')
-        setTimeout(() => setStatus('idle'), 1500)
       } else {
-        // ブラウザ: prompt でファイル名を入力
         const name = window.prompt('プロジェクト名を入力してください', projectName)
-        if (!name) return
+        if (!name) {
+          setStatus('idle')
+          return
+        }
+        const project = engine.buildProject(name)
+        localStorage.setItem(LS_PROJECT_KEY, JSON.stringify(project, null, 2))
         setProjectName(name)
-        localStorage.setItem(LS_PROJECT_KEY, buildProjectData(name))
         updateRecent(name)
-        setStatus('saved')
-        setTimeout(() => setStatus('idle'), 1500)
       }
+
+      setStatus('saved')
+      setTimeout(() => setStatus('idle'), 1500)
     } catch {
       setStatus('error')
       setTimeout(() => setStatus('idle'), 2000)
@@ -379,27 +373,35 @@ function ProjectTab() {
   // ── Load ──────────────────────────────────────────────────────
 
   async function handleLoad() {
+    setStatus('loading')
     try {
       if (isElectron && window.geoAPI) {
-        // Electron: OS ネイティブのファイル選択ダイアログ
         const result = await window.geoAPI.showOpenDialog()
-        if (result.canceled || result.filePaths.length === 0) return
-
+        if (result.canceled || result.filePaths.length === 0) {
+          setStatus('idle')
+          return
+        }
         const filePath = result.filePaths[0]
         const raw = await window.geoAPI.loadFile(filePath)
-        const project = JSON.parse(raw) as ProjectFile
-
+        const project = JSON.parse(raw) as GeoGraphyProject
+        engine.restoreProject(project)
         setProjectName(project.name)
         setCurrentFilePath(filePath)
         updateRecent(project.name, filePath)
       } else {
-        // ブラウザ: LocalStorage フォールバック
         const raw = localStorage.getItem(LS_PROJECT_KEY)
-        if (!raw) { window.alert('保存済みプロジェクトが見つかりません'); return }
-        const project = JSON.parse(raw) as ProjectFile
+        if (!raw) {
+          window.alert('保存済みプロジェクトが見つかりません')
+          setStatus('idle')
+          return
+        }
+        const project = JSON.parse(raw) as GeoGraphyProject
+        engine.restoreProject(project)
         setProjectName(project.name)
         window.alert(`"${project.name}" を読み込みました`)
       }
+
+      setStatus('idle')
     } catch {
       setStatus('error')
       setTimeout(() => setStatus('idle'), 2000)
@@ -407,9 +409,15 @@ function ProjectTab() {
   }
 
   const saveLabel =
-    status === 'saved' ? '✓ Saved' :
-    status === 'error' ? '✗ Error' :
+    status === 'saving' ? '...'     :
+    status === 'saved'  ? '✓ Saved' :
+    status === 'error'  ? '✗ Error' :
     'Save'
+
+  const loadLabel =
+    status === 'loading' ? '...'     :
+    status === 'error'   ? '✗ Error' :
+    'Load'
 
   return (
     <div className="flex flex-col gap-5">
@@ -422,14 +430,38 @@ function ProjectTab() {
             </span>
           )}
         </div>
+
         <div className="text-[11px] text-[#5a5a8e] mb-3">
           現在のプロジェクト:{' '}
           <span className="text-[#aaaacc]">{projectName}.geography</span>
         </div>
+
+        {/* プロジェクト名入力 */}
+        <div className="mb-3">
+          <input
+            type="text"
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+            placeholder="project name"
+            className="w-full px-2 py-1 text-[11px] rounded border outline-none"
+            style={{
+              background: '#0a0a1e',
+              borderColor: '#2a2a4e',
+              color: '#aaaacc',
+            }}
+          />
+        </div>
+
         <div className="flex gap-2">
-          <ProjectButton onClick={handleSave}>{saveLabel}</ProjectButton>
-          <ProjectButton onClick={handleSaveAs}>Save As...</ProjectButton>
-          <ProjectButton onClick={handleLoad}>Load</ProjectButton>
+          <ProjectButton onClick={handleSave} disabled={status === 'saving'}>
+            {saveLabel}
+          </ProjectButton>
+          <ProjectButton onClick={handleSaveAs} disabled={status === 'saving'}>
+            Save As...
+          </ProjectButton>
+          <ProjectButton onClick={handleLoad} disabled={status === 'loading'}>
+            {loadLabel}
+          </ProjectButton>
         </div>
       </section>
 
@@ -458,18 +490,22 @@ function ProjectTab() {
 function ProjectButton({
   onClick,
   children,
+  disabled = false,
 }: {
   onClick: () => void
   children: React.ReactNode
+  disabled?: boolean
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className="px-4 py-1.5 text-[11px] rounded border transition-colors"
       style={{
         background: '#1a1a2e',
         borderColor: '#2a2a4e',
-        color: '#7878aa',
+        color: disabled ? '#2a2a4e' : '#7878aa',
+        cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
       {children}
