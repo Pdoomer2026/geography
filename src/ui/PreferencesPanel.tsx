@@ -58,9 +58,12 @@ const FX_ORDER = [
   'zoom-blur', 'rgb-shift', 'crt', 'glitch', 'color-grading',
 ]
 
-// LocalStorage キー
+// LocalStorage キー（ブラウザ環境フォールバック用）
 const LS_PROJECT_KEY = 'geography:project'
 const LS_RECENT_KEY  = 'geography:recent'
+
+// Electron 環境かどうか
+const isElectron = typeof window !== 'undefined' && !!window.geoAPI
 
 // ----------------------------------------------------------------
 // プロジェクト型
@@ -75,6 +78,7 @@ interface ProjectFile {
 interface RecentEntry {
   name: string
   savedAt: string
+  filePath?: string // Electron 環境では実際のファイルパスを保持
 }
 
 // ----------------------------------------------------------------
@@ -169,7 +173,6 @@ function SetupTab({ onApply }: { onApply: () => void }) {
 
   function handleApply() {
     // Plugin Lifecycle spec §6: チェックされた FX だけ create()、それ以外は destroy()
-    // enabledIds を収集して engine.applyFxSetup() に渡す
     const enabledIds = FX_ORDER.filter((fxId) => selectedFx[fxId] ?? false)
     engine.applyFxSetup(enabledIds)
     onApply()
@@ -269,12 +272,13 @@ function ProjectTab() {
     const raw = localStorage.getItem(LS_PROJECT_KEY)
     if (!raw) return 'autosave'
     try {
-      const p = JSON.parse(raw) as ProjectFile
-      return p.name
+      return (JSON.parse(raw) as ProjectFile).name
     } catch {
       return 'autosave'
     }
   })
+
+  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null)
 
   const [recent, setRecent] = useState<RecentEntry[]>(() => {
     const raw = localStorage.getItem(LS_RECENT_KEY)
@@ -286,62 +290,144 @@ function ProjectTab() {
     }
   })
 
-  const [saved, setSaved] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle')
 
-  function saveProject(name: string) {
+  function updateRecent(name: string, filePath?: string) {
     const now = new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
-    const project: ProjectFile = { name, savedAt: now, data: '' }
-    localStorage.setItem(LS_PROJECT_KEY, JSON.stringify(project))
-
     const next: RecentEntry[] = [
-      { name, savedAt: now },
+      { name, savedAt: now, filePath },
       ...recent.filter((r) => r.name !== name),
     ].slice(0, 5)
     setRecent(next)
     localStorage.setItem(LS_RECENT_KEY, JSON.stringify(next))
-
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1500)
   }
 
-  function handleSave() {
-    saveProject(projectName)
-  }
-
-  function handleSaveAs() {
-    const name = window.prompt('プロジェクト名を入力してください', projectName)
-    if (!name) return
-    setProjectName(name)
-    saveProject(name)
-  }
-
-  function handleLoad() {
-    const raw = localStorage.getItem(LS_PROJECT_KEY)
-    if (!raw) {
-      window.alert('保存済みプロジェクトが見つかりません')
-      return
+  function buildProjectData(name: string): string {
+    const project: ProjectFile = {
+      name,
+      savedAt: new Date().toISOString(),
+      data: '',
     }
+    return JSON.stringify(project, null, 2)
+  }
+
+  // ── Save ──────────────────────────────────────────────────────
+
+  async function handleSave() {
     try {
-      const p = JSON.parse(raw) as ProjectFile
-      setProjectName(p.name)
-      window.alert(`"${p.name}" を読み込みました（${p.savedAt}）`)
+      if (isElectron && window.geoAPI) {
+        // Electron: ファイルパスが決まっていれば上書き、なければ Save As と同じ
+        const targetPath = currentFilePath
+          ?? (await (async () => {
+            const r = await window.geoAPI!.showSaveDialog()
+            if (r.canceled || !r.filePath) return null
+            return r.filePath
+          })())
+
+        if (!targetPath) return
+        await window.geoAPI.saveFile(targetPath, buildProjectData(projectName))
+        setCurrentFilePath(targetPath)
+        updateRecent(projectName, targetPath)
+      } else {
+        // ブラウザ: LocalStorage フォールバック
+        localStorage.setItem(LS_PROJECT_KEY, buildProjectData(projectName))
+        updateRecent(projectName)
+      }
+      setStatus('saved')
+      setTimeout(() => setStatus('idle'), 1500)
     } catch {
-      window.alert('プロジェクトファイルが壊れています')
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 2000)
     }
   }
+
+  // ── Save As ───────────────────────────────────────────────────
+
+  async function handleSaveAs() {
+    try {
+      if (isElectron && window.geoAPI) {
+        // Electron: OS ネイティブの保存ダイアログ
+        const result = await window.geoAPI.showSaveDialog()
+        if (result.canceled || !result.filePath) return
+
+        const filePath = result.filePath
+        // ファイル名からプロジェクト名を推定（拡張子を除く）
+        const name = filePath.split('/').pop()?.replace('.geography', '') ?? projectName
+
+        await window.geoAPI.saveFile(filePath, buildProjectData(name))
+        setProjectName(name)
+        setCurrentFilePath(filePath)
+        updateRecent(name, filePath)
+        setStatus('saved')
+        setTimeout(() => setStatus('idle'), 1500)
+      } else {
+        // ブラウザ: prompt でファイル名を入力
+        const name = window.prompt('プロジェクト名を入力してください', projectName)
+        if (!name) return
+        setProjectName(name)
+        localStorage.setItem(LS_PROJECT_KEY, buildProjectData(name))
+        updateRecent(name)
+        setStatus('saved')
+        setTimeout(() => setStatus('idle'), 1500)
+      }
+    } catch {
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 2000)
+    }
+  }
+
+  // ── Load ──────────────────────────────────────────────────────
+
+  async function handleLoad() {
+    try {
+      if (isElectron && window.geoAPI) {
+        // Electron: OS ネイティブのファイル選択ダイアログ
+        const result = await window.geoAPI.showOpenDialog()
+        if (result.canceled || result.filePaths.length === 0) return
+
+        const filePath = result.filePaths[0]
+        const raw = await window.geoAPI.loadFile(filePath)
+        const project = JSON.parse(raw) as ProjectFile
+
+        setProjectName(project.name)
+        setCurrentFilePath(filePath)
+        updateRecent(project.name, filePath)
+      } else {
+        // ブラウザ: LocalStorage フォールバック
+        const raw = localStorage.getItem(LS_PROJECT_KEY)
+        if (!raw) { window.alert('保存済みプロジェクトが見つかりません'); return }
+        const project = JSON.parse(raw) as ProjectFile
+        setProjectName(project.name)
+        window.alert(`"${project.name}" を読み込みました`)
+      }
+    } catch {
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 2000)
+    }
+  }
+
+  const saveLabel =
+    status === 'saved' ? '✓ Saved' :
+    status === 'error' ? '✗ Error' :
+    'Save'
 
   return (
     <div className="flex flex-col gap-5">
       <section>
-        <div className="text-[10px] text-[#7878aa] tracking-widest mb-3">PROJECT</div>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="text-[10px] text-[#7878aa] tracking-widest">PROJECT</div>
+          {isElectron && (
+            <span className="text-[9px] text-[#3a5a3a] border border-[#2a4a2a] rounded px-1">
+              ELECTRON
+            </span>
+          )}
+        </div>
         <div className="text-[11px] text-[#5a5a8e] mb-3">
           現在のプロジェクト:{' '}
           <span className="text-[#aaaacc]">{projectName}.geography</span>
         </div>
         <div className="flex gap-2">
-          <ProjectButton onClick={handleSave}>
-            {saved ? '✓ Saved' : 'Save'}
-          </ProjectButton>
+          <ProjectButton onClick={handleSave}>{saveLabel}</ProjectButton>
           <ProjectButton onClick={handleSaveAs}>Save As...</ProjectButton>
           <ProjectButton onClick={handleLoad}>Load</ProjectButton>
         </div>

@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url'
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
+  // Electron の dist/index.html ロードに必要な相対パス指定
+  base: './',
   plugins: [react()],
   resolve: {
     alias: {
