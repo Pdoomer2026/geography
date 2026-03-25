@@ -393,6 +393,62 @@ export class Engine {
     return registry.list().map((p) => ({ id: p.id, name: p.name }))
   }
 
+  // ── 録画 API ──────────────────────────────────────────────────────
+
+  private mediaRecorder: MediaRecorder | null = null
+  private recordingChunks: Blob[] = []
+  isRecording: boolean = false
+
+  /**
+   * Program canvas から captureStream して MediaRecorder を開始する。
+   * spec: 要件定義書 §27
+   */
+  startRecording(): void {
+    if (this.isRecording) return
+
+    // layer-1 の canvas（Program の主レイヤー）から stream を取得
+    const layers = layerManager.getLayers()
+    const programLayer = layers.find((l) => !l.mute) ?? layers[0]
+    if (!programLayer) return
+
+    const stream = (programLayer.canvas as HTMLCanvasElement).captureStream(60)
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9'
+      : 'video/webm'
+
+    this.recordingChunks = []
+    this.mediaRecorder = new MediaRecorder(stream, { mimeType })
+
+    this.mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) this.recordingChunks.push(e.data)
+    }
+
+    this.mediaRecorder.start(100) // 100ms ごとにチャンクを生成
+    this.isRecording = true
+  }
+
+  /**
+   * 録画を停止して WebM Blob を返す。
+   * 呼び出し元が IPC 経由でファイル保存を行う。
+   */
+  stopRecording(): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      if (!this.mediaRecorder || !this.isRecording) {
+        resolve(null)
+        return
+      }
+
+      this.mediaRecorder.onstop = () => {
+        const blob = new Blob(this.recordingChunks, { type: 'video/webm' })
+        this.recordingChunks = []
+        this.isRecording = false
+        resolve(blob)
+      }
+
+      this.mediaRecorder.stop()
+    })
+  }
+
   /** レイヤーに Plugin をセット。pluginId が null なら None（plugin=null・mute=true） */
   setLayerPlugin(layerId: string, pluginId: string | null): void {
     if (pluginId === null) {

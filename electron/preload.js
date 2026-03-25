@@ -68,9 +68,16 @@ contextBridge.exposeInMainWorld('geoAPI', {
     if (handlers.onToggleMixerWindow)    ipcRenderer.on('menu:toggle-mixer-window',     () => handlers.onToggleMixerWindow())
     if (handlers.onToggleFxWindow)       ipcRenderer.on('menu:toggle-fx-window',        () => handlers.onToggleFxWindow())
     if (handlers.onToggleMacroKnobWindow) ipcRenderer.on('menu:toggle-macro-knob-window', () => handlers.onToggleMacroKnobWindow())
-    if (handlers.onHideAllWindows)       ipcRenderer.on('menu:hide-all-windows',        () => handlers.onHideAllWindows())
-    if (handlers.onShowAllWindows)       ipcRenderer.on('menu:show-all-windows',        () => handlers.onShowAllWindows())
+    if (handlers.onHideAllWindows)        ipcRenderer.on('menu:hide-all-windows',        () => handlers.onHideAllWindows())
+    if (handlers.onShowAllWindows)        ipcRenderer.on('menu:show-all-windows',        () => handlers.onShowAllWindows())
+    if (handlers.onStartRecording)        ipcRenderer.on('menu:start-recording',         () => handlers.onStartRecording())
+    if (handlers.onStopRecording)         ipcRenderer.on('menu:stop-recording',          () => handlers.onStopRecording())
   },
+
+  // ── 録画 ──────────────────────────────────────────────────
+
+  saveRecording: (buffer, defaultName) =>
+    ipcRenderer.invoke('save-recording', buffer, defaultName),
 
   /**
    * onMenuEvents で登録したリスナーをすべて解除する
@@ -86,5 +93,7 @@ contextBridge.exposeInMainWorld('geoAPI', {
     ipcRenderer.removeAllListeners('menu:toggle-macro-knob-window')
     ipcRenderer.removeAllListeners('menu:hide-all-windows')
     ipcRenderer.removeAllListeners('menu:show-all-windows')
+    ipcRenderer.removeAllListeners('menu:start-recording')
+    ipcRenderer.removeAllListeners('menu:stop-recording')
   },
 })

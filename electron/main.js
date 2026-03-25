@@ -23,6 +23,7 @@ const isDev = !app.isPackaged
 const GEO_DIR = join(homedir(), 'Documents', 'GeoGraphy')
 const PROJECTS_DIR = join(GEO_DIR, 'projects')
 const PRESETS_DIR = join(GEO_DIR, 'presets')
+const RECORDINGS_DIR = join(GEO_DIR, 'recordings')
 const AUTOSAVE_PATH = join(GEO_DIR, 'autosave.geography')
 const RECENT_PATH   = join(GEO_DIR, 'recent.json')
 
@@ -198,6 +199,17 @@ function buildMenu(recentItems = []) {
           click: () => menuSaveAs(),
         },
         { type: 'separator' },
+        {
+          label: 'Start Recording',
+          accelerator: 'Cmd+R',
+          click: () => sendToRenderer('menu:start-recording'),
+        },
+        {
+          label: 'Stop Recording',
+          accelerator: 'Cmd+Shift+R',
+          click: () => sendToRenderer('menu:stop-recording'),
+        },
+        { type: 'separator' },
         { label: 'Close Window', role: 'close' },
       ],
     },
@@ -272,7 +284,7 @@ function buildMenu(recentItems = []) {
 
 /** アプリ起動時に必要なディレクトリを作成 */
 async function ensureDirectories() {
-  for (const dir of [GEO_DIR, PROJECTS_DIR, PRESETS_DIR]) {
+  for (const dir of [GEO_DIR, PROJECTS_DIR, PRESETS_DIR, RECORDINGS_DIR]) {
     if (!existsSync(dir)) {
       await mkdir(dir, { recursive: true })
     }
@@ -352,6 +364,30 @@ ipcMain.handle('autosave', async (_event, data) => {
   await writeFile(AUTOSAVE_PATH, data, 'utf-8')
   ipcMain.emit('autosave-complete')
   return { success: true }
+})
+
+/**
+ * 録画データ（ArrayBuffer）を recordings/ に WebM として保存する。
+ * 保存先ダイアログを表示してユーザーがファイル名を決める。
+ */
+ipcMain.handle('save-recording', async (_event, buffer, defaultName) => {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (!win) return { canceled: true }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  const fileName = defaultName ?? `recording-${timestamp}.webm`
+
+  const result = await dialog.showSaveDialog(win, {
+    title: '録画を保存',
+    defaultPath: join(RECORDINGS_DIR, fileName),
+    filters: [{ name: 'WebM Video', extensions: ['webm'] }],
+  })
+
+  if (result.canceled || !result.filePath) return { canceled: true }
+
+  const nodeBuffer = Buffer.from(buffer)
+  await writeFile(result.filePath, nodeBuffer)
+  return { filePath: result.filePath, canceled: false }
 })
 
 /** autosave.geography を読み込む（なければ null） */

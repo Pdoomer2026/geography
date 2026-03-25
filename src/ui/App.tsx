@@ -11,6 +11,7 @@ export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
   const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true })
   const [prefsOpen, setPrefsOpen] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
   const currentFilePathRef = useRef<string | null>(null)
 
   // Electron 自動保存（起動時復元 + 終了時保存）
@@ -90,6 +91,22 @@ export default function App() {
 
       // View > Show All Windows（S）
       onShowAllWindows: () => setUiVisible({ macro: true, fx: true, mixer: true }),
+
+      // File > Start Recording（⌘R）
+      onStartRecording: () => {
+        engine.startRecording()
+        setIsRecording(true)
+      },
+
+      // File > Stop Recording（⌘⇧R）
+      onStopRecording: async () => {
+        const blob = await engine.stopRecording()
+        setIsRecording(false)
+        if (!blob || !window.geoAPI) return
+        const arrayBuffer = await blob.arrayBuffer()
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+        await window.geoAPI.saveRecording(arrayBuffer, `recording-${timestamp}.webm`)
+      },
     })
 
     return () => {
@@ -177,6 +194,16 @@ export default function App() {
       {uiVisible.macro && <MacroKnobSimpleWindow />}
       {uiVisible.fx && <FxSimpleWindow />}
       {uiVisible.mixer && <MixerSimpleWindow />}
+
+      {/* REC インジケーター */}
+      {isRecording && (
+        <div
+          className="fixed top-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono select-none pointer-events-none"
+          style={{ zIndex: 500, background: 'rgba(180,0,0,0.85)', color: '#fff' }}
+        >
+          <span style={{ animation: 'pulse 1s infinite' }}>●</span> REC
+        </div>
+      )}
 
       {/* 操作ヒント */}
       <div

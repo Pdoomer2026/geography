@@ -59,10 +59,22 @@ declare global {
         onToggleMacroKnobWindow?: () => void
         onHideAllWindows?: () => void
         onShowAllWindows?: () => void
+
+        // 録画イベント
+        onStartRecording?: () => void
+        onStopRecording?: () => void
       }): void
 
       /** onMenuEvents で登録したリスナーをすべて解除する */
       removeMenuListeners(): void
+
+      // ── 録画 ─────────────────────────────────────────────
+
+      /**
+       * 録画データ（ArrayBuffer）を recordings/ に WebM として保存する。
+       * 保存先パスを返す。
+       */
+      saveRecording(buffer: ArrayBuffer, defaultName: string): Promise<{ filePath?: string; canceled: boolean }>
     }
   }
 }
