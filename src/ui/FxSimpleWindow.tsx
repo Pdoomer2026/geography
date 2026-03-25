@@ -7,11 +7,16 @@ const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
 type LayerId = (typeof LAYER_TABS)[number]
 
 /**
- * FxControlPanel
- * [L1][L2][L3] タブで対象レイヤーを切り替えて FX スタックを操作するパネル。
+ * FxSimpleWindow — FX Plugin のデフォルト最小 UI（Simple Window）
+ *
+ * 旧名称: FxControlPanel
+ * View メニュー（⌘2）またはキーボード「2」で表示/非表示を切り替えられる。
+ * カスタム Window Plugin がないときのフォールバックとして機能する（v2〜）。
+ *
+ * [L1][L2][L3] タブで対象レイヤーを切り替えて FX スタックを操作する。
  * 折りたたみ可能。200ms ポーリングで FX 状態を同期。
  */
-export function FxControlPanel() {
+export function FxSimpleWindow() {
   const [collapsed, setCollapsed] = useState(false)
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
   const [fxPlugins, setFxPlugins] = useState<FXPlugin[]>([])
@@ -48,7 +53,7 @@ export function FxControlPanel() {
           style={{ cursor: 'grab' }}
         >
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-[#7878aa] tracking-widest">FX CONTROLS</span>
+            <span className="text-[10px] text-[#7878aa] tracking-widest">FX SIMPLE WINDOW</span>
             {/* レイヤー切り替えタブ */}
             <div className="flex gap-1">
               {LAYER_TABS.map((id, i) => (

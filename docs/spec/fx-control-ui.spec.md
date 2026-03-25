@@ -1,16 +1,16 @@
 # FX Control UI Spec
 
 > SSoT: このファイル
-> 対応実装: `src/ui/FxControlPanel.tsx` / `src/core/engine.ts`
+> 対応実装: `src/ui/FxSimpleWindow.tsx` / `src/core/engine.ts`
 > 担当エージェント: Claude Code
-> 状態: ✅ Day17実装対象
+> 状態: ✅ 実装済み
 
 ---
 
 ## 1. Purpose（目的）
 
-layer-1 に統合済みの FX スタック（10 FX）を、
-ブラウザ上でリアルタイムに ON/OFF 切り替え・パラメーター調整できる UI パネルを提供する。
+各レイヤーに統合済みの FX スタック（10 FX）を、
+ブラウザ上でリアルタイムに ON/OFF 切り替え・パラメーター調整できる Simple Window を提供する。
 
 ---
 
@@ -21,21 +21,22 @@ layer-1 に統合済みの FX スタック（10 FX）を、
 - MUST: OFF の FX はトグルのみ表示（スライダー非表示）
 - MUST: FX の順序は `FX_STACK_ORDER` に従って表示する（変更禁止）
 - MUST: `any` を使わない
-- MUST: パネルは閉じることができる（SimpleMixer とは異なり折りたたみ可）
+- MUST: View メニュー（⌘2）またはキーボード「2」で表示/非表示を切り替えられること
+- MUST: Mixer Simple Window とは異なり折りたたみ可能（collapsed state を持つ）
 
 ---
 
-## 3. Engine API（engine.ts に追加するメソッド）
+## 3. Engine API
 
 ```typescript
-/** layer-1 の FX プラグイン一覧を返す（表示用） */
-engine.getFxPlugins(): FXPlugin[]
+/** 指定レイヤーの FX プラグイン一覧を返す（表示用） */
+engine.getFxPlugins(layerId: string): FXPlugin[]
 
-/** layer-1 の指定 FX の enabled を切り替える */
-engine.setFxEnabled(fxId: string, enabled: boolean): void
+/** 指定レイヤーの指定 FX の enabled を切り替える */
+engine.setFxEnabled(fxId: string, enabled: boolean, layerId: string): void
 
-/** layer-1 の指定 FX の指定パラメーター値を更新する */
-engine.setFxParam(fxId: string, paramKey: string, value: number): void
+/** 指定レイヤーの指定 FX の指定パラメーター値を更新する */
+engine.setFxParam(fxId: string, paramKey: string, value: number, layerId: string): void
 ```
 
 ---
@@ -43,12 +44,13 @@ engine.setFxParam(fxId: string, paramKey: string, value: number): void
 ## 4. Component Interface
 
 ```typescript
-// src/ui/FxControlPanel.tsx
-export function FxControlPanel(): JSX.Element
+// src/ui/FxSimpleWindow.tsx
+export function FxSimpleWindow(): JSX.Element
 ```
 
 - props なし（engine シングルトンから直接取得）
-- 200ms ポーリングで FX 状態を同期（SimpleMixer と同パターン）
+- 200ms ポーリングで FX 状態を同期
+- [L1][L2][L3] タブで対象レイヤーを切り替え
 
 ---
 
@@ -56,7 +58,7 @@ export function FxControlPanel(): JSX.Element
 
 ```
 ┌───────────────────────────────────┐
-│  FX CONTROLS               [−]   │  ← 折りたたみボタン
+│  FX SIMPLE WINDOW  [L1][L2][L3] [−]│  ← レイヤータブ・折りたたみボタン
 ├───────────────────────────────────┤
 │  AfterImage  [●ON ]               │
 │    damp      ──●──────  0.85      │
@@ -79,9 +81,9 @@ export function FxControlPanel(): JSX.Element
 └───────────────────────────────────┘
 ```
 
-- 位置: 画面右側固定（`fixed right-4 top-4`）
+- 位置: 画面右側（useDraggable.ts でドラッグ可能）
 - 幅: 280px
-- スタイル: SimpleMixer と同系統（`bg-[#0f0f1e] border border-[#2a2a4e]`）
+- スタイル: `bg-[#0f0f1e] border border-[#2a2a4e]`
 - z-index: 50
 
 ---
@@ -89,6 +91,7 @@ export function FxControlPanel(): JSX.Element
 ## 6. 状態管理
 
 - `collapsed: boolean` — パネルの折りたたみ状態（useState）
+- `activeLayer: LayerId` — 表示中のレイヤー（useState）
 - `fxPlugins: FXPlugin[]` — 200ms ポーリングで engine から取得（useState + useEffect）
 - パラメーター変更は即時 engine に反映（onChange → `engine.setFxParam()`）
 - ON/OFF 切り替えは即時反映（onChange → `engine.setFxEnabled()`）
@@ -99,18 +102,18 @@ export function FxControlPanel(): JSX.Element
 
 ```typescript
 // TC-1: engine.getFxPlugins() が FX_STACK_ORDER 順で 10 件返す
-const plugins = engine.getFxPlugins()
+const plugins = engine.getFxPlugins('layer-1')
 expect(plugins).toHaveLength(10)
 expect(plugins[0].id).toBe('after-image')
 expect(plugins[9].id).toBe('color-grading')
 
 // TC-2: engine.setFxEnabled() で fxStack の enabled が変わる
-engine.setFxEnabled('bloom', false)
-expect(engine.getFxPlugins().find(p => p.id === 'bloom')?.enabled).toBe(false)
+engine.setFxEnabled('bloom', false, 'layer-1')
+expect(engine.getFxPlugins('layer-1').find(p => p.id === 'bloom')?.enabled).toBe(false)
 
 // TC-3: engine.setFxParam() で params の value が変わる
-engine.setFxParam('bloom', 'strength', 1.5)
-expect(engine.getFxPlugins().find(p => p.id === 'bloom')?.params.strength.value).toBe(1.5)
+engine.setFxParam('bloom', 'strength', 1.5, 'layer-1')
+expect(engine.getFxPlugins('layer-1').find(p => p.id === 'bloom')?.params.strength.value).toBe(1.5)
 ```
 
 ---
@@ -118,6 +121,7 @@ expect(engine.getFxPlugins().find(p => p.id === 'bloom')?.params.strength.value)
 ## 8. References
 
 - `docs/spec/fx-stack.spec.md`（FX 順序・Interface）
+- `docs/spec/simple-window.spec.md`（Simple Window の概念）
 - `src/core/fxStack.ts`（setEnabled / getPlugin / getOrdered）
-- `src/core/engine.ts`（getLayers で layer-1 の fxStack にアクセス）
-- `src/plugins/windows/simple-mixer/SimpleMixer.tsx`（スタイル・ポーリングパターンの参考）
+- `src/core/engine.ts`（getLayers で各レイヤーの fxStack にアクセス）
+- `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx`（スタイル・ポーリングパターンの参考）

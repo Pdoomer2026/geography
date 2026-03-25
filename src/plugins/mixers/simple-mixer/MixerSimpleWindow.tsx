@@ -18,12 +18,15 @@ const BLEND_MODES: { value: CSSBlendMode; label: string }[] = [
 ]
 
 /**
- * SimpleMixer — v1 固定実装の Mixer UI
+ * MixerSimpleWindow — v1 固定実装の Mixer Simple Window
  *
- * 閉じることができない（MixerPlugin ルール）。
- * v1 から MixerPlugin Interface に準拠した実装にする（v2 で Plugin 化するとき設計変更ゼロにするため）。
+ * MixerPlugin のデフォルト最小 UI。
+ * カスタム Window Plugin がないときのフォールバックとして機能する（v2〜）。
+ * View メニュー（⌘3）またはキーボード「3」で表示/非表示を切り替えられる。
+ *
+ * v1 の時点から MixerPlugin Interface に準拠した実装にする（v2 で Plugin 化するとき設計変更ゼロにするため）。
  */
-export function SimpleMixer() {
+export function MixerSimpleWindow() {
   const [crossfader, setCrossfader] = useState(0)
   const [transitionId, setTransitionId] = useState(AVAILABLE_TRANSITIONS[0].id)
   const [displayBpm, setDisplayBpm] = useState(128)
@@ -80,7 +83,7 @@ export function SimpleMixer() {
     }
   }, [])
 
-  // タスク 2: クロスフェーダー変化時に execute() → programBus.load()
+  // クロスフェーダー変化時に execute() → programBus.load()
   function handleCrossfaderChange(value: number) {
     setCrossfader(value)
     const from = previewBus.getState()
@@ -92,7 +95,7 @@ export function SimpleMixer() {
     programBus.load(blended)
   }
 
-  // タスク 3: Transition 切り替え時にクロスフェーダーを 0 にリセット・engine に通知
+  // Transition 切り替え時にクロスフェーダーを 0 にリセット・engine に通知
   function handleTransitionChange(id: string) {
     setTransitionId(id)
     setCrossfader(0)
@@ -136,7 +139,7 @@ export function SimpleMixer() {
         className="text-[10px] text-[#7878aa] mb-2 tracking-widest"
         style={{ cursor: 'grab' }}
       >
-        SIMPLE MIXER
+        MIXER SIMPLE WINDOW
       </div>
 
       {/* バス表示エリア */}

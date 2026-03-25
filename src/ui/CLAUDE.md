@@ -1,9 +1,53 @@
-# src/ui - CLAUDE.md
+# src/ui - CLAUDE.md v2
 
 ## 役割
 
-React + shadcn/ui + Framer Motion で GeoGraphy の UI を実装する。
+React + Tailwind CSS で GeoGraphy の UI を実装する。
 Three.js Canvas の上に React UI をオーバーレイする。
+
+---
+
+## Window / Panel 命名原則
+
+| 名称 | 定義 | 例 |
+|---|---|---|
+| **Window** | Plugin エコシステムの UI・コントリビューターがデザインできる | Mixer Simple Window / FX Simple Window |
+| **Panel** | アプリ固定の小窓・コントリビューターが触れない | Preferences Panel |
+| **Simple Window** | 各 Plugin のデフォルト最小 UI・カスタム Window Plugin がないときのフォールバック | Mixer Simple Window |
+
+すべての Window は **View メニュー**から表示/非表示を切り替えられる。
+
+---
+
+## Simple Window 命名原則
+
+Simple Window のファイル名は `[Name]SimpleWindow.tsx`。
+
+### Simple Window 一覧（v1）
+
+| Simple Window 名 | 対応 Plugin / Manager | ファイル |
+|---|---|---|
+| Mixer Simple Window | MixerPlugin | `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx` |
+| FX Simple Window | FX Plugin | `src/ui/FxSimpleWindow.tsx` |
+| Macro Knob Simple Window | MacroKnobManager | `src/ui/MacroKnobSimpleWindow.tsx` |
+
+---
+
+## View メニューとの連携
+
+すべての Simple Window は View メニューから表示/非表示を切り替えられる。
+
+| キー / メニュー | 対象 |
+|---|---|
+| `1` / View > Macro Knob Simple Window（⌘1） | MacroKnobSimpleWindow |
+| `2` / View > FX Simple Window（⌘2） | FxSimpleWindow |
+| `3` / View > Mixer Simple Window（⌘3） | MixerSimpleWindow |
+| `H` / View > Hide All Windows | 全 Window 非表示 |
+| `S` / View > Show All Windows | 全 Window 表示 |
+| `F` | 全 Window 非表示 + フルスクリーン |
+| `P` | Preferences Panel 開閉 |
+
+View メニューのイベントは `electron/main.js` → IPC → `electron/preload.js` → `geoAPI.onMenuEvents` → `App.tsx` の流れで受け取る。
 
 ---
 
@@ -11,15 +55,14 @@ Three.js Canvas の上に React UI をオーバーレイする。
 
 ```
 src/ui/
-├── App.tsx               ← Canvas（全レイヤー重ね）+ UI のルートレイアウト
-├── MenuBar.tsx           ← File / View / Plugins / Help（固定・全 Mixer 共通）
-├── MacroPanel.tsx        ← 32ノブ・4列アコーディオン・[L1][L2][L3][+][ALL]（固定）
-├── MacroKnob.tsx         ← LED ノブ + 割り当て表示・右クリックで AssignDialog
-├── AssignDialog.tsx      ← パラメーター割り当てダイアログ（shadcn/ui Dialog）
-├── BpmDisplay.tsx        ← 常時表示・ビート位相点滅・Ableton Link 状態
-├── FloatingWindow.tsx    ← フローティングウィンドウ基底・ドラッグ・最小化
-├── WindowManager.tsx     ← 全 Window の開閉状態管理
-└── LedKnob.tsx           ← 円形ノブ + LED インジケーター（BCR2000 モチーフ）
+├── App.tsx                    ← Canvas + Simple Window 群のルートレイアウト
+├── FxSimpleWindow.tsx         ← FX Simple Window
+├── MacroKnobSimpleWindow.tsx  ← Macro Knob Simple Window
+├── PreferencesPanel.tsx       ← Preferences Panel（アプリ固定・コントリビューター触れない）
+├── useAutosave.ts             ← 終了時保存・起動時復元
+└── useDraggable.ts            ← フローティングウィンドウのドラッグ
+
+※ Mixer Simple Window は src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx
 ```
 
 ---
@@ -28,78 +71,31 @@ src/ui/
 
 ```
 ┌─────────────────────────────────────┐
-│ MenuBar（最上部・常時表示・固定）        │
+│ Electron titleBar（hiddenInset）     │
 ├─────────────────────────────────────┤
 │                                     │
-│  Canvas エリア（Three.js 全レイヤー）  │
-│  SimpleMixer（閉じられない・常時表示）  │
-│  フローティングウィンドウ（重なる）      │
+│  Canvas エリア（Three.js 全レイヤー）│
+│  Mixer Simple Window（フローティング）│
+│  FX Simple Window（フローティング）  │
+│  Macro Knob Simple Window（フローティング）│
+│  Preferences Panel（フローティング） │
 │                                     │
-├─────────────────────────────────────┤
-│ MacroPanel（32ノブ・4列アコーディオン） │
-│ [L1][L2][L3][+][ALL]   BPM ● 128.0  │
 └─────────────────────────────────────┘
-```
-
-**MenuBar とマクロノブパネルは固定。Plugin が変更してはいけない。**
-
----
-
-## マクロノブの設計
-
-```typescript
-// MacroKnob.tsx
-interface MacroAssign {
-  paramId: string
-  min: number
-  max: number
-  curve: 'linear'  // v2 で exp / log / s-curve を追加
-}
-
-interface MacroKnobConfig {
-  id: string
-  name: string      // ユーザーが自由に命名（例：CHAOS）
-  midiCC: number    // MIDI CC 番号
-  assigns: MacroAssign[]  // 最大3つ
-}
-
-// MIDI 0〜127 → 任意の範囲にマッピング
-const map = (midi: number, min: number, max: number) =>
-  min + (midi / 127) * (max - min)
 ```
 
 ---
 
 ## デザインルール
 
-- **カラーパレット**: 暗背景（#0a0a14）+ 発光ライン（#a0c4ff）
-- **フォント**: monospace 系（UI）/ sans-serif（ラベル）
-- **アニメーション**: Framer Motion で統一
-- **ノブ**: LedKnob.tsx（BCR2000 モチーフ）
-- **アコーディオン**: Framer Motion の AnimatePresence + height アニメーション
-- **状態保存**: アコーディオンの開閉状態は preferences.md に保存
-
----
-
-## shadcn/ui コンポーネントの使い方
-
-```typescript
-// Dialog（AssignDialog で使用）
-import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog'
-
-// ContextMenu（ノブ右クリックで使用）
-import { ContextMenu, ContextMenuTrigger, ContextMenuContent } from '@/components/ui/context-menu'
-
-// Toast（レイヤー上限到達時）
-import { useToast } from '@/components/ui/use-toast'
-```
+- **カラーパレット**: 暗背景（`#0a0a14`）+ 発光ライン（`#a0c4ff`）
+- **フォント**: monospace 系（UI）
+- **ドラッグ**: `useDraggable.ts` で統一
 
 ---
 
 ## 注意事項
 
-- `<form>` タグは使用しない。onClick / onChange で代替
+- `<form>` タグは使用しない（onClick / onChange で代替）
 - localStorage は使用しない（Claude.ai 環境では動作しない）
 - React state（useState / useReducer）でセッション内状態を管理
-- 永続化は preferences.md への書き出しで行う
-- SimpleMixer は FloatingWindow.tsx を基底にするが閉じるボタンを持たない
+- Preferences Panel は Panel（アプリ固定）であり Window ではない

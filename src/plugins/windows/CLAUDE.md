@@ -1,127 +1,71 @@
-# src/plugins/windows - CLAUDE.md
+# src/plugins/windows - CLAUDE.md v2
 
 ## 役割
 
-フローティングウィンドウを React コンポーネントとして実装する。
+Window Plugin（各 Plugin へのカスタム UI）を管理する。
+コントリビューターが開発・PR で追加できる領域。
 
-**「React が書ける = Window Plugin が作れる」**
-コントリビューターが参加しやすい設計。
+spec: `docs/spec/window-plugin.spec.md`
+
+**v1 では空（Window Plugin なし）。v2 から本格導入。**
+
+---
+
+## Window と Simple Window の違い
+
+| 名称 | 定義 | v1 |
+|---|---|---|
+| **Simple Window** | 各 Plugin に付属するデフォルト最小 UI | ✅ 実装済み |
+| **Window Plugin** | 各 Plugin へのカスタム UI・事前にデータ渡し先を宣言 | v2〜 |
+
+Simple Window は `src/ui/` または `src/plugins/mixers/` に置く。
+Window Plugin は `src/plugins/windows/` に置く。
 
 ---
 
 ## Window Plugin の定義
 
 ```typescript
-interface WindowPlugin extends PluginBase {
-  component: React.FC  // React コンポーネントとして実装
-}
-```
-
----
-
-## Mixer Plugin ルール（Window Plugin の特殊ケース）
-
-SimpleMixer は Window Plugin の一種として実装するが、以下の制約がある：
-
-- **閉じることができない**（常時表示・全 Mixer Plugin 共通）
-- Transition Plugin の選択 UI（プルダウン）を必ず持つ
-- クロスフェーダーを必ず持つ
-- **v1 の時点から MixerPlugin Interface に準拠した実装にすること**（v2 で Plugin 化するとき設計変更ゼロにするため）
-
-```typescript
-interface MixerPlugin {
+interface WindowPlugin {
   id: string
   name: string
   renderer: string
   enabled: boolean
-  component: React.FC  // 閉じられない Window Plugin
+  targetPluginId: string   // データを渡す対象 Plugin の ID（事前に宣言）
+  component: React.FC<WindowPluginProps>
 }
 ```
 
 ---
 
-## v1 実装 Window Plugin 一覧
-
-| ウィンドウ | 主なセクション |
-|---|---|
-| **SimpleMixer** | Program/Preview バス・縦フェーダー・Transition プルダウン・クロスフェーダー（閉じられない） |
-| GeometryWindow | SHAPE / COLOR（Hue・Alpha）/ RECOMMENDED FX / RECOMMENDED PARTICLES / LIGHT / AUTO / MIDI MAPPING |
-| CameraWindow | POSITION / ROTATION / AUTO / MIDI MAPPING |
-| FXWindow | 全 FX リスト + ColorGrading + AUTO + MIDI MAPPING |
-| ColorGradingWindow | Saturation / Contrast / Brightness（v2：Curves / LUT） |
-| LayerWindow | レイヤー追加削除・opacity・blendMode・GPU 使用率・FPS |
-| PresetWindow | プリセット一覧・New / Import / Export |
-| TempoWindow | BPM・Ableton Link 状態・Tap / Reset |
-| PreferencesWindow | MIDI / Output / Tempo / Camera / Visual Defaults / Modulator |
-
----
-
-## SimpleMixer の UI 構成
+## フォールバック動作
 
 ```
-┌─────────────────────────────────────┐
-│  PROGRAM          PREVIEW           │
-│  ┌────┐┌────┐┌────┐  ┌──────────┐  │
-│  │    ││    ││    │  │ サムネイル│  │
-│  │ L1 ││ L2 ││ L3 │  │ 320×180  │  │
-│  │ ▓▓ ││ ▓▓ ││ ▓▓ │  └──────────┘  │
-│  └────┘└────┘└────┘                │
-│  Transition: [ CrossFade       ▼ ] │
-│  ════════════╪════════ CROSSFADER  │
-└─────────────────────────────────────┘
+Window Plugin が有効（enabled=true）？
+  → YES: 対応する Simple Window を非表示にする
+  → NO:  対応する Simple Window を表示する（フォールバック）
 ```
 
 ---
 
-## アコーディオン実装
+## ディレクトリ構成（v2〜）
 
-```typescript
-// Framer Motion で開閉アニメーション
-import { AnimatePresence, motion } from 'framer-motion'
-
-const AccordionSection: React.FC<{ title: string; defaultOpen?: boolean }> = 
-  ({ title, children, defaultOpen = false }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
-  return (
-    <div>
-      <button onClick={() => setIsOpen(!isOpen)}>
-        {isOpen ? '▼' : '▶'} {title}
-      </button>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
+```
+src/plugins/windows/
+├── CLAUDE.md
+└── [plugin-name]/
+    ├── index.ts                 ← Window Plugin 登録エントリー
+    ├── [Name]Window.tsx         ← カスタム UI コンポーネント
+    ├── CLAUDE.md
+    └── README.md                ← データ渡し先の宣言（MUST）
 ```
 
 ---
 
-## Geometry ウィンドウの構成
+## MUST ルール
 
-```
-▼ SHAPE
-▶ COLOR（Hue / Alpha のみ）
-▼ RECOMMENDED FX（template-basic.md から読む）
-▶ RECOMMENDED PARTICLES（template-basic.md から読む）
-▶ LIGHT
-▶ AUTO
-▶ MIDI MAPPING
-```
-
----
-
-## 注意事項
-
-- `<form>` タグは使用しない
-- アコーディオンの開閉状態は preferences.md に保存
-- FloatingWindow.tsx を基底として使う（ドラッグ・最小化）
-- SimpleMixer だけは閉じるボタンを表示しない
+- MUST: Window Plugin は `targetPluginId` を必ず宣言すること
+- MUST: `README.md` にデータ渡し先を明記すること
+- MUST: Window Plugin が有効なとき、対応する Simple Window は非表示にすること
+- MUST: エンジン API を通じてのみ Parameter Store を操作すること
+- MUST: `<form>` タグを使用しないこと

@@ -64,7 +64,6 @@ function sendToRenderer(channel, ...args) {
 
 /**
  * メニューから呼び出す Save 処理
- * renderer に 'menu:save' を送信 → App.tsx が engine.buildProject() して IPC で返送
  */
 async function menuSave() {
   sendToRenderer('menu:save')
@@ -113,7 +112,6 @@ async function menuOpenRecent(filePath) {
     sendToRenderer('menu:open', filePath, data)
     await addRecent(filePath)
   } catch {
-    // ファイルが見つからない場合はインフォダイアログを表示
     const win = BrowserWindow.getAllWindows()[0]
     if (win) {
       dialog.showMessageBox(win, {
@@ -148,6 +146,7 @@ function buildMenu(recentItems = []) {
     : [{ label: '(なし)', enabled: false }]
 
   const template = [
+    // ── GeoGraphy メニュー ──────────────────────────────────────
     {
       label: app.name,
       submenu: [
@@ -168,6 +167,8 @@ function buildMenu(recentItems = []) {
         { label: `Quit ${app.name}`, role: 'quit' },
       ],
     },
+
+    // ── File メニュー ───────────────────────────────────────────
     {
       label: 'File',
       submenu: [
@@ -200,24 +201,65 @@ function buildMenu(recentItems = []) {
         { label: 'Close Window', role: 'close' },
       ],
     },
+
+    // ── Edit メニュー ───────────────────────────────────────────
     {
       label: 'Edit',
       role: 'editMenu',
     },
+
+    // ── View メニュー（Day29 新設）──────────────────────────────
+    // Simple Window の表示/非表示を切り替える。
+    // spec: docs/spec/electron.spec.md §3 / docs/spec/simple-window.spec.md §5
     {
       label: 'View',
       submenu: [
-        { label: 'Reload', role: 'reload' },
-        { label: 'Force Reload', role: 'forceReload' },
-        ...(isDev ? [{ label: 'Toggle Developer Tools', role: 'toggleDevTools' }] : []),
+        {
+          label: 'Mixer Simple Window',
+          accelerator: 'Cmd+3',
+          click: () => sendToRenderer('menu:toggle-mixer-window'),
+        },
+        {
+          label: 'FX Simple Window',
+          accelerator: 'Cmd+2',
+          click: () => sendToRenderer('menu:toggle-fx-window'),
+        },
+        {
+          label: 'Macro Knob Simple Window',
+          accelerator: 'Cmd+1',
+          click: () => sendToRenderer('menu:toggle-macro-knob-window'),
+        },
         { type: 'separator' },
+        {
+          label: 'Hide All Windows',
+          accelerator: 'H',
+          click: () => sendToRenderer('menu:hide-all-windows'),
+        },
+        {
+          label: 'Show All Windows',
+          accelerator: 'S',
+          click: () => sendToRenderer('menu:show-all-windows'),
+        },
+        { type: 'separator' },
+        ...(isDev
+          ? [
+              { label: 'Reload', role: 'reload' },
+              { label: 'Force Reload', role: 'forceReload' },
+              { label: 'Toggle Developer Tools', role: 'toggleDevTools' },
+              { type: 'separator' },
+            ]
+          : []),
         { label: 'Toggle Full Screen', role: 'togglefullscreen' },
       ],
     },
+
+    // ── Window メニュー ─────────────────────────────────────────
     {
       label: 'Window',
       role: 'windowMenu',
     },
+
+    // ── Help メニュー ───────────────────────────────────────────
     {
       label: 'Help',
       role: 'help',
@@ -237,7 +279,7 @@ async function ensureDirectories() {
   }
 }
 
-// before-quit で使う終了フラグ（グローバル変数を避けクロージャで管理）
+// before-quit で使う終了フラグ
 let autosaveDone = false
 
 function createWindow() {
@@ -250,21 +292,16 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
-
-      // ── セキュリティ設定（権限最小化）──────────────────────────
-      nodeIntegration: false,   // レンダラーから Node.js を直接使わせない
-      contextIsolation: true,   // preload との境界を明確に保つ
-      sandbox: true,            // OS レベルでレンダラーを隔離
-      // ────────────────────────────────────────────────────────
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
     },
   })
 
   if (isDev) {
-    // 開発時: Vite dev server をロード
     win.loadURL('http://localhost:5173')
     win.webContents.openDevTools({ mode: 'detach' })
   } else {
-    // 本番時: ビルド済み index.html をロード
     win.loadFile(join(__dirname, '../dist/index.html'))
   }
 
@@ -331,18 +368,6 @@ app.whenReady().then(async () => {
   buildMenu(recentItems)
   createWindow()
 
-  /**
-   * before-quit: renderer に自動保存データを要求し、
-   * autosave IPC 完了後に再度 quit() する。
-   *
-   * フロー:
-   *   1. before-quit イベント → event.preventDefault() で終了を一時停止
-   *   2. renderer に 'request-autosave-data' を送信
-   *   3. renderer が engine.buildProject() → geoAPI.autosave(json) を実行
-   *   4. autosave IPC ハンドラーが完了 → 'autosave-complete' イベントを emit
-   *   5. ここで autosaveDone=true にして app.quit() を再呼び出し
-   *   6. タイムアウト（3秒）: renderer が応答しなくても強制終了
-   */
   app.on('before-quit', (event) => {
     if (autosaveDone) return
 
@@ -363,17 +388,14 @@ app.whenReady().then(async () => {
       app.quit()
     }
 
-    // autosave 完了通知を一度だけ受け取る
     ipcMain.once('autosave-complete', finish)
 
-    // 3秒タイムアウト（renderer が応答しない場合の安全弁）
     timeoutId = setTimeout(() => {
       ipcMain.removeListener('autosave-complete', finish)
       autosaveDone = true
       app.quit()
     }, 3000)
 
-    // renderer に自動保存を依頼
     allWindows[0].webContents.send('request-autosave-data')
   })
 

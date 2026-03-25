@@ -1,12 +1,16 @@
-# GeoGraphy - CLAUDE.md v10
+# アーカイブ：geography/CLAUDE.md v9
+# アーカイブ日：2026-03-24（Day28壁打ち前・v1.9更新前）
+# 検証用途：Day27以前のルール・制約を確認するために使用する
+
+# GeoGraphy - CLAUDE.md v9
 
 ## プロジェクト概要
 
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
-- **目的**: No-Texture・Plugin駆動・マルチライブラリ対応の映像制作プラットフォーム
-- **スタック**: Vite / React 18 / TypeScript / Three.js r160+ / pnpm / Electron 41
-- **要件定義書**: docs/要件定義書_v1.9.md
-- **実装計画書**: docs/実装計画書_v3.1.md
+- **目的**: No-Texture・Plugin駆動・マルチライブラリ対応のブラウザベース映像制作プラットフォーム
+- **スタック**: Vite / React 18 / TypeScript / Three.js r160+ / pnpm
+- **要件定義書**: docs/要件定義書_v1.7.md
+- **実装計画書**: docs/実装計画書_v2.5.md
   → フェーズ詳細・ロードマップはこちらを参照すること（CLAUDE.md には書かない）
 
 ---
@@ -67,40 +71,6 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 9. セッション終了時に git commit + Day タグを打つ（MUST）
 ```
 
-### 始業時の CLAUDE.md 読み方（MUST）
-
-ルート CLAUDE.md はプロジェクト全体の方針確認のみに使う。
-実装詳細は各モジュールの CLAUDE.md に書かれている。必ず以下の順で読むこと。
-
-```
-1. HANDOVER.md を読んで今日の作業対象モジュールを特定する
-2. このファイル（ルート）で全体方針を確認する
-3. 作業対象モジュールの CLAUDE.md を必ず読む
-   例）src/plugins/fx/ を触る → src/plugins/fx/CLAUDE.md を読む
-       src/ui/ を触る       → src/ui/CLAUDE.md を読む
-       src/core/ を触る     → src/core/CLAUDE.md を読む
-4. その CLAUDE.md が参照している spec ファイルを読む
-5. 実装開始
-```
-
-### 終業時・引き継ぎ制作時の CLAUDE.md 更新方法（MUST）
-
-CLAUDE.md を更新するときは「どのファイルに書くべきか」を必ず判断すること。
-ルートだけ更新して各モジュールの CLAUDE.md を放置しない。
-
-```
-1. 今日触ったファイル・モジュールを列挙する
-2. 各モジュールの CLAUDE.md を読む
-3. 更新内容がどこに属するかを判断する：
-   - プロジェクト全体の方針・開発ルール・ナビゲーション → ルート CLAUDE.md
-   - 特定モジュールの実装詳細・MUST ルール・Interface → そのモジュールの CLAUDE.md
-4. 正しいファイルを更新する（両方が必要なこともある）
-5. HANDOVER.md を書く
-```
-
-⚠️ ルートに書くべきでない内容（実装詳細・モジュール固有ルール）がルートに蓄積しやすい。
-　 終業時に各モジュールの CLAUDE.md を読むことで「本来ここに書くべきだった」と気づける。
-
 ### Day タグの打ち方（セッション終了時に必ず実行）
 
 ```bash
@@ -118,22 +88,17 @@ git tag dayN && git push origin dayN
 |---|---|---|---|
 | `docs/spec/SDD-OVERVIEW.md` | SDD全体の設計思想 | Claude Desktop | ✅ |
 | `docs/spec/agent-roles.md` | マルチエージェント担当範囲 | Claude Desktop | ✅ |
-| `docs/spec/command-pattern.spec.md` | Commandパターン | Claude Code | ✅ |
-| `docs/spec/plugin-registry.spec.md` | Plugin Registry | Claude Code | ✅ |
-| `docs/spec/program-preview-bus.spec.md` | Program/Previewバス | Claude Code | ✅ |
-| `docs/spec/transition-plugin.spec.md` | Transition Plugin | Transition Agent | ✅ |
-| `docs/spec/mixer-plugin.spec.md` | MixerPlugin Interface | Mixer Agent | ✅ |
-| `docs/spec/simple-window.spec.md` | Simple Window の概念 | Claude Desktop | ✅ |
-| `docs/spec/window-plugin.spec.md` | Window Plugin 再定義 | Claude Desktop | ✅ |
-| `docs/spec/layer-system.spec.md` | レイヤーシステム | Claude Code | ✅ |
-| `docs/spec/macro-knob.spec.md` | マクロノブ | Claude Code | ✅ |
-| `docs/spec/geometry-plugin.spec.md` | Geometry Plugin共通 | Geometry Agent | ✅ |
-| `docs/spec/fx-stack.spec.md` | FXスタック | FX Agent | ✅ |
-| `docs/spec/camera-system.spec.md` | カメラシステム | Claude Code | ✅ |
-| `docs/spec/electron.spec.md` | Electron アーキテクチャ | Claude Code | ✅ |
-| `docs/spec/preferences-panel.spec.md` | Preferences Panel | Claude Code | ✅ |
-| `docs/spec/project-file.spec.md` | プロジェクトファイル | Claude Code | ✅ |
-| `docs/spec/plugin-lifecycle.spec.md` | Plugin ライフサイクル | Claude Code | ⬜ |
+| `docs/spec/command-pattern.spec.md` | Commandパターン | Claude Code | ✅ 実装済み |
+| `docs/spec/plugin-registry.spec.md` | Plugin Registry | Claude Code | ✅ 実装済み |
+| `docs/spec/program-preview-bus.spec.md` | Program/Previewバス | Claude Code | ✅ 実装済み |
+| `docs/spec/transition-plugin.spec.md` | Transition Plugin | Transition Agent | ✅ 実装済み |
+| `docs/spec/mixer-plugin.spec.md` | MixerPlugin Interface | Mixer Agent | ✅ 実装済み |
+| `docs/spec/layer-system.spec.md` | レイヤーシステム | Claude Code | ✅ Day12実装済み |
+| `docs/spec/macro-knob.spec.md` | マクロノブ | Claude Code | 🔴 Day13実装対象 |
+| `docs/spec/geometry-plugin.spec.md` | Geometry Plugin共通 | Geometry Agent | ⬜ v1未着手分あり |
+| `docs/spec/fx-stack.spec.md` | FXスタック | FX Agent | ⬜ 未着手 |
+| `docs/spec/camera-system.spec.md` | カメラシステム | Claude Code | ✅ Day21実装済み |
+| `docs/spec/plugin-lifecycle.spec.md` | Plugin ライフサイクル | Claude Code | ⬜ Day22以降実装 |
 
 ---
 
@@ -149,6 +114,7 @@ git tag dayN && git push origin dayN
 - MUST: Parameter Store の変更は必ず Command 経由でのみ行うこと（直接代入禁止）
 - MUST: Plugin には `renderer`・`enabled` フィールドを持たせること（PluginBase 参照）
 - MUST: Transition Plugin は `execute()` を純粋関数として実装すること（戻り値は SceneState）
+- MUST: SimpleMixer は閉じることができない（閉じるボタンを実装してはいけない）
 - MUST: 各モジュールの CLAUDE.md を読んでから実装すること
 - MUST: 共有ファイル（engine.ts・types/index.ts）の変更は Claude Code のみ
 - MUST: ターミナルコマンドの実行を求めるときは必ずコピペ可能なコマンドを作って渡すこと
@@ -167,44 +133,87 @@ git tag dayN && git push origin dayN
 ## アーキテクチャ
 
 ```
-src/plugins/
-  geometry/    ← 何を描画するか（主役）・Geometry Agent担当
-  particles/   ← 背景・雰囲気
-  fx/          ← エフェクト・FX Agent担当
-  lights/      ← ライト
-  transitions/ ← トランジション（UI なし・処理のみ）・Transition Agent担当
-  mixers/      ← MixerPlugin（Simple Window 含む）・Mixer Agent担当
-  windows/     ← Window Plugin（カスタム UI）・v2〜
-src/drivers/
-  tempo/       ← テンポ取得
-  input/       ← デバイス操作
-  output/      ← 出力先
-  modulator/   ← パラメーター値の供給元
+plugins/geometry/    ← 何を描画するか（主役）・Geometry Agent担当
+plugins/particles/   ← 背景・雰囲気
+plugins/fx/          ← エフェクト・FX Agent担当
+plugins/lights/      ← ライト
+plugins/transitions/ ← トランジション（UI なし・処理のみ）・Transition Agent担当
+plugins/windows/     ← UI（React FC）・Mixer Agent担当
+drivers/tempo/       ← テンポ取得
+drivers/input/       ← デバイス操作
+drivers/output/      ← 出力先
+drivers/modulator/   ← パラメーター値の供給元
 ```
 
 ---
 
-## CLAUDE.md の階層と参照先
+## エンジン固定部分（Plugin が触れない）
 
-このファイルはプロジェクト全体の方針・開発ルール・ナビゲーションのみを持つ。
-実装の詳細・モジュール固有の MUST ルールは各モジュールの CLAUDE.md に書く。
-実装時は必ず対応するモジュールの CLAUDE.md を読むこと（上記「始業時の読み方」参照）。
+- Parameter Store → MUST: Command 経由のみ
+- Plugin Registry → 自動登録（import.meta.glob）のみ
+- BPM クロック → Tempo Driver 経由のみ
+- メニューバー → 全 Mixer 共通・固定
+- マクロノブパネル → 32ノブ・4列・MIDI 物理対応のため固定
+
+---
+
+## Program / Preview バス
 
 ```
-geography/CLAUDE.md               ← このファイル（全体方針・SDD×CDD原則）
-docs/spec/                        ← SSoT（仕様ファイル群・マルチエージェント定義）
-docs/progress/                    ← 自律開発の進捗ログ
-docs/recipes/                     ← 成功した実装パターンの蓄積
-src/core/CLAUDE.md                ← エンジン固定部分・Clock・LayerManager・Bus・Command設計
-src/plugins/geometry/CLAUDE.md    ← renderer・enabled フィールドの扱い
-src/plugins/transitions/CLAUDE.md ← UI を持たない・execute() 純粋関数
-src/plugins/mixers/CLAUDE.md      ← MixerPlugin 定義・Simple Window との関係・MUST ルール
-src/plugins/windows/CLAUDE.md     ← Window Plugin 定義（v2〜）
-src/plugins/fx/CLAUDE.md          ← FX スタック順序・FX Plugin Interface
-src/plugins/lights/CLAUDE.md      ← Light Plugin Interface
-src/plugins/particles/CLAUDE.md   ← Particle Plugin Interface
+Program バス → フルサイズ Three.js Scene（実際に出力）
+Preview バス → SceneState（JSON）+ 小キャンバス（320×180）
+```
+
+- 切り替え時: Preview の SceneState を Program に適用・旧 Scene を dispose()
+- IMPORTANT: Preview バスは Three.js Scene を持たない・SceneState のみ
+- 詳細仕様: `docs/spec/program-preview-bus.spec.md`
+
+---
+
+## レイヤーシステム（Day12実装済み）
+
+- `layerManager` シングルトンで管理（`src/core/layerManager.ts`）
+- MAX_LAYERS = 3 / CSS mixBlendMode で合成 / WebGL RenderTarget 不要
+- 詳細仕様: `docs/spec/layer-system.spec.md`
+
+---
+
+## Mixer Plugin ルール
+
+- SimpleMixer は v1 固定実装・v2 で MixerPlugin として Plugin 化
+- MUST: v1 から MixerPlugin Interface に準拠した実装にすること
+- Transition Plugin 選択プルダウン・クロスフェーダーを必ず持つ
+- 詳細仕様: `docs/spec/mixer-plugin.spec.md`
+
+---
+
+## FX スタック順序（厳守）
+
+```
+AfterImage → Feedback → Bloom → Kaleidoscope → Mirror
+→ ZoomBlur → RGBShift → CRT → Glitch → ColorGrading（最後）
+```
+
+詳細仕様: `docs/spec/fx-stack.spec.md`
+
+---
+
+## CLAUDE.md の階層
+
+```
+geography/CLAUDE.md          ← このファイル（全体方針・SDD×CDD原則）
+docs/spec/                   ← SSoT（仕様ファイル群・マルチエージェント定義）
+docs/progress/               ← 自律開発の進捗ログ
+docs/recipes/                ← 成功した実装パターンの蓄積
+src/core/CLAUDE.md           ← エンジン・Command・LayerManager・Bus設計
+src/plugins/geometry/        ← renderer・enabled フィールドの扱い
+src/plugins/transitions/     ← UI を持たない・execute() 純粋関数
+src/plugins/windows/         ← SimpleMixer の制約・MixerPlugin Interface
+src/plugins/fx/              ← FX スタック順序
+src/plugins/lights/
+src/plugins/particles/
 src/drivers/
-src/ui/CLAUDE.md                  ← Window/Panel 命名原則・Simple Window 一覧・View メニュー連携
+src/ui/
 ```
 
 ---
@@ -217,6 +226,6 @@ src/ui/CLAUDE.md                  ← Window/Panel 命名原則・Simple Window 
 | Claude Code | specを読んでから実装・tsc+test両方通過・Git 操作・共有ファイル管理 |
 | Geometry Agent（v2〜） | `src/plugins/geometry/**` の追加・改善 |
 | FX Agent（v2〜） | `src/plugins/fx/**` の追加・改善 |
-| Mixer Agent（v2〜） | `src/plugins/mixers/**` の追加・改善 |
+| Mixer Agent（v2〜） | `src/plugins/windows/**` の追加・改善 |
 | Transition Agent（v2〜） | `src/plugins/transitions/**` の追加・改善 |
 | Obsidian | 開発ログ・意思決定記録・YouTube 素材管理 |

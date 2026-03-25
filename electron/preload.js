@@ -1,6 +1,6 @@
 /**
  * GeoGraphy Electron preload スクリプト
- * spec: docs/spec/electron.spec.md §4
+ * spec: docs/spec/electron.spec.md §6
  *
  * IMPORTANT: preload は CommonJS (require) で書く必要がある。
  *            ES Module (import) は使えない。
@@ -13,89 +13,63 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('geoAPI', {
-  /**
-   * ファイルを保存する
-   * @param {string} filePath 保存先の絶対パス
-   * @param {string} data 保存するテキストデータ（JSON 文字列など）
-   */
+  // ── ファイル操作 ────────────────────────────────────────────────
+
   saveFile: (filePath, data) =>
     ipcRenderer.invoke('save-file', filePath, data),
 
-  /**
-   * ファイルを読み込む
-   * @param {string} filePath 読み込む絶対パス
-   * @returns {Promise<string>} ファイルの内容
-   */
   loadFile: (filePath) =>
     ipcRenderer.invoke('load-file', filePath),
 
-  /**
-   * 名前を付けて保存ダイアログを表示する
-   * @returns {Promise<{canceled: boolean, filePath?: string}>}
-   */
   showSaveDialog: () =>
     ipcRenderer.invoke('show-save-dialog'),
 
-  /**
-   * ファイルを開くダイアログを表示する
-   * @returns {Promise<{canceled: boolean, filePaths: string[]}>}
-   */
   showOpenDialog: () =>
     ipcRenderer.invoke('show-open-dialog'),
 
-  /**
-   * GeoGraphy データディレクトリのパスを取得する
-   * @returns {Promise<{geoDir: string, projectsDir: string, presetsDir: string}>}
-   */
   getDataDir: () =>
     ipcRenderer.invoke('get-data-dir'),
 
-  /**
-   * autosave.geography に現在の状態を書き込む（アプリ終了時に呼ぶ）
-   * @param {string} data JSON 文字列
-   */
+  saveProjectFile: (filePath, data) =>
+    ipcRenderer.invoke('save-file', filePath, data),
+
+  // ── autosave ────────────────────────────────────────────────────
+
   autosave: (data) =>
     ipcRenderer.invoke('autosave', data),
 
-  /**
-   * autosave.geography の内容を読み込む（起動時に呼ぶ）
-   * ファイルが存在しない場合は null を返す。
-   * @returns {Promise<string | null>}
-   */
   getAutosave: () =>
     ipcRenderer.invoke('get-autosave'),
 
-  /**
-   * renderer → main への自動保存データ送信チャンネルを登録する。
-   * main が 'request-autosave-data' を送ったとき callback が呼ばれる。
-   * @param {(sendData: (json: string) => void) => void} callback
-   */
   onRequestAutosave: (callback) =>
     ipcRenderer.on('request-autosave-data', (_event) => {
       callback((json) => ipcRenderer.invoke('autosave', json))
     }),
 
-  /**
-   * onRequestAutosave で登録したリスナーを解除する
-   */
   removeAutosaveListener: () =>
     ipcRenderer.removeAllListeners('request-autosave-data'),
 
+  // ── メニューイベント ─────────────────────────────────────────────
+  // spec: docs/spec/electron.spec.md §6
+
   /**
-   * メニューバーからの操作イベントをまとめて登録する
-   * @param {object} handlers
-   * @param {() => void} handlers.onNew
-   * @param {(filePath: string, data: string) => void} handlers.onOpen
-   * @param {() => void} handlers.onSave
-   * @param {(filePath: string) => void} handlers.onSaveAs
-   * @param {() => void} handlers.onPreferences
+   * メニューバーからの操作イベントをまとめて登録する。
+   * File メニュー・GeoGraphy メニュー・View メニューのイベントを一括受信する。
    */
   onMenuEvents: (handlers) => {
-    if (handlers.onNew)         ipcRenderer.on('menu:new',         () => handlers.onNew())
-    if (handlers.onOpen)        ipcRenderer.on('menu:open',        (_e, filePath, data) => handlers.onOpen(filePath, data))
-    if (handlers.onSave)        ipcRenderer.on('menu:save',        () => handlers.onSave())
-    if (handlers.onSaveAs)      ipcRenderer.on('menu:save-as',     (_e, filePath) => handlers.onSaveAs(filePath))
-    if (handlers.onPreferences) ipcRenderer.on('menu:preferences', () => handlers.onPreferences())
+    // File / GeoGraphy メニュー
+    if (handlers.onNew)          ipcRenderer.on('menu:new',          () => handlers.onNew())
+    if (handlers.onOpen)         ipcRenderer.on('menu:open',         (_e, filePath, data) => handlers.onOpen(filePath, data))
+    if (handlers.onSave)         ipcRenderer.on('menu:save',         () => handlers.onSave())
+    if (handlers.onSaveAs)       ipcRenderer.on('menu:save-as',      (_e, filePath) => handlers.onSaveAs(filePath))
+    if (handlers.onPreferences)  ipcRenderer.on('menu:preferences',  () => handlers.onPreferences())
+
+    // View メニュー（Day29追加）
+    if (handlers.onToggleMixerWindow)    ipcRenderer.on('menu:toggle-mixer-window',     () => handlers.onToggleMixerWindow())
+    if (handlers.onToggleFxWindow)       ipcRenderer.on('menu:toggle-fx-window',        () => handlers.onToggleFxWindow())
+    if (handlers.onToggleMacroKnobWindow) ipcRenderer.on('menu:toggle-macro-knob-window', () => handlers.onToggleMacroKnobWindow())
+    if (handlers.onHideAllWindows)       ipcRenderer.on('menu:hide-all-windows',        () => handlers.onHideAllWindows())
+    if (handlers.onShowAllWindows)       ipcRenderer.on('menu:show-all-windows',        () => handlers.onShowAllWindows())
   },
 
   /**
@@ -107,14 +81,10 @@ contextBridge.exposeInMainWorld('geoAPI', {
     ipcRenderer.removeAllListeners('menu:save')
     ipcRenderer.removeAllListeners('menu:save-as')
     ipcRenderer.removeAllListeners('menu:preferences')
+    ipcRenderer.removeAllListeners('menu:toggle-mixer-window')
+    ipcRenderer.removeAllListeners('menu:toggle-fx-window')
+    ipcRenderer.removeAllListeners('menu:toggle-macro-knob-window')
+    ipcRenderer.removeAllListeners('menu:hide-all-windows')
+    ipcRenderer.removeAllListeners('menu:show-all-windows')
   },
-
-  /**
-   * Save 完了後に main へファイルを書き込む
-   * renderer が engine.buildProject() した JSON を渡す
-   * @param {string} filePath
-   * @param {string} data JSON 文字列
-   */
-  saveProjectFile: (filePath, data) =>
-    ipcRenderer.invoke('save-file', filePath, data),
 })

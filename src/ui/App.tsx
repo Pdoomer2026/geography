@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { engine } from '../core/engine'
-import { SimpleMixer } from '../plugins/windows/simple-mixer/SimpleMixer'
-import { MacroKnobPanel } from './MacroKnobPanel'
-import { FxControlPanel } from './FxControlPanel'
+import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
+import { MacroKnobSimpleWindow } from './MacroKnobSimpleWindow'
+import { FxSimpleWindow } from './FxSimpleWindow'
 import { PreferencesPanel } from './PreferencesPanel'
 import { useAutosave } from './useAutosave'
 import type { GeoGraphyProject } from '../types'
@@ -11,7 +11,6 @@ export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
   const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true })
   const [prefsOpen, setPrefsOpen] = useState(false)
-  // 現在開いているファイルパス（Save 時に使用）
   const currentFilePathRef = useRef<string | null>(null)
 
   // Electron 自動保存（起動時復元 + 終了時保存）
@@ -62,7 +61,6 @@ export default function App() {
         if (!window.geoAPI) return
         const filePath = currentFilePathRef.current
         if (!filePath) {
-          // 未保存の場合は Save As... にフォールバック
           window.geoAPI.onMenuEvents({ onSaveAs: handleSaveAs })
           return
         }
@@ -77,6 +75,21 @@ export default function App() {
 
       // GeoGraphy > Preferences...
       onPreferences: () => setPrefsOpen((o) => !o),
+
+      // View > Mixer Simple Window（⌘3）
+      onToggleMixerWindow: () => setUiVisible((v) => ({ ...v, mixer: !v.mixer })),
+
+      // View > FX Simple Window（⌘2）
+      onToggleFxWindow: () => setUiVisible((v) => ({ ...v, fx: !v.fx })),
+
+      // View > Macro Knob Simple Window（⌘1）
+      onToggleMacroKnobWindow: () => setUiVisible((v) => ({ ...v, macro: !v.macro })),
+
+      // View > Hide All Windows（H）
+      onHideAllWindows: () => setUiVisible({ macro: false, fx: false, mixer: false }),
+
+      // View > Show All Windows（S）
+      onShowAllWindows: () => setUiVisible({ macro: true, fx: true, mixer: true }),
     })
 
     return () => {
@@ -92,14 +105,15 @@ export default function App() {
     currentFilePathRef.current = filePath
   }
 
-  // 1 キー → Macro トグル
-  // 2 キー → FX トグル
-  // 3 キー → Mixer トグル
-  // P キー → Preferences パネル開閉
-  // F キー → 全UI非表示 + フルスクリーン（本番モード）
-  // H キー → 全UI非表示のみ（Hide）※ ⚙ ボタンは維持
-  // S キー → 全UI表示（Show）
-  // ESC  → フルスクリーン解除のみ（ブラウザ標準）
+  // キーボードショートカット
+  // 1 → Macro Knob Simple Window トグル
+  // 2 → FX Simple Window トグル
+  // 3 → Mixer Simple Window トグル
+  // P → Preferences Panel 開閉
+  // F → 全 Window 非表示 + フルスクリーン（本番モード）
+  // H → 全 Window 非表示（Hide）
+  // S → 全 Window 表示（Show）
+  // ESC → フルスクリーン解除（ブラウザ標準）
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
@@ -143,8 +157,7 @@ export default function App() {
         style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative' }}
       />
 
-      {/* ウィンドウドラッグ領域（titleBarStyle: hiddenInset 対応）
-          上部 28px をドラッグ可能に。ボタン類は z-index を高くして no-drag で上書き。 */}
+      {/* ウィンドウドラッグ領域（titleBarStyle: hiddenInset 対応） */}
       <div
         style={{
           position: 'fixed',
@@ -158,19 +171,19 @@ export default function App() {
         }}
       />
 
-      {/* Preferences パネル */}
+      {/* Preferences Panel */}
       <PreferencesPanel open={prefsOpen} onClose={() => setPrefsOpen(false)} />
 
-      {uiVisible.macro && <MacroKnobPanel />}
-      {uiVisible.fx && <FxControlPanel />}
-      {uiVisible.mixer && <SimpleMixer />}
+      {uiVisible.macro && <MacroKnobSimpleWindow />}
+      {uiVisible.fx && <FxSimpleWindow />}
+      {uiVisible.mixer && <MixerSimpleWindow />}
 
       {/* 操作ヒント */}
       <div
         className="fixed bottom-1 right-2 text-[9px] text-[#3a3a5e] select-none pointer-events-none"
         style={{ zIndex: 100 }}
       >
-        P:Prefs 1:Macro 2:FX 3:Mixer | H:Hide S:Show F:全非表示+全画面
+        P:Prefs 1:MacroKnob 2:FX 3:Mixer | H:Hide S:Show F:全非表示+全画面
       </div>
     </>
   )

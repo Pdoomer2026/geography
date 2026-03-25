@@ -1,8 +1,13 @@
 /**
- * MacroKnobPanel
+ * MacroKnobSimpleWindow — Macro Knob Manager のデフォルト最小 UI（Simple Window）
+ *
+ * 旧名称: MacroKnobPanel
  * spec: docs/spec/macro-knob.spec.md §2 Constraints
  *
- * 32ノブ（8×4）固定パネル。閉じることができない（エンジン固定部分）。
+ * View メニュー（⌘1）またはキーボード「1」で表示/非表示を切り替えられる。
+ * カスタム Window Plugin がないときのフォールバックとして機能する（v2〜）。
+ *
+ * 32ノブ（8×4）固定パネル。
  * MIDI CC番号・現在値（0.0〜1.0）・名前を表示。
  * ノブをクリックすると名前・MIDI CC編集ダイアログを開く（v1簡易版）。
  */
@@ -27,12 +32,10 @@ interface KnobCellProps {
 }
 
 function KnobCell({ config, value, onEdit }: KnobCellProps) {
-  // ノブの円弧描画用（-135°〜+135°の範囲）
   const angle = -135 + value * 270
   const isAssigned = config.assigns.length > 0
   const hasMidi = config.midiCC >= 0
 
-  // SVG arc で現在値を可視化
   const cx = 16
   const cy = 16
   const r = 11
@@ -53,9 +56,7 @@ function KnobCell({ config, value, onEdit }: KnobCellProps) {
       style={{ width: 48, minHeight: 64 }}
       title={`${config.id}${config.name ? ` — ${config.name}` : ''}${hasMidi ? ` | CC${config.midiCC}` : ''}`}
     >
-      {/* ノブ円グラフィック */}
       <svg width={32} height={32} viewBox="0 0 32 32">
-        {/* 背景トラック */}
         <circle
           cx={cx} cy={cy} r={r}
           fill="none"
@@ -66,7 +67,6 @@ function KnobCell({ config, value, onEdit }: KnobCellProps) {
           strokeLinecap="round"
           transform={`rotate(-90 ${cx} ${cy})`}
         />
-        {/* 値アーク */}
         {value > 0.001 && (
           <path
             d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`}
@@ -76,24 +76,20 @@ function KnobCell({ config, value, onEdit }: KnobCellProps) {
             strokeLinecap="round"
           />
         )}
-        {/* センタードット */}
         <circle
           cx={cx} cy={cy} r={2.5}
           fill={isAssigned ? '#9898ff' : '#4a4a6e'}
         />
-        {/* MIDI インジケーター */}
         {hasMidi && (
           <circle cx={26} cy={6} r={2} fill="#ff7878" />
         )}
       </svg>
 
-      {/* ノブ名 */}
       <span className="text-[8px] text-[#8888bb] group-hover:text-[#aaaaf0]
                        truncate w-full text-center leading-tight tracking-widest">
         {config.name || config.id.replace('macro-', '#')}
       </span>
 
-      {/* 値表示 */}
       <span className="text-[7px] text-[#5a5a7e] group-hover:text-[#7a7aaa]">
         {value.toFixed(2)}
       </span>
@@ -136,7 +132,6 @@ function EditDialog({ config, onSave, onClose }: EditDialogProps) {
           EDIT — {config.id.toUpperCase()}
         </div>
 
-        {/* 名前 */}
         <label className="block mb-3">
           <span className="text-[#6666aa] text-[9px] tracking-wider block mb-1">NAME</span>
           <input
@@ -151,7 +146,6 @@ function EditDialog({ config, onSave, onClose }: EditDialogProps) {
           />
         </label>
 
-        {/* MIDI CC */}
         <label className="block mb-4">
           <span className="text-[#6666aa] text-[9px] tracking-wider block mb-1">MIDI CC (0–127)</span>
           <input
@@ -166,7 +160,6 @@ function EditDialog({ config, onSave, onClose }: EditDialogProps) {
           />
         </label>
 
-        {/* assigns 表示（v1: 読み取りのみ） */}
         {config.assigns.length > 0 && (
           <div className="mb-4">
             <span className="text-[#6666aa] text-[9px] tracking-wider block mb-1">ASSIGNS</span>
@@ -178,7 +171,6 @@ function EditDialog({ config, onSave, onClose }: EditDialogProps) {
           </div>
         )}
 
-        {/* ボタン */}
         <div className="flex gap-2 justify-end">
           <button
             onClick={onClose}
@@ -201,16 +193,15 @@ function EditDialog({ config, onSave, onClose }: EditDialogProps) {
 }
 
 // ============================================================
-// MacroKnobPanel — メインコンポーネント
+// MacroKnobSimpleWindow — メインコンポーネント
 // ============================================================
 
-export function MacroKnobPanel() {
+export function MacroKnobSimpleWindow() {
   const [knobs, setKnobs] = useState<MacroKnobConfig[]>([])
   const [values, setValues] = useState<number[]>(new Array(32).fill(0))
   const [editingId, setEditingId] = useState<string | null>(null)
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth / 2 - 200, y: 16 })
 
-  // 200ms ごとにノブ状態を同期
   useEffect(() => {
     const sync = () => {
       const configs = macroKnobManager.getKnobs()
@@ -244,7 +235,6 @@ export function MacroKnobPanel() {
 
   return (
     <>
-      {/* メインパネル（閉じるボタンなし — spec §2 MUST） */}
       <div
         className="fixed z-50 bg-[#0a0a18] border border-[#2a2a4e] rounded-lg
                    text-white font-mono select-none"
@@ -256,7 +246,7 @@ export function MacroKnobPanel() {
           className="text-[9px] text-[#5a5a88] mb-2 tracking-widest flex items-center gap-2"
           style={{ cursor: 'grab' }}
         >
-          <span>MACRO KNOBS</span>
+          <span>MACRO KNOB SIMPLE WINDOW</span>
           <span className="text-[#3a3a5e]">32 × MIDI</span>
           <span className="ml-auto text-[#3a3a5e]">
             {knobs.filter(k => k.assigns.length > 0).length} ASSIGNED
@@ -289,7 +279,6 @@ export function MacroKnobPanel() {
         </div>
       </div>
 
-      {/* 編集ダイアログ */}
       {editingConfig && (
         <EditDialog
           config={editingConfig}
