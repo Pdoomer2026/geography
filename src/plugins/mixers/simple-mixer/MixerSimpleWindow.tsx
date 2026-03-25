@@ -67,6 +67,7 @@ export function MixerSimpleWindow() {
   const [layers, setLayers] = useState<Layer[]>([])
   const [routings, setRoutings] = useState<LayerRouting[]>(engine.getLayerRoutings())
   const [screenAssign, setScreenAssign] = useState<ScreenAssignState>(engine.getScreenAssign())
+  const smallScreenRef = useRef<HTMLCanvasElement>(null)
 
   // --- v2 送り（コードは残す・UI は非表示） ---
   const [crossfader, setCrossfader] = useState(0)
@@ -89,6 +90,38 @@ export function MixerSimpleWindow() {
     }
     sync()
     const timer = window.setInterval(sync, 200)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  // Small screen：200ms ポーリングで layerManager の canvas を drawImage 合成
+  useEffect(() => {
+    const DPR = window.devicePixelRatio || 1
+    const SMALL_W = 240 * DPR
+    const SMALL_H = 135 * DPR
+    const timer = window.setInterval(() => {
+      const canvas = smallScreenRef.current
+      if (!canvas) return
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      const assign = engine.getScreenAssign().small
+      const currentRoutings = engine.getLayerRoutings()
+      const currentLayers = engine.getLayers()
+
+      ctx.clearRect(0, 0, SMALL_W, SMALL_H)
+      ctx.fillStyle = '#0a0a14'
+      ctx.fillRect(0, 0, SMALL_W, SMALL_H)
+
+      for (const layer of currentLayers) {
+        if (!layer.plugin) continue
+        const routing = currentRoutings.find((r) => r.layerId === layer.id)
+        if (!routing) continue
+        const opacity = assign === 'output' ? routing.outputOpacity : routing.editOpacity
+        if (opacity === 0) continue
+        ctx.globalAlpha = opacity
+        ctx.drawImage(layer.canvas, 0, 0, SMALL_W, SMALL_H)
+      }
+      ctx.globalAlpha = 1
+    }, 200)
     return () => window.clearInterval(timer)
   }, [])
 
@@ -155,7 +188,7 @@ export function MixerSimpleWindow() {
     <div
       className="fixed z-50 bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg
                  text-white font-mono text-xs select-none"
-      style={{ left: pos.x, top: pos.y, width: 480, padding: '12px 16px' }}
+      style={{ left: pos.x, top: pos.y, width: 680, padding: '12px 16px' }}
     >
       {/* ヘッダー（ドラッグハンドル） */}
       <div
@@ -166,8 +199,31 @@ export function MixerSimpleWindow() {
         MIXER SIMPLE WINDOW
       </div>
 
-      {/* フェーダーエリア */}
-      <div className="flex items-start gap-6">
+      {/* Small screen + フェーダーエリア 横並び */}
+      <div className="flex items-start gap-4">
+
+        {/* Small screen */}
+        <div className="flex-shrink-0">
+          <div className="text-[9px] text-[#4a4a6e] mb-1 tracking-wider">
+            SMALL SCREEN —
+            <span className="text-[#aaaaff] ml-1">{screenAssign.small.toUpperCase()}</span>
+          </div>
+          <canvas
+            ref={smallScreenRef}
+            width={240 * (window.devicePixelRatio || 1)}
+            height={135 * (window.devicePixelRatio || 1)}
+            style={{
+              width: 240,
+              height: 135,
+              display: 'block',
+              border: '1px solid #2a2a4e',
+              borderRadius: 4,
+            }}
+          />
+        </div>
+
+        {/* フェーダーエリア */}
+        <div className="flex items-center gap-3">
 
         {/* EDIT view フェーダー × 3 */}
         <div>
@@ -243,6 +299,8 @@ export function MixerSimpleWindow() {
               )
             })}
           </div>
+        </div>
+
         </div>
 
       </div>

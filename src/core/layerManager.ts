@@ -31,7 +31,7 @@ export class LayerManager {
       canvas.style.mixBlendMode = 'normal'
       container.appendChild(canvas)
 
-      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true })
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true })
       renderer.setSize(container.clientWidth, container.clientHeight)
       renderer.setPixelRatio(window.devicePixelRatio)
       renderer.setClearColor(0x000000, 0)
