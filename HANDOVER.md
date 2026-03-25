@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day29完了｜2026-03-25
+# GeoGraphy 引き継ぎメモ｜Day30完了｜2026-03-25
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -18,110 +18,121 @@
 |---|---|
 | 要件定義書（最新） | `docs/要件定義書_v1.9.md` |
 | 実装計画書（最新） | `docs/実装計画書_v3.1.md` |
-| CLAUDE.md（全体方針） | `CLAUDE.md`（v10） |
+| CLAUDE.md（全体方針） | `CLAUDE.md`（v10・ファイル更新鉄則追加済み） |
 | 引き継ぎメモ（最新） | `HANDOVER.md` |
 | 型定義 | `src/types/index.ts` |
 | geoAPI 型定義 | `src/types/geoAPI.d.ts` |
 | エンジン本体 | `src/core/engine.ts` |
-| MacroKnobManager（コア） | `src/core/macroKnob.ts` |
+| LayerManager | `src/core/layerManager.ts` |
 | App.tsx | `src/ui/App.tsx` |
-| useAutosave hook | `src/ui/useAutosave.ts` |
 | Mixer Simple Window | `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx` |
 | FX Simple Window | `src/ui/FxSimpleWindow.tsx` |
 | Macro Knob Simple Window | `src/ui/MacroKnobSimpleWindow.tsx` |
 | Electron メインプロセス | `electron/main.js` |
 | Electron preload | `electron/preload.js` |
-| アーカイブ（旧 CLAUDE.md） | `docs/archive/CLAUDE/` |
 
 ---
 
-## 今回のセッション（Day29）で完了したこと
+## 今回のセッション（Day30）で完了したこと
 
-### A. Phase 10 実装：spec ファイル更新・新規作成
+### A. 壁打ち：Output/Edit view 設計確定
 
-| ファイル | 作業 |
+| 用語 | 定義 |
 |---|---|
-| `docs/spec/mixer-plugin.spec.md` | MixerPlugin 再定義・Simple Window との関係・廃止制約の削除 |
-| `docs/spec/simple-window.spec.md` | **新規作成**（Simple Window の概念・フォールバック動作・View メニュー連携） |
-| `docs/spec/window-plugin.spec.md` | **新規作成**（Window Plugin 再定義・targetPluginId 宣言・v2〜） |
-| `docs/spec/electron.spec.md` | View メニュー追加（⌘1/2/3・H/S）・IPC イベント定義 |
-| `docs/spec/fx-control-ui.spec.md` | FxControlPanel → FxSimpleWindow にリネーム反映・旧参照削除 |
+| **Large screen** | Electronメインウィンドウ（大画面） |
+| **Small screen** | MixerSimpleWindow内の小画面 |
+| **Output view** | 出力映像（観客に見せる映像）|
+| **Edit view** | 編集映像（次に出す映像を仕込む場所）|
 
-### B. Phase 10 実装：ディレクトリ新設・ファイル移動・リネーム
+- 縦フェーダー6本（Edit×3 + Output×3）でレイヤーごとのOpacityをルーティング
+- ⇄ SWAPボタンでLarge/Smallのアサインを完全入れ替え
+- アサインラベルを常時表示（`Large: OUTPUT / Small: EDIT`）
+- Transition/Crossfader/Tap Tempoはv2送り（コードは残す・UIは非表示）
 
-```
-src/plugins/mixers/                        ← 新設
-src/plugins/mixers/CLAUDE.md               ← 新規作成
-src/plugins/mixers/simple-mixer/
-  MixerSimpleWindow.tsx                    ← 新規作成（旧 SimpleMixer.tsx の内容を移行・リネーム）
-  index.ts                                 ← 新規作成
+### B. spec 更新
 
-src/ui/FxSimpleWindow.tsx                  ← 新規作成（旧 FxControlPanel.tsx の内容を移行・リネーム）
-src/ui/MacroKnobSimpleWindow.tsx           ← 新規作成（旧 MacroKnobPanel.tsx の内容を移行・リネーム）
-
-削除済み：
-  src/plugins/windows/simple-mixer/SimpleMixer.tsx
-  src/plugins/windows/simple-mixer/index.ts
-  src/ui/FxControlPanel.tsx
-  src/ui/MacroKnobPanel.tsx
-```
-
-### C. Phase 10 実装：View メニュー追加
-
-- `electron/main.js`：View メニュー新設（Mixer/FX/Macro Knob Simple Window の表示/非表示・⌘1/2/3・H/S）
-- `electron/preload.js`：View メニューイベントを `onMenuEvents` に追加
-- `src/types/geoAPI.d.ts`：`onMenuEvents` の型定義に View メニューイベントを追加
-- `src/ui/App.tsx`：import パス全更新・View メニューイベントハンドラ追加
-
-### D. Phase 10 実装：CLAUDE.md 群の全面更新
-
-| ファイル | 作業 |
+| ファイル | 内容 |
 |---|---|
-| `CLAUDE.md` | v10 に更新。始業時・終業時の CLAUDE.md 読み方（MUST）を追加。実装詳細を各モジュールへ移行。 |
-| `src/core/CLAUDE.md` | エンジン固定部分テーブルを3列化（固定部分・役割・アクセスルール）。Program/Preview バス・LayerManager・Clock を移行。 |
-| `src/ui/CLAUDE.md` | Window/Panel 命名原則・Simple Window 一覧を移行。旧名称・旧制約の記述を削除。 |
-| `src/plugins/mixers/CLAUDE.md` | 新規作成。MixerPlugin の二重構造・MUST ルール統合。 |
-| `src/plugins/windows/CLAUDE.md` | Window Plugin 再定義。旧 simple-mixer 移動経緯を削除。 |
+| `docs/spec/program-preview-bus.spec.md` | Output/Edit view・Large/Small screen・LayerRouting型・ScreenAssignState型追加 |
+| `docs/spec/mixer-plugin.spec.md` | 縦フェーダー6本・SWAPボタン・Transition v2送り反映 |
 
-### E. 今日の新しい気づき（CLAUDE.md に反映済み）
+### C. CLAUDE.md 更新
 
-**始業時・終業時の CLAUDE.md 正しい使い方を確立した。**
+| ファイル | 内容 |
+|---|---|
+| `CLAUDE.md` v10 | **ファイル更新時の鉄則**（始業時確認セクション）追加・`filesystem:edit_file` を明記 |
+| `src/core/CLAUDE.md` v4 | Output/Edit view セクション・LayerRouting/ScreenAssignState型追加 |
+| `src/plugins/mixers/CLAUDE.md` v2 | 新UIレイアウト・MUSTルール更新・v2送り明記 |
 
-- 始業時：HANDOVER.md で作業対象を特定 → ルートで全体方針確認 → **対象モジュールの CLAUDE.md を必ず読む** → spec を読む → 実装開始
-- 終業時：触ったモジュールを列挙 → 各モジュールの CLAUDE.md を読む → **ルートかモジュールかを正しく判断して更新** → HANDOVER.md を書く
-- ルートに実装詳細・モジュール固有ルールを書かない。各モジュールの CLAUDE.md に委譲する。
+### D. 今日確立した重要知見
 
-### F. git 作業：dist-electron 問題の解決
+**ファイル編集ツールの使い分け（確定）**
 
-- Day26 コミットに `dist-electron/` の大きなファイル（.dmg 114MB 等）が含まれており GitHub push が失敗
-- `git filter-branch` で過去コミットから `dist-electron/` を除去
-- `git push origin main --tags --force` で GitHub への push 成功
+| ツール | 用途 |
+|---|---|
+| `filesystem:edit_file` | 既存ファイルの更新（これを使う） |
+| `filesystem:write_file` | 新規ファイル作成のみ |
+| `str_replace` | 文字化けがあるファイルには効かない |
+
+- ルートCLAUDE.mdに文字化けがあり `str_replace` が効かなかった → `sed` で修正 → `filesystem:edit_file` で解決
+- `write_file` は全書き換えになるため既存ファイルへの使用は禁止
+
+### E. Phase 11 実装
+
+| 内容 | ファイル |
+|---|---|
+| `LayerRouting` / `ScreenAssign` / `ScreenAssignState` 型追加 | `src/types/index.ts` |
+| `layerRoutings` / `screenAssign` プロパティ追加 | `src/core/engine.ts` |
+| `getLayerRoutings()` / `setLayerRouting()` / `getScreenAssign()` / `swapScreenAssign()` API追加 | `src/core/engine.ts` |
+| 起動時ルーティング反映（黒くなるバグ修正） | `src/core/engine.ts` |
+| MixerSimpleWindow 全面再設計（縦フェーダー6本・SWAP・プラグイン名表示） | `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx` |
+| FX 初期値を全て `enabled=false` に変更（after-image・bloom・rgb-shift・color-grading） | `src/plugins/fx/*/index.ts` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day29`（コミット `1fef01a`・GitHub push 済み）
+- **タグ**: `day30`（コミット `9448757`・GitHub push済み）
 - **テスト**: 104 tests グリーン・tsc エラーゼロ確認済み
-- **docs/ 直下**: `要件定義書_v1.9.md` / `実装計画書_v3.1.md` のみ（最新版）
-- **docs/archive/**: 旧ドキュメント・旧 CLAUDE.md アーカイブ済み
+- **動作確認済み**:
+  - 起動時から3レイヤーがクリアに表示される
+  - Edit/Output 縦フェーダーがcanvasのopacityに反映される
+  - SWAPボタンでLarge/Smallのアサインが入れ替わる
+  - フェーダー下にプラグイン名が表示される
+  - FX初期値は全てOFF
 
 ---
 
-## 次回やること（Day30）
+## 発生した問題と解決策
 
-### 最優先：Phase 11 Preview サムネイルキャンバス
+| 問題 | 解決策 |
+|---|---|
+| ルートCLAUDE.mdに文字化け（`ター❓ナル`）があり `str_replace` が効かない | `sed -i '' 's/ター.ナル/ターミナル/g' CLAUDE.md` で修正後、`filesystem:edit_file` で編集 |
+| フェーダーを動かしても映像が変化しない | `setLayerRouting()` 内で `layerManager.setOpacity()` を呼ぶように修正 |
+| フェーダー0%でも映像が消えない | `mute=true`（`display:none`）も合わせて制御するよう修正 |
+| 起動時に3レイヤーが黒くなる | `initialize()` 末尾に初期ルーティング反映処理を追加 |
+| FX初期値がONで3レイヤーに全てかかり映像が見えない | FX Pluginの `enabled` 初期値を `false` に変更 |
 
-実装計画書 v3.1 §6 に従って実施：
+---
+
+## 次回やること（Day31）
+
+### 最優先：Small screen の実装
+
+MixerSimpleWindow内にSmall screenがまだない。Large screenとの対比を作る必要がある。
 
 | 順序 | 作業 |
 |---|---|
-| 1 | `docs/spec/program-preview-bus.spec.md` を読む（MUST） |
-| 2 | `src/core/previewBus.ts` に小キャンバス用 WebGLRenderer を追加（320×180） |
-| 3 | `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx` の PREVIEW エリアにキャンバスを mount |
-| 4 | FPS への影響を `pnpm dev:electron` で確認 |
-| 5 | `pnpm tsc --noEmit` + `pnpm test --run` 両方通過確認 |
+| 1 | Small screen の表示内容を壁打ちで決める（Edit viewの合成をリアルタイム表示 or テキスト情報） |
+| 2 | MixerSimpleWindow内にSmall screenエリアを追加 |
+| 3 | tsc + test 通過確認 |
+| 4 | `pnpm dev:electron` で目視確認 |
+
+### その他検討事項
+
+- 実装計画書 Phase 11 セクションの更新（Day30の新設計を反映）
+- `previewBus.ts` の `getCanvas()` を Small screen に活用できるか検討
 
 ---
 
@@ -135,33 +146,28 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 
 ## 環境メモ
 
-- **CLAUDE.md の読み方（MUST）**: ルート CLAUDE.md →「始業時の読み方」セクションを参照
-- **CLAUDE.md アーカイブの場所**: `docs/archive/CLAUDE/`（日付付きファイル名）
-- **ドキュメントアーカイブ方針**: `docs/` 直下は最新版のみ・旧版は `docs/archive/` に移動
+- **ファイル更新鉄則（Day30確立）**: 既存ファイルの更新は `filesystem:edit_file` を使う・`write_file` は新規作成のみ・更新後は `git diff HEAD [ファイル名] | cat` で差分確認
+- **CLAUDE.md の読み方**: ルート → 作業対象モジュール → spec の順で読む
+- **CLAUDE.md アーカイブ**: `docs/archive/CLAUDE/`
 - **今後 `dist-electron/` は絶対にコミットしない**（`.gitignore` 済み）
 - **git push の前に必ず `git status` で staged を確認してから `git tag` を打つこと**
-- **Window Plugin は v2 から**: v1 では Simple Window のみ・Window Plugin の実装は v2 以降
 
 ---
 
 ## 次回チャット用スタートプロンプト
 
 ```
-GeoGraphy Day30を開始します。
+GeoGraphy Day31を開始します。
 まず HANDOVER.md を読んでください（/Users/shinbigan/geography/HANDOVER.md）
 
 その後、以下の手順で進めてください：
 1. 下記コマンドの結果を貼り付けます（104 tests グリーン確認）
    cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
-2. HANDOVER.md の「次回やること（Day30）」を読んで Phase 11 実装を開始してください
+2. HANDOVER.md の「次回やること（Day31）」を読んで作業を開始してください
 
 開発スタイル：SDD × CDD
 - 始業時は HANDOVER.md → ルート CLAUDE.md → 作業対象モジュールの CLAUDE.md → spec の順で読むこと
-- 実装前に必ず対応する docs/spec/ ファイルを読むこと
+- ファイル更新は filesystem:edit_file を使うこと（write_file は新規作成のみ）
 - 完了条件は pnpm tsc --noEmit（型エラーゼロ）+ pnpm test --run（全テストグリーン）両方通過
-- any は使わない・型エラーは自律修正
 - プランを提示・承認を得てから実装を開始すること
-- ステップバイステップで進めること（いきなり実装しない）
-- 要件定義書: docs/要件定義書_v1.9.md
-- 実装計画書: docs/実装計画書_v3.1.md（Phase 11 §6 参照）
 ```
