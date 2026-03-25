@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day30完了｜2026-03-25
+# GeoGraphy 引き継ぎメモ｜Day31完了｜2026-03-26
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -33,73 +33,45 @@
 
 ---
 
-## 今回のセッション（Day30）で完了したこと
+## 今回のセッション（Day31）で完了したこと
 
-### A. 壁打ち：Output/Edit view 設計確定
+### A. Small screen 実装（MixerSimpleWindow内）
 
-| 用語 | 定義 |
+| 内容 | 詳細 |
 |---|---|
-| **Large screen** | Electronメインウィンドウ（大画面） |
-| **Small screen** | MixerSimpleWindow内の小画面 |
-| **Output view** | 出力映像（観客に見せる映像）|
-| **Edit view** | 編集映像（次に出す映像を仕込む場所）|
+| 表示方式 | `layerManager` の各レイヤー canvas を `drawImage` で 200ms ポーリング合成 |
+| ソース | `screenAssign.small` が `edit` → editOpacity / `output` → outputOpacity でブレンド |
+| サイズ | 240×135px（CSS）/ DPR対応で物理ピクセルは 480×270（Retina） |
+| 配置 | MixerSimpleWindow の左側・フェーダーエリアと横並び |
+| ウィンドウ幅 | 480px → 680px に拡大 |
 
-- 縦フェーダー6本（Edit×3 + Output×3）でレイヤーごとのOpacityをルーティング
-- ⇄ SWAPボタンでLarge/Smallのアサインを完全入れ替え
-- アサインラベルを常時表示（`Large: OUTPUT / Small: EDIT`）
-- Transition/Crossfader/Tap Tempoはv2送り（コードは残す・UIは非表示）
+### B. 技術的解決事項
 
-### B. spec 更新
-
-| ファイル | 内容 |
+| 問題 | 解決策 |
 |---|---|
-| `docs/spec/program-preview-bus.spec.md` | Output/Edit view・Large/Small screen・LayerRouting型・ScreenAssignState型追加 |
-| `docs/spec/mixer-plugin.spec.md` | 縦フェーダー6本・SWAPボタン・Transition v2送り反映 |
+| `drawImage` で WebGL canvas が真っ黒 | `THREE.WebGLRenderer` に `preserveDrawingBuffer: true` を追加 |
+| Small screen がぼやける | `canvas` の `width/height` を `devicePixelRatio` 倍にして CSS サイズはそのまま |
+| previewBus.mount() では実映像が映らない | 実際の映像を映すには WebGL canvas を直接参照する必要がある |
 
-### C. CLAUDE.md 更新
+### C. 設計確定事項（壁打ち）
 
-| ファイル | 内容 |
-|---|---|
-| `CLAUDE.md` v10 | **ファイル更新時の鉄則**（始業時確認セクション）追加・`filesystem:edit_file` を明記 |
-| `src/core/CLAUDE.md` v4 | Output/Edit view セクション・LayerRouting/ScreenAssignState型追加 |
-| `src/plugins/mixers/CLAUDE.md` v2 | 新UIレイアウト・MUSTルール更新・v2送り明記 |
-
-### D. 今日確立した重要知見
-
-**ファイル編集ツールの使い分け（確定）**
-
-| ツール | 用途 |
-|---|---|
-| `filesystem:edit_file` | 既存ファイルの更新（これを使う） |
-| `filesystem:write_file` | 新規ファイル作成のみ |
-| `str_replace` | 文字化けがあるファイルには効かない |
-
-- ルートCLAUDE.mdに文字化けがあり `str_replace` が効かなかった → `sed` で修正 → `filesystem:edit_file` で解決
-- `write_file` は全書き換えになるため既存ファイルへの使用は禁止
-
-### E. Phase 11 実装
-
-| 内容 | ファイル |
-|---|---|
-| `LayerRouting` / `ScreenAssign` / `ScreenAssignState` 型追加 | `src/types/index.ts` |
-| `layerRoutings` / `screenAssign` プロパティ追加 | `src/core/engine.ts` |
-| `getLayerRoutings()` / `setLayerRouting()` / `getScreenAssign()` / `swapScreenAssign()` API追加 | `src/core/engine.ts` |
-| 起動時ルーティング反映（黒くなるバグ修正） | `src/core/engine.ts` |
-| MixerSimpleWindow 全面再設計（縦フェーダー6本・SWAP・プラグイン名表示） | `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx` |
-| FX 初期値を全て `enabled=false` に変更（after-image・bloom・rgb-shift・color-grading） | `src/plugins/fx/*/index.ts` |
+- Small screen = Large screen と**別の映像**を映す（SWAP で役割が入れ替わる）
+- Large screen と同じ映像ではない → Edit/Output の分離が Small screen の存在意義
+- v1 の Small screen 画質は `drawImage` の限界（5fps・縮小コピー）→ v2 で専用 WebGL レンダラー検討
+- 200ms ポーリング方式は Three.js レンダーループに干渉しない軽量設計
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day30`（コミット `9448757`・GitHub push済み）
+- **タグ**: `day31`（コミット `2ffa43c`・GitHub push済み）
 - **テスト**: 104 tests グリーン・tsc エラーゼロ確認済み
 - **動作確認済み**:
-  - 起動時から3レイヤーがクリアに表示される
-  - Edit/Output 縦フェーダーがcanvasのopacityに反映される
-  - SWAPボタンでLarge/Smallのアサインが入れ替わる
-  - フェーダー下にプラグイン名が表示される
+  - Small screen が MixerSimpleWindow 左側に表示される
+  - Small screen に Edit/Output view の合成映像が映る（5fps・200msポーリング）
+  - SWAP で Large/Small のアサインと Small screen の映像が切り替わる
+  - Edit/Output フェーダーを動かすと Small screen の映像が変化する
   - FX初期値は全てOFF
 
 ---
@@ -132,7 +104,8 @@ MixerSimpleWindow内にSmall screenがまだない。Large screenとの対比を
 ### その他検討事項
 
 - 実装計画書 Phase 11 セクションの更新（Day30の新設計を反映）
-- `previewBus.ts` の `getCanvas()` を Small screen に活用できるか検討
+- 実装計画書 Phase 11 セクションの更新（Day31の実装を反映）
+- 次の機能実装の壁打ち
 
 ---
 
@@ -146,7 +119,8 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 
 ## 環境メモ
 
-- **ファイル更新鉄則（Day30確立）**: 既存ファイルの更新は `filesystem:edit_file` を使う・`write_file` は新規作成のみ・更新後は `git diff HEAD [ファイル名] | cat` で差分確認
+- **ファイル更新鉄則**: 既存ファイルの更新は `filesystem:edit_file` を使う・`write_file` は新規作成のみ
+- **preserveDrawingBuffer: true**（Day31確立）: `drawImage` で WebGL canvas を読み取るには必須・`layerManager.ts` に追加済み
 - **CLAUDE.md の読み方**: ルート → 作業対象モジュール → spec の順で読む
 - **CLAUDE.md アーカイブ**: `docs/archive/CLAUDE/`
 - **今後 `dist-electron/` は絶対にコミットしない**（`.gitignore` 済み）
@@ -157,13 +131,13 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-GeoGraphy Day31を開始します。
+GeoGraphy Day32を開始します。
 まず HANDOVER.md を読んでください（/Users/shinbigan/geography/HANDOVER.md）
 
 その後、以下の手順で進めてください：
 1. 下記コマンドの結果を貼り付けます（104 tests グリーン確認）
    cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
-2. HANDOVER.md の「次回やること（Day31）」を読んで作業を開始してください
+2. HANDOVER.md の「次回やること（Day32）」を読んで作業を開始してください
 
 開発スタイル：SDD × CDD
 - 始業時は HANDOVER.md → ルート CLAUDE.md → 作業対象モジュールの CLAUDE.md → spec の順で読むこと
