@@ -80,8 +80,19 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
        src/ui/ を触る       → src/ui/CLAUDE.md を読む
        src/core/ を触る     → src/core/CLAUDE.md を読む
 4. その CLAUDE.md が参照している spec ファイルを読む
+4.5. 下記「ファイル更新時の鉄則」を確認する（毎回）
 5. 実装開始
 ```
+
+### ファイル更新時の鉄則（MUST・Day30確立）
+
+毎回のセッションで同じミスが起きるため、始業時に必ず確認すること。
+
+- MUST: ファイル更新前に必ず `read_text_file` で元ファイルを読むこと
+- MUST: 更新は `filesystem:edit_file` を使うこと（変更箇所だけを編集・差分を最小化する）
+- MUST: `write_file` は全書き換えになるため使わない
+- MUST: 新規ファイル作成のみ `write_file` を使う（既存ファイルへの使用は禁止）
+- MUST: 更新後は `git diff HEAD [ファイル名] | cat` で差分を慎太郎さんと一緒に確認すること
 
 ### 終業時・引き継ぎ制作時の CLAUDE.md 更新方法（MUST）
 

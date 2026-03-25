@@ -12,7 +12,7 @@ export class AfterImagePlugin implements FXPlugin {
   readonly id = 'after-image'
   readonly name = 'AfterImage'
   readonly renderer = 'threejs'
-  enabled = true
+  enabled = false
 
   params: Record<string, PluginParam> = {
     damp: { value: 0.85, min: 0, max: 1, label: 'Damp' },

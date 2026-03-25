@@ -205,6 +205,23 @@ export interface MacroKnobManager {
 }
 
 // ============================================================
+// Layer Routing / Screen Assign（spec: docs/spec/program-preview-bus.spec.md §3）
+// ============================================================
+
+export interface LayerRouting {
+  layerId: string
+  outputOpacity: number   // 0.0〜1.0  Output view へのブレンド量
+  editOpacity: number     // 0.0〜1.0  Edit view へのブレンド量
+}
+
+export type ScreenAssign = 'output' | 'edit'
+
+export interface ScreenAssignState {
+  large: ScreenAssign   // デフォルト: 'output'
+  small: ScreenAssign   // デフォルト: 'edit'
+}
+
+// ============================================================
 // Project File（spec: docs/spec/project-file.spec.md §3）
 // ============================================================
 

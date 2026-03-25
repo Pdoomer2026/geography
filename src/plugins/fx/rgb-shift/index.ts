@@ -41,7 +41,7 @@ export class RGBShiftPlugin implements FXPlugin {
   readonly id = 'rgb-shift'
   readonly name = 'RGB Shift'
   readonly renderer = 'threejs'
-  enabled = true
+  enabled = false
 
   params: Record<string, PluginParam> = {
     amount: { value: 0.001, min: 0, max: 0.05, label: 'Amount' },

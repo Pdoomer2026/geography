@@ -1,6 +1,7 @@
-# GeoGraphy 引き継ぎメモ｜Day29完了｜2026-03-25
+# GeoGraphy 引き継ぎメモ｜Day29｜2026-03-25
 
 ## プロジェクト概要
+
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
 - **目的**: No-Texture・Plugin駆動・マルチライブラリ対応の映像制作プラットフォーム
 - **スタック**: Vite / React 18 / TypeScript / Three.js r160+ / pnpm v10.32+ / Electron 41
@@ -37,7 +38,7 @@
 
 ## 今回のセッション（Day29）で完了したこと
 
-### A. Phase 10 実装：spec ファイル更新・新規作成
+### A. Phase 10：spec ファイル更新・新規作成
 
 | ファイル | 作業 |
 |---|---|
@@ -47,55 +48,47 @@
 | `docs/spec/electron.spec.md` | View メニュー追加（⌘1/2/3・H/S）・IPC イベント定義 |
 | `docs/spec/fx-control-ui.spec.md` | FxControlPanel → FxSimpleWindow にリネーム反映・旧参照削除 |
 
-### B. Phase 10 実装：ディレクトリ新設・ファイル移動・リネーム
+### B. Phase 10：ディレクトリ新設・ファイル移動・リネーム
 
-```
-src/plugins/mixers/                        ← 新設
-src/plugins/mixers/CLAUDE.md               ← 新規作成
-src/plugins/mixers/simple-mixer/
-  MixerSimpleWindow.tsx                    ← 新規作成（旧 SimpleMixer.tsx の内容を移行・リネーム）
-  index.ts                                 ← 新規作成
+| 変更 | 内容 |
+|---|---|
+| `src/plugins/mixers/` | 新設・CLAUDE.md 作成 |
+| `MixerSimpleWindow.tsx` | 旧 `SimpleMixer.tsx` から移行・リネーム |
+| `FxSimpleWindow.tsx` | 旧 `FxControlPanel.tsx` から移行・リネーム |
+| `MacroKnobSimpleWindow.tsx` | 旧 `MacroKnobPanel.tsx` から移行・リネーム |
+| 旧ファイル4件 | 削除済み（SimpleMixer・FxControlPanel・MacroKnobPanel・windows/simple-mixer） |
 
-src/ui/FxSimpleWindow.tsx                  ← 新規作成（旧 FxControlPanel.tsx の内容を移行・リネーム）
-src/ui/MacroKnobSimpleWindow.tsx           ← 新規作成（旧 MacroKnobPanel.tsx の内容を移行・リネーム）
+### C. Phase 10：View メニュー追加
 
-削除済み：
-  src/plugins/windows/simple-mixer/SimpleMixer.tsx
-  src/plugins/windows/simple-mixer/index.ts
-  src/ui/FxControlPanel.tsx
-  src/ui/MacroKnobPanel.tsx
-```
-
-### C. Phase 10 実装：View メニュー追加
-
-- `electron/main.js`：View メニュー新設（Mixer/FX/Macro Knob Simple Window の表示/非表示・⌘1/2/3・H/S）
+- `electron/main.js`：View メニュー新設（⌘1/2/3・H/S）
 - `electron/preload.js`：View メニューイベントを `onMenuEvents` に追加
-- `src/types/geoAPI.d.ts`：`onMenuEvents` の型定義に View メニューイベントを追加
+- `src/types/geoAPI.d.ts`：View メニューイベントの型定義追加
 - `src/ui/App.tsx`：import パス全更新・View メニューイベントハンドラ追加
 
-### D. Phase 10 実装：CLAUDE.md 群の全面更新
+### D. Phase 10：CLAUDE.md 群の全面更新
 
 | ファイル | 作業 |
 |---|---|
-| `CLAUDE.md` | v10 に更新。始業時・終業時の CLAUDE.md 読み方（MUST）を追加。実装詳細を各モジュールへ移行。 |
-| `src/core/CLAUDE.md` | エンジン固定部分テーブルを3列化（固定部分・役割・アクセスルール）。Program/Preview バス・LayerManager・Clock を移行。 |
-| `src/ui/CLAUDE.md` | Window/Panel 命名原則・Simple Window 一覧を移行。旧名称・旧制約の記述を削除。 |
+| `CLAUDE.md` v10 | 始業時・終業時の読み方（MUST）追加。実装詳細を各モジュールへ移行。 |
+| `src/core/CLAUDE.md` | エンジン固定部分テーブルを3列化（固定部分・役割・アクセスルール） |
+| `src/ui/CLAUDE.md` | Window/Panel 命名原則・Simple Window 一覧を移行 |
 | `src/plugins/mixers/CLAUDE.md` | 新規作成。MixerPlugin の二重構造・MUST ルール統合。 |
-| `src/plugins/windows/CLAUDE.md` | Window Plugin 再定義。旧 simple-mixer 移動経緯を削除。 |
+| `src/plugins/windows/CLAUDE.md` | Window Plugin 再定義・旧経緯記述削除 |
 
-### E. 今日の新しい気づき（CLAUDE.md に反映済み）
+### E. 今日の重要な気づき（CLAUDE.md v10 に反映済み）
 
-**始業時・終業時の CLAUDE.md 正しい使い方を確立した。**
+**始業時・終業時の CLAUDE.md 正しい使い方を確立。**
 
-- 始業時：HANDOVER.md で作業対象を特定 → ルートで全体方針確認 → **対象モジュールの CLAUDE.md を必ず読む** → spec を読む → 実装開始
-- 終業時：触ったモジュールを列挙 → 各モジュールの CLAUDE.md を読む → **ルートかモジュールかを正しく判断して更新** → HANDOVER.md を書く
+- **始業時**：HANDOVER.md で作業対象を特定 → ルートで全体方針確認 → 対象モジュールの CLAUDE.md を必ず読む → spec を読む → 実装開始
+- **終業時**：触ったモジュールを列挙 → 各モジュールの CLAUDE.md を読む → ルートかモジュールかを正しく判断して更新 → HANDOVER.md を書く
 - ルートに実装詳細・モジュール固有ルールを書かない。各モジュールの CLAUDE.md に委譲する。
 
 ### F. git 作業：dist-electron 問題の解決
 
-- Day26 コミットに `dist-electron/` の大きなファイル（.dmg 114MB 等）が含まれており GitHub push が失敗
-- `git filter-branch` で過去コミットから `dist-electron/` を除去
-- `git push origin main --tags --force` で GitHub への push 成功
+- Day26 コミットに `dist-electron/` の大きなファイル（.dmg 114MB・Electron Framework 169MB）が含まれていた
+- `git filter-branch` で `origin/main..HEAD` の全コミットから `dist-electron/` を除去
+- `git push --force` で GitHub への push 成功
+- タグ `day27`・`day29` が新しいハッシュに書き換えられた
 
 ---
 
@@ -106,6 +99,15 @@ src/ui/MacroKnobSimpleWindow.tsx           ← 新規作成（旧 MacroKnobPanel
 - **テスト**: 104 tests グリーン・tsc エラーゼロ確認済み
 - **docs/ 直下**: `要件定義書_v1.9.md` / `実装計画書_v3.1.md` のみ（最新版）
 - **docs/archive/**: 旧ドキュメント・旧 CLAUDE.md アーカイブ済み
+
+---
+
+## 発生した問題と解決策
+
+| 問題 | 解決策 |
+|---|---|
+| Day26 コミットに `dist-electron/` の大きなファイルが含まれており GitHub push が失敗 | `git filter-branch --force --index-filter "git rm -r --cached --ignore-unmatch dist-electron/"` で過去コミットから除去 → `git push --force` |
+| タグを打つ前にコミットをしていなかった | `git tag -d day29` でローカルタグを削除 → `git add -A && git commit` → `git tag day29` → `git push --force` |
 
 ---
 
@@ -139,8 +141,7 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 - **CLAUDE.md アーカイブの場所**: `docs/archive/CLAUDE/`（日付付きファイル名）
 - **ドキュメントアーカイブ方針**: `docs/` 直下は最新版のみ・旧版は `docs/archive/` に移動
 - **今後 `dist-electron/` は絶対にコミットしない**（`.gitignore` 済み）
-- **git push の前に必ず `git status` で staged を確認してから `git tag` を打つこと**
-- **Window Plugin は v2 から**: v1 では Simple Window のみ・Window Plugin の実装は v2 以降
+- **git push の前に必ずコミットを確認すること**（`git status` で staged を確認してから `git tag`）
 
 ---
 

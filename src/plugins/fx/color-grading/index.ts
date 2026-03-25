@@ -50,7 +50,7 @@ export class ColorGradingPlugin implements FXPlugin {
   readonly id = 'color-grading'
   readonly name = 'Color Grading'
   readonly renderer = 'threejs'
-  enabled = true
+  enabled = false
 
   params: Record<string, PluginParam> = {
     saturation: { value: 1.0, min: 0, max: 2, label: 'Saturation' },

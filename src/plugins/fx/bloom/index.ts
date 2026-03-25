@@ -13,7 +13,7 @@ export class BloomPlugin implements FXPlugin {
   readonly id = 'bloom'
   readonly name = 'Bloom'
   readonly renderer = 'threejs'
-  enabled = true
+  enabled = false
 
   params: Record<string, PluginParam> = {
     strength:  { value: 0.8, min: 0, max: 3, label: 'Strength'  },

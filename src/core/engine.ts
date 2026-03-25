@@ -16,8 +16,11 @@ import type {
   FXPlugin,
   GeometryPlugin,
   Layer,
+  LayerRouting,
   MacroKnobConfig,
   SceneState,
+  ScreenAssign,
+  ScreenAssignState,
   GeoGraphyProject,
 } from '../types'
 import { PROJECT_FILE_VERSION } from '../types'
@@ -31,6 +34,14 @@ export class Engine {
   readonly clock: Clock = new Clock()
   private prevBeat: number = 0
   activeTransitionId: string = 'beat-cut'
+
+  // Layer Routing / Screen Assign
+  private layerRoutings: LayerRouting[] = [
+    { layerId: 'layer-1', outputOpacity: 1, editOpacity: 1 },
+    { layerId: 'layer-2', outputOpacity: 1, editOpacity: 1 },
+    { layerId: 'layer-3', outputOpacity: 1, editOpacity: 1 },
+  ]
+  private screenAssign: ScreenAssignState = { large: 'output', small: 'edit' }
 
   readonly parameterStore: ParameterStore
 
@@ -95,6 +106,19 @@ export class Engine {
     }
     programBus.load(initialState)
     previewBus.update(initialState)
+
+    // 初期ルーティングを canvas に反映する（起動時に黒くなるバグを防ぐ）
+    for (const routing of this.layerRoutings) {
+      const viewOpacity =
+        this.screenAssign.large === 'output'
+          ? routing.outputOpacity
+          : routing.editOpacity
+      layerManager.setOpacity(routing.layerId, viewOpacity)
+      const layer = layerManager.getLayers().find((l) => l.id === routing.layerId)
+      if (layer && layer.plugin !== null) {
+        layerManager.setMute(routing.layerId, viewOpacity === 0)
+      }
+    }
 
     window.addEventListener('resize', this.onResize)
   }
@@ -297,6 +321,55 @@ export class Engine {
     window.removeEventListener('resize', this.onResize)
     layerManager.dispose()
     this.container = null
+  }
+
+  // --- Layer Routing / Screen Assign API ---
+
+  getLayerRoutings(): LayerRouting[] {
+    return this.layerRoutings
+  }
+
+  setLayerRouting(layerId: string, outputOpacity: number, editOpacity: number): void {
+    const routing = this.layerRoutings.find((r) => r.layerId === layerId)
+    if (!routing) return
+    routing.outputOpacity = outputOpacity
+    routing.editOpacity = editOpacity
+
+    // Large screen のアサインに応じて canvas の opacity を反映する
+    const viewOpacity =
+      this.screenAssign.large === 'output' ? outputOpacity : editOpacity
+    layerManager.setOpacity(layerId, viewOpacity)
+
+    // opacity > 0 なら mute を解除・opacity = 0 なら mute にする
+    // （mute=true のとき display:none になるため opacity だけでは映像が出ない）
+    const shouldMute = viewOpacity === 0
+    const layer = layerManager.getLayers().find((l) => l.id === layerId)
+    if (layer && layer.plugin !== null) {
+      layerManager.setMute(layerId, shouldMute)
+    }
+  }
+
+  getScreenAssign(): ScreenAssignState {
+    return this.screenAssign
+  }
+
+  swapScreenAssign(): void {
+    const prev = this.screenAssign.large
+    this.screenAssign.large = this.screenAssign.small as ScreenAssign
+    this.screenAssign.small = prev as ScreenAssign
+
+    // SWAP後に全レイヤーの canvas opacity と mute を新しいアサインに合わせて更新
+    for (const routing of this.layerRoutings) {
+      const viewOpacity =
+        this.screenAssign.large === 'output'
+          ? routing.outputOpacity
+          : routing.editOpacity
+      layerManager.setOpacity(routing.layerId, viewOpacity)
+      const layer = layerManager.getLayers().find((l) => l.id === routing.layerId)
+      if (layer && layer.plugin !== null) {
+        layerManager.setMute(routing.layerId, viewOpacity === 0)
+      }
+    }
   }
 
   getLayers(): Layer[] {

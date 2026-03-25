@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CSSBlendMode, Layer, TransitionPlugin } from '../../../types'
+import type { Layer, LayerRouting, ScreenAssignState, TransitionPlugin } from '../../../types'
 import beatCutPlugin from '../../transitions/beat-cut'
 import crossfadePlugin from '../../transitions/crossfade'
 import { programBus } from '../../../core/programBus'
@@ -9,81 +9,110 @@ import { useDraggable } from '../../../ui/useDraggable'
 
 const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin, crossfadePlugin]
 
-const BLEND_MODES: { value: CSSBlendMode; label: string }[] = [
-  { value: 'normal',   label: 'Normal' },
-  { value: 'add',      label: 'Add' },
-  { value: 'multiply', label: 'Multiply' },
-  { value: 'screen',   label: 'Screen' },
-  { value: 'overlay',  label: 'Overlay' },
-]
+
+// ============================================================
+// 縦フェーダーコンポーネント
+// ============================================================
+
+function VerticalFader({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1" style={{ width: 36 }}>
+      <div className="text-[9px] text-[#7878aa]">{label}</div>
+      <div
+        className="relative flex items-center justify-center"
+        style={{ height: 100, width: 20 }}
+      >
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={value}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
+          onClick={(e) => e.stopPropagation()}
+          className="accent-[#7878ff] cursor-pointer"
+          style={{
+            writingMode: 'vertical-lr',
+            direction: 'rtl',
+            height: 100,
+            width: 20,
+          }}
+        />
+      </div>
+      <div className="text-[9px] text-[#4a4a6e]">{Math.round(value * 100)}%</div>
+    </div>
+  )
+}
+
+// ============================================================
+// MixerSimpleWindow
+// ============================================================
 
 /**
  * MixerSimpleWindow — v1 固定実装の Mixer Simple Window
  *
- * MixerPlugin のデフォルト最小 UI。
- * カスタム Window Plugin がないときのフォールバックとして機能する（v2〜）。
+ * Phase 11 UI: Edit view × 3 + Output view × 3 の縦フェーダー + SWAP ボタン
+ * v2 送り機能（Transition / Crossfader / Tap Tempo）はコードを残して非表示。
  * View メニュー（⌘3）またはキーボード「3」で表示/非表示を切り替えられる。
- *
- * v1 の時点から MixerPlugin Interface に準拠した実装にする（v2 で Plugin 化するとき設計変更ゼロにするため）。
  */
 export function MixerSimpleWindow() {
+  const [layers, setLayers] = useState<Layer[]>([])
+  const [routings, setRoutings] = useState<LayerRouting[]>(engine.getLayerRoutings())
+  const [screenAssign, setScreenAssign] = useState<ScreenAssignState>(engine.getScreenAssign())
+
+  // --- v2 送り（コードは残す・UI は非表示） ---
   const [crossfader, setCrossfader] = useState(0)
   const [transitionId, setTransitionId] = useState(AVAILABLE_TRANSITIONS[0].id)
   const [displayBpm, setDisplayBpm] = useState(128)
-  const [layers, setLayers] = useState<Layer[]>([])
-  const [registeredPlugins, setRegisteredPlugins] = useState<{ id: string; name: string }[]>([])
-  const previewRef = useRef<HTMLDivElement>(null)
   const tapTimesRef = useRef<number[]>([])
+  // --- v2 送りここまで ---
+
   const { pos, handleMouseDown } = useDraggable({
-    x: Math.max(0, window.innerWidth / 2 - 260),
-    y: Math.max(0, window.innerHeight - 300),
+    x: Math.max(0, window.innerWidth / 2 - 280),
+    y: Math.max(0, window.innerHeight - 320),
   })
 
+  // 200ms ポーリング：レイヤー状態・ルーティング・アサインを同期
   useEffect(() => {
-    const syncLayers = () => {
+    const sync = () => {
       setLayers([...engine.getLayers()])
-      // registeredPlugins は Registry が確定してから取得する（空なら毎回試みる）
-      const plugins = engine.getRegisteredPlugins()
-      if (plugins.length > 0) {
-        setRegisteredPlugins(plugins)
-      }
+      setRoutings([...engine.getLayerRoutings()])
+      setScreenAssign({ ...engine.getScreenAssign() })
     }
-
-    syncLayers()
-    const timer = window.setInterval(syncLayers, 200)
+    sync()
+    const timer = window.setInterval(sync, 200)
     return () => window.clearInterval(timer)
   }, [])
 
-  // PREVIEW バス: ref が準備できたら canvas を mount して表示する
-  useEffect(() => {
-    if (!previewRef.current) return
-    const container = previewRef.current
+  // Edit view フェーダー変更
+  function handleEditOpacity(layerId: string, value: number) {
+    const r = routings.find((r) => r.layerId === layerId)
+    if (!r) return
+    engine.setLayerRouting(layerId, r.outputOpacity, value)
+  }
 
-    // まだ mount されていなければ mount する（canvas を container に追加）
-    if (!previewBus.getCanvas()) {
-      previewBus.mount(container)
-    }
+  // Output view フェーダー変更
+  function handleOutputOpacity(layerId: string, value: number) {
+    const r = routings.find((r) => r.layerId === layerId)
+    if (!r) return
+    engine.setLayerRouting(layerId, value, r.editOpacity)
+  }
 
-    // canvas を 160×90 で表示（内部解像度 320×180 はそのまま）
-    const canvas = previewBus.getCanvas()
-    if (!canvas) return
-    canvas.style.width = '160px'
-    canvas.style.height = '90px'
+  // SWAP ボタン
+  function handleSwap() {
+    engine.swapScreenAssign()
+    setScreenAssign({ ...engine.getScreenAssign() })
+  }
 
-    // 既に別のコンテナに入っていれば移動する
-    if (canvas.parentNode !== container) {
-      container.appendChild(canvas)
-    }
-
-    return () => {
-      // クリーンアップ: canvas を container から除去（previewBus は dispose しない）
-      if (canvas.parentNode === container) {
-        container.removeChild(canvas)
-      }
-    }
-  }, [])
-
-  // クロスフェーダー変化時に execute() → programBus.load()
+  // --- v2 送り関数（コードは残す・UI は非表示） ---
   function handleCrossfaderChange(value: number) {
     setCrossfader(value)
     const from = previewBus.getState()
@@ -94,27 +123,18 @@ export function MixerSimpleWindow() {
     const blended = plugin.execute(from, to, value)
     programBus.load(blended)
   }
-
-  // Transition 切り替え時にクロスフェーダーを 0 にリセット・engine に通知
   function handleTransitionChange(id: string) {
     setTransitionId(id)
     setCrossfader(0)
     engine.setTransition(id)
   }
-
-  // Tap Tempo: タップ間隔から BPM を計算して engine.clock に反映
   function handleTap() {
     const now = performance.now()
     const taps = tapTimesRef.current
-
-    // 2秒以上間隔が空いたらリセット
     if (taps.length > 0 && now - taps[taps.length - 1] > 2000) {
       tapTimesRef.current = []
     }
-
     tapTimesRef.current.push(now)
-
-    // 2回以上タップで BPM 計算
     if (tapTimesRef.current.length >= 2) {
       const intervals = []
       for (let i = 1; i < tapTimesRef.current.length; i++) {
@@ -126,168 +146,105 @@ export function MixerSimpleWindow() {
       setDisplayBpm(bpm)
     }
   }
+  // v2 送り関数ここまで（crossfader / transitionId / displayBpm / handleCrossfaderChange /
+  // handleTransitionChange / handleTap は v2 で UI 公開）
+  void crossfader; void handleCrossfaderChange; void handleTransitionChange
+  void displayBpm; void handleTap
 
   return (
     <div
       className="fixed z-50 bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg
                  text-white font-mono text-xs select-none"
-      style={{ left: pos.x, top: pos.y, width: 520, padding: '12px 16px' }}
+      style={{ left: pos.x, top: pos.y, width: 480, padding: '12px 16px' }}
     >
       {/* ヘッダー（ドラッグハンドル） */}
       <div
         onMouseDown={handleMouseDown}
-        className="text-[10px] text-[#7878aa] mb-2 tracking-widest"
+        className="text-[10px] text-[#7878aa] mb-3 tracking-widest"
         style={{ cursor: 'grab' }}
       >
         MIXER SIMPLE WINDOW
       </div>
 
-      {/* バス表示エリア */}
-      <div className="flex gap-4 mb-3">
-        {/* Program バス */}
-        <div className="flex-1">
-          <div className="text-[10px] text-[#aaaacc] mb-1 tracking-wider">PROGRAM</div>
-          <div
-            className="flex gap-1 items-stretch"
-            style={{ height: 150 }}
-          >
-            {layers.map((layer, i) => (
-              <div
-                key={layer.id}
-                className="flex-1 rounded-sm border flex flex-col justify-between px-1 py-1 text-[9px] select-none"
-                style={{
-                  height: '100%',
-                  background: layer.mute ? '#0a0a14' : '#1a1a2e',
-                  borderColor: layer.mute ? '#1a1a3e' : '#2a2a4e',
-                  opacity: layer.mute ? 0.6 : 1,
-                }}
-              >
-                {/* レイヤー番号 */}
-                <div className="text-[#8f8fd1] text-center mb-1">L{i + 1}</div>
+      {/* フェーダーエリア */}
+      <div className="flex items-start gap-6">
 
-                {/* Plugin プルダウン */}
-                <select
-                  value={layer.plugin?.id ?? ''}
-                  onChange={(e) => engine.setLayerPlugin(layer.id, e.target.value === '' ? null : e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-full bg-[#0a0a1a] border border-[#2a2a4e] rounded text-[8px] text-[#aaaacc] outline-none cursor-pointer mb-1"
-                  style={{ padding: '1px 2px' }}
-                >
-                  <option value="">None</option>
-                  {registeredPlugins.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-
-                {/* blendMode プルダウン */}
-                <select
-                  value={layer.blendMode}
-                  onChange={(e) =>
-                    engine.setLayerBlendMode(layer.id, e.target.value as CSSBlendMode)
-                  }
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-full bg-[#0a0a1a] border border-[#2a2a4e] rounded text-[8px] text-[#aaaacc] outline-none cursor-pointer mb-1"
-                  style={{ padding: '1px 2px' }}
-                >
-                  {BLEND_MODES.map((bm) => (
-                    <option key={bm.value} value={bm.value}>{bm.label}</option>
-                  ))}
-                </select>
-
-                {/* Opacity スライダー */}
-                <div className="flex items-center gap-1 mt-1">
-                  <span className="text-[#4a4a6e]" style={{ minWidth: 14 }}>α</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={layer.opacity}
-                    onChange={(e) => engine.setLayerOpacity(layer.id, parseFloat(e.target.value))}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex-1 accent-[#7878ff] cursor-pointer"
-                    style={{ height: 3 }}
+        {/* EDIT view フェーダー × 3 */}
+        <div>
+          <div className="text-[10px] text-[#aaaacc] mb-2 tracking-wider">EDIT view</div>
+          <div className="flex gap-2">
+            {layers.map((layer, i) => {
+              const r = routings.find((r) => r.layerId === layer.id)
+              return (
+                <div key={layer.id} className="flex flex-col items-center">
+                  <VerticalFader
+                    label={`L${i + 1}`}
+                    value={r?.editOpacity ?? 1}
+                    onChange={(v) => handleEditOpacity(layer.id, v)}
                   />
+                  <div
+                    className="text-[8px] text-center mt-1"
+                    style={{ color: layer.plugin ? '#7878aa' : '#3a3a5e', width: 36 }}
+                  >
+                    {layer.plugin?.name ?? 'None'}
+                  </div>
                 </div>
-
-                {/* MUTE/LIVE トグル */}
-                <div
-                  onClick={() => engine.setLayerMute(layer.id, !layer.mute)}
-                  className="text-center font-bold cursor-pointer mt-1"
-                  style={{ color: layer.mute ? '#ff4444' : '#44ff88' }}
-                >
-                  {layer.mute ? 'MUTE' : 'LIVE'}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
-        {/* Preview バス */}
-        <div>
-          <div className="text-[10px] text-[#aaaacc] mb-1 tracking-wider">PREVIEW</div>
-          <div
-            ref={previewRef}
-            className="rounded-sm border border-[#2a2a4e] bg-[#0a0a1a] overflow-hidden"
-            style={{ width: 160, height: 90 }}
-          />
+        {/* 中央：SWAP ボタン + アサインラベル */}
+        <div className="flex flex-col items-center justify-center" style={{ paddingTop: 20, minWidth: 80 }}>
+          <button
+            onClick={handleSwap}
+            className="bg-[#1a1a3e] border border-[#4a4a7e] rounded px-3 py-1
+                       text-[#aaaaff] text-[11px] cursor-pointer hover:bg-[#2a2a5e]
+                       tracking-wider mb-3"
+          >
+            ⇄ SWAP
+          </button>
+          <div className="text-[9px] text-center" style={{ lineHeight: 1.8 }}>
+            <div>
+              <span className="text-[#4a4a6e]">Large: </span>
+              <span className="text-[#aaaaff] font-bold">
+                {screenAssign.large.toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <span className="text-[#4a4a6e]">Small: </span>
+              <span className="text-[#aaaaff] font-bold">
+                {screenAssign.small.toUpperCase()}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Transition プルダウン */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-[#7878aa] text-[10px] tracking-wider">TRANSITION</span>
-        <select
-          value={transitionId}
-          onChange={(e) => handleTransitionChange(e.target.value)}
-          className="bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-0.5
-                     text-[#aaaacc] text-[11px] outline-none cursor-pointer flex-1"
-        >
-          {AVAILABLE_TRANSITIONS.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} — {t.preview}
-            </option>
-          ))}
-        </select>
-      </div>
+        {/* OUTPUT view フェーダー × 3 */}
+        <div>
+          <div className="text-[10px] text-[#aaaacc] mb-2 tracking-wider">OUTPUT view</div>
+          <div className="flex gap-2">
+            {layers.map((layer, i) => {
+              const r = routings.find((r) => r.layerId === layer.id)
+              return (
+                <div key={layer.id} className="flex flex-col items-center">
+                  <VerticalFader
+                    label={`L${i + 1}`}
+                    value={r?.outputOpacity ?? 1}
+                    onChange={(v) => handleOutputOpacity(layer.id, v)}
+                  />
+                  <div
+                    className="text-[8px] text-center mt-1"
+                    style={{ color: layer.plugin ? '#7878aa' : '#3a3a5e', width: 36 }}
+                  >
+                    {layer.plugin?.name ?? 'None'}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
 
-      {/* クロスフェーダー */}
-      <div className="flex items-center gap-2">
-        <span className="text-[#4a4a6e] text-[10px] w-8">PGM</span>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={crossfader}
-          onChange={(e) => handleCrossfaderChange(parseFloat(e.target.value))}
-          className="flex-1 accent-[#7878ff] h-1.5 cursor-pointer"
-        />
-        <span className="text-[#4a4a6e] text-[10px] w-8 text-right">PVW</span>
-      </div>
-
-      {/* クロスフェーダー値表示 */}
-      <div className="text-center text-[9px] text-[#4a4a6e] mt-1">
-        {Math.round(crossfader * 100)}
-      </div>
-
-      {/* BPM / Tap Tempo */}
-      <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button
-          onClick={handleTap}
-          style={{
-            padding: '6px 14px',
-            background: '#333',
-            color: '#fff',
-            border: '1px solid #555',
-            borderRadius: 4,
-            cursor: 'pointer',
-            fontSize: 13,
-          }}
-        >
-          TAP
-        </button>
-        <span style={{ color: '#aaa', fontSize: 13 }}>{displayBpm} BPM</span>
       </div>
     </div>
   )
