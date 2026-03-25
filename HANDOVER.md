@@ -89,10 +89,21 @@
 
 ## 次回やること（Day32）
 
+### 最優先：次のフェーズの壁打ち
+
+Phase 11（Preview サムネイルキャンバス）は Small screen 実装で代替されたため、次に何をやるかを壁打ちで決める必要がある。
+
 | 順序 | 作業 |
 |---|---|
-| 1 | 実装計画書 Phase 11 セクションの更新（Day31の実装を反映） |
-| 2 | 次の機能実装の壁打ち |
+| 1 | 実装計画書の Day別実績に Day29〜Day31 を追記（現在 Day28 で止まっている） |
+| 2 | Phase 11 セクションを Day31 の実装内容で更新（Small screen実装済みとして記録） |
+| 3 | Phase 12（Output Driver + 録画）または Phase 13（UI全面実装）のどちらを次にやるか壁打ち |
+
+### 延期中タスク（必要になったら実施）
+
+- `docs/spec/simple-window.spec.md` 新規作成（Phase 10 未完了分）
+- `docs/spec/window-plugin.spec.md` 新規作成（Phase 10 未完了分）
+- Small screen 画質の v2 検討（専用 WebGL レンダラー vs 現状の drawImage）
 
 ---
 
