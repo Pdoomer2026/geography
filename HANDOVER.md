@@ -80,32 +80,19 @@
 
 | 問題 | 解決策 |
 |---|---|
-| ルートCLAUDE.mdに文字化け（`ター❓ナル`）があり `str_replace` が効かない | `sed -i '' 's/ター.ナル/ターミナル/g' CLAUDE.md` で修正後、`filesystem:edit_file` で編集 |
-| フェーダーを動かしても映像が変化しない | `setLayerRouting()` 内で `layerManager.setOpacity()` を呼ぶように修正 |
-| フェーダー0%でも映像が消えない | `mute=true`（`display:none`）も合わせて制御するよう修正 |
-| 起動時に3レイヤーが黒くなる | `initialize()` 末尾に初期ルーティング反映処理を追加 |
-| FX初期値がONで3レイヤーに全てかかり映像が見えない | FX Pluginの `enabled` 初期値を `false` に変更 |
+| `drawImage` で WebGL canvas が真っ黒 | `THREE.WebGLRenderer` に `preserveDrawingBuffer: true` を追加（`layerManager.ts`） |
+| Small screen がぼやける | `canvas` の `width/height` を `devicePixelRatio` 倍にして CSS サイズはそのまま |
+| `previewBus.mount()` では実映像が映らない | WebGL canvas を直接参照する方式（`drawImage`）に変更 |
+| MCP タイムアウトで `filesystem:edit_file` が失敗 | チャットが復活した後に再実行することで解決 |
 
 ---
 
-## 次回やること（Day31）
-
-### 最優先：Small screen の実装
-
-MixerSimpleWindow内にSmall screenがまだない。Large screenとの対比を作る必要がある。
+## 次回やること（Day32）
 
 | 順序 | 作業 |
 |---|---|
-| 1 | Small screen の表示内容を壁打ちで決める（Edit viewの合成をリアルタイム表示 or テキスト情報） |
-| 2 | MixerSimpleWindow内にSmall screenエリアを追加 |
-| 3 | tsc + test 通過確認 |
-| 4 | `pnpm dev:electron` で目視確認 |
-
-### その他検討事項
-
-- 実装計画書 Phase 11 セクションの更新（Day30の新設計を反映）
-- 実装計画書 Phase 11 セクションの更新（Day31の実装を反映）
-- 次の機能実装の壁打ち
+| 1 | 実装計画書 Phase 11 セクションの更新（Day31の実装を反映） |
+| 2 | 次の機能実装の壁打ち |
 
 ---
 
