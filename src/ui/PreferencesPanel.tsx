@@ -125,13 +125,25 @@ export function PreferencesPanel({ open, onClose }: PreferencesPanelProps) {
 function SetupTab({ onApply }: { onApply: () => void }) {
   const allGeometry = engine.getRegisteredPlugins()
 
+  // デフォルトは最初の3つだけ選択（レイヤー数に合わせる）
   const [selectedGeometry, setSelectedGeometry] = useState<Set<string>>(
-    () => new Set(allGeometry.map((p) => p.id))
+    () => {
+      const currentLayers = engine.getSceneState().layers
+      if (currentLayers.length > 0) {
+        return new Set(currentLayers.map((l) => l.geometryId))
+      }
+      return new Set(allGeometry.slice(0, 3).map((p) => p.id))
+    }
   )
 
-  const [selectedFx, setSelectedFx] = useState<Record<string, boolean>>(
-    () => ({ ...FX_DEFAULTS })
-  )
+  // engine の現在の FX 状態を初期値にする（開くたびにリセットしない）
+  const [selectedFx, setSelectedFx] = useState<Record<string, boolean>>(() => {
+    const currentFx = engine.getFxPlugins('layer-1')
+    if (currentFx.length > 0) {
+      return Object.fromEntries(currentFx.map((fx) => [fx.id, fx.enabled]))
+    }
+    return { ...FX_DEFAULTS }
+  })
 
   function toggleGeometry(id: string) {
     setSelectedGeometry((prev) => {
