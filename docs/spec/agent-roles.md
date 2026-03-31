@@ -4,6 +4,7 @@
 > SSoT: このファイル
 > 目的: v2以降のマルチエージェント化において、エージェント間の衝突を防ぐ
 > 更新タイミング: 新しいエージェントを追加するとき・担当範囲が変わるとき
+> 最終更新: Day35（要件定義書 v2.0・実装計画書 v3.2 反映）
 
 ---
 
@@ -18,7 +19,7 @@
 
 ## エージェント一覧と担当範囲
 
-### 🖥️ Claude Desktop（設計・仕様管理）
+### Claude Desktop（設計・仕様管理）
 **役割**: SSoT管理・仕様駆動開発の司令塔
 
 | 担当 | パス |
@@ -33,7 +34,7 @@
 
 ---
 
-### ⚙️ Claude Code（実装・テスト・Git）
+### Claude Code（実装・テスト・Git）
 **役割**: specを読んで実装する。Git操作の唯一の担当。
 
 | 担当 | パス |
@@ -49,7 +50,7 @@
 
 ---
 
-### 🎨 Geometry Agent（v2以降）
+### Geometry Agent（v2以降）
 **役割**: Geometry Pluginの追加・改善専門
 
 | 担当 | パス |
@@ -57,39 +58,39 @@
 | Geometry Plugin | `src/plugins/geometry/**` |
 | テンプレート | `src/plugins/geometry/**/template-*.md` |
 
-**読むべきspec**: `docs/spec/geometry-plugin.spec.md`（要作成）
+**読むべきspec**: `docs/spec/geometry-plugin.spec.md`
 **触れないもの**: `src/core/**` / `src/types/index.ts` の変更は禁止（変更が必要なときはClaude Codeへ依頼）
 
 ---
 
-### ✨ FX Agent（v2以降）
+### FX Agent（v2以降）
 **役割**: FX Plugin・EffectComposerの追加・改善専門
 
 | 担当 | パス |
 |---|---|
 | FX Plugin | `src/plugins/fx/**` |
 
-**読むべきspec**: `docs/spec/fx-stack.spec.md`（要作成）
+**読むべきspec**: `docs/spec/fx-stack.spec.md`
 **制約**: FXスタック順序（`src/plugins/fx/CLAUDE.md`）を厳守
 **触れないもの**: `src/core/**`
 
 ---
 
-### 🎛️ Mixer Agent（v2以降）
-**役割**: Mixer Plugin・SimpleMixerのUI改善専門
+### Mixer Agent（v2以降）
+**役割**: Mixer Plugin・Mixer Simple Window のUI改善専門
 
 | 担当 | パス |
 |---|---|
-| Window Plugin | `src/plugins/windows/**` |
-| Mixer UI | `src/plugins/windows/simple-mixer/**` |
+| MixerPlugin | `src/plugins/mixers/**` |
+| Mixer UI | `src/plugins/mixers/simple-mixer/**` |
 
-**読むべきspec**: `docs/spec/mixer-plugin.spec.md`（要作成）
-**制約**: SimpleMixerは閉じるボタンを実装してはいけない
+**読むべきspec**: `docs/spec/mixer-plugin.spec.md` ✅
+**制約**: MixerPlugin Interface に準拠すること
 **触れないもの**: `src/core/engine.ts`（エンジンAPIを通じてのみ操作）
 
 ---
 
-### 🔄 Transition Agent（v2以降）
+### Transition Agent（v2以降）
 **役割**: Transition Plugin追加専門（GL Transitions移植等）
 
 | 担当 | パス |
@@ -101,6 +102,19 @@
 
 ---
 
+### Sequencer Agent（v1 先行配置）
+**役割**: Sequencer Plugin 追加・改善専門
+
+| 担当 | パス |
+|---|---|
+| Sequencer Plugin | `src/plugins/sequencers/**` |
+
+**読むべきspec**: `docs/spec/sequencer.spec.md`（新設予定）
+**制約**: MacroKnob ID 経由で値を送るのみ・Plugin.params を直接知らない
+**触れないもの**: `src/core/macroKnob.ts`（読み取りは可）・`src/core/engine.ts`
+
+---
+
 ## 共有ファイルのルール
 
 以下のファイルは複数エージェントが参照するが、**変更はClaude Codeのみ**：
@@ -109,6 +123,7 @@
 |---|---|
 | `src/types/index.ts` | specに型変更を先に記載 → Claude Codeが実装 |
 | `src/core/engine.ts` | specに変更内容を先に記載 → Claude Codeが実装 |
+| `src/core/macroKnob.ts` | MacroKnob コア固定・変更は Claude Code のみ |
 | `src/core/config.ts` | 定数変更はClaude Desktopがspecに記載 → Claude Codeが実装 |
 | `package.json` | 依存追加はClaude Codeのみ |
 
@@ -127,7 +142,7 @@
   Claude Desktop → specを更新
 
 新しいPluginを追加したいとき:
-  Geometry/FX/Transition Agent → 自担当ディレクトリに追加
+  Geometry/FX/Transition/Sequencer Agent → 自担当ディレクトリに追加
   自動登録（import.meta.glob）で即時反映 → Claude Codeへの依頼不要
 ```
 

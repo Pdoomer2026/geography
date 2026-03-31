@@ -56,7 +56,7 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 ### 開発サイクル
 
 ```
-1. docs/spec/[機能].spec.md を確認（または新規作成）
+1. 各モジュールの CLAUDE.md / docs/spec/[機能].spec.md を確認（または新規作成）
 2. プランを提示・承認を得てから実装開始
 3. 実装後 → 慎太郎さんに pnpm tsc --noEmit を実行してもらい結果を貼り付けてもらう
 4. 型エラーがあれば自律修正 → 再度コマンドを渡す

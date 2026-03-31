@@ -29,22 +29,34 @@ Simple Window のファイル名は `[Name]SimpleWindow.tsx`。
 |---|---|---|
 | Mixer Simple Window | MixerPlugin | `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx` |
 | FX Simple Window | FX Plugin | `src/ui/FxSimpleWindow.tsx` |
-| Macro Knob Simple Window | MacroKnobManager | `src/ui/MacroKnobSimpleWindow.tsx` |
+
+---
+
+## Panel 命名原則（Day35 確定）
+
+Panel のファイル名は `[Name]Panel.tsx`。`src/ui/panels/` に配置。各 Panel は固有の CLAUDE.md を持つ。
+
+### Panel 一覧（v1）
+
+| Panel 名 | 内容 | ファイル |
+|---|---|---|
+| Preferences Panel | Setup / Plugins / MIDI / Output 等 | `src/ui/panels/preferences/PreferencesPanel.tsx` |
+| MacroKnob Panel | MacroKnob 32個・MIDI 2.0 アサイン・MIDI Learn | `src/ui/panels/macro-knob/MacroKnobPanel.tsx` |
 
 ---
 
 ## View メニューとの連携
 
-すべての Simple Window は View メニューから表示/非表示を切り替えられる。
+すべての Window ・ Panel は View メニューから表示/非表示を切り替えられる。
 
 | キー / メニュー | 対象 |
 |---|---|
-| `1` / View > Macro Knob Simple Window（⌘1） | MacroKnobSimpleWindow |
+| `1` / View > MacroKnob Panel（⌘1） | MacroKnobPanel |
 | `2` / View > FX Simple Window（⌘2） | FxSimpleWindow |
 | `3` / View > Mixer Simple Window（⌘3） | MixerSimpleWindow |
-| `H` / View > Hide All Windows | 全 Window 非表示 |
-| `S` / View > Show All Windows | 全 Window 表示 |
-| `F` | 全 Window 非表示 + フルスクリーン |
+| `H` / View > Hide All Windows | 全 Window / Panel 非表示 |
+| `S` / View > Show All Windows | 全 Window / Panel 表示 |
+| `F` | 全 Window / Panel 非表示 + フルスクリーン |
 | `P` | Preferences Panel 開閉 |
 
 View メニューのイベントは `electron/main.js` → IPC → `electron/preload.js` → `geoAPI.onMenuEvents` → `App.tsx` の流れで受け取る。
@@ -55,14 +67,21 @@ View メニューのイベントは `electron/main.js` → IPC → `electron/pre
 
 ```
 src/ui/
-├── App.tsx                    ← Canvas + Simple Window 群のルートレイアウト
+├── App.tsx                    ← Canvas + Window / Panel 群のルートレイアウト
 ├── FxSimpleWindow.tsx         ← FX Simple Window
-├── MacroKnobSimpleWindow.tsx  ← Macro Knob Simple Window
-├── PreferencesPanel.tsx       ← Preferences Panel（アプリ固定・コントリビューター触れない）
 ├── useAutosave.ts             ← 終了時保存・起動時復元
-└── useDraggable.ts            ← フローティングウィンドウのドラッグ
+├── useDraggable.ts            ← フローティングウィンドウのドラッグ
+└── panels/                    ← Panel 専用ディレクトリ（Day35 確定）
+    ├── CLAUDE.md                ← Panel 共通ルール
+    ├── preferences/
+    │   ├── CLAUDE.md            ← Preferences 固有
+    │   └── PreferencesPanel.tsx ← 移動予定（現在 src/ui/ にあり）
+    └── macro-knob/
+        ├── CLAUDE.md            ← MacroKnob + MIDI 2.0 固有（最重要）
+        └── MacroKnobPanel.tsx   ← リネーム予定（現在 MacroKnobSimpleWindow.tsx）
 
 ※ Mixer Simple Window は src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx
+※ panels/ の実装は Phase 13 以降
 ```
 
 ---
