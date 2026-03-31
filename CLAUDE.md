@@ -145,6 +145,7 @@ git tag dayN && git push origin dayN
 | `docs/spec/preferences-panel.spec.md` | Preferences Panel | Claude Code | ✅ |
 | `docs/spec/project-file.spec.md` | プロジェクトファイル | Claude Code | ✅ |
 | `docs/spec/plugin-lifecycle.spec.md` | Plugin ライフサイクル | Claude Code | ⬜ |
+| `docs/spec/shader-plugin.spec.md` | Shader Plugin（疎結合・GeoGraffiコア） | Claude Code | ⬜ 設計済み・実装はシーケンサー後 |
 
 ---
 
