@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day35（壁打ち：シーケンサー・MacroKnob・MIDI設計）｜2026-03-31
+# GeoGraphy 引き継ぎメモ｜Day35（壁打ち＋要件定義書v2.0＋実装計画書v3.2）｜2026-03-31
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -21,6 +21,11 @@
 | CLAUDE.md（全体方針） | `CLAUDE.md`（v10） |
 | 引き継ぎメモ（最新） | `HANDOVER.md` |
 | Shader Plugin spec | `docs/spec/shader-plugin.spec.md` |
+| MacroKnob spec（更新済み） | `docs/spec/macro-knob.spec.md` |
+| Simple Window spec（更新済み） | `docs/spec/simple-window.spec.md` |
+| Agent Roles spec（更新済み） | `docs/spec/agent-roles.md` |
+| 要件定義書（最新） | `docs/要件定義書_v2.0.md` |
+| 実装計画書（最新） | `docs/実装計画書_v3.2.md` |
 | 型定義 | `src/types/index.ts` |
 | geoAPI 型定義 | `src/types/geoAPI.d.ts` |
 | エンジン本体 | `src/core/engine.ts` |
@@ -147,17 +152,25 @@ src/plugins/
 |---|---|
 | ★★★ | `docs/spec/cc-standard.spec.md` 新設（全 Plugin params 比較・Rosetta Stone 確定） |
 | ★★★ | `docs/spec/macro-knob.spec.md` 更新（CC統合・MIDI Learn・MIDI 2.0 IPC 設計） |
-| ★★★ | `src/ui/panels/` ディレクトリ新設・ファイル移動・リネーム実装 |
-| ★★ | `simple-window.spec.md` 更新（MacroKnob を Panel 側に移動） |
+| ★★★ | `src/ui/panels/` 新設・`PreferencesPanel.tsx` 移動・`MacroKnobSimpleWindow.tsx` → `MacroKnobPanel.tsx` リネーム（Phase 13） |
+| ★★★ | `src/ui/panels/CLAUDE.md` 新規作成（Panel 共通ルール） |
+| ★★★ | `src/ui/panels/preferences/CLAUDE.md` 新規作成 |
+| ★★★ | `src/ui/panels/macro-knob/CLAUDE.md` 新規作成（最重要・MIDI 2.0 設計含む） |
+| ★★ | `docs/spec/cc-standard.spec.md` 新設（全 Plugin params 比較・CC Rosetta Stone 確定） |
 | ★★ | `docs/spec/sequencer.spec.md` 新設（MacroKnob 経由設計で執筆） |
 | ★ | 録画機能の動作確認（`pnpm dev:electron` → ⌘R → ⌘⇧R → WebM 保存） |
 
-**実装優先順位：**
+**Phase 13 実装順序：**
 ```
-1. MacroKnob Panel 完成（Panel 移動・命名変更・MIDI 2.0 設計）
-2. cc-standard.spec.md 執筆（全 Plugin params 比較表）
-3. sequencer.spec.md 執筆
-4. Sequencer 実装（MacroKnob 完成後）
+1. 各モジュールの CLAUDE.md / docs/spec/[feature].spec.md を確認
+2. src/ui/panels/ ディレクトリ新設
+3. PreferencesPanel.tsx 移動
+4. MacroKnobSimpleWindow.tsx → MacroKnobPanel.tsx リネーム+移動
+5. App.tsx の import を全て更新
+6. 各 CLAUDE.md 新規作成
+7. pnpm tsc --noEmit → 型エラーゼロ確認
+8. pnpm test --run → 104 tests グリーン確認
+9. git commit + tag day36
 ```
 
 ---
@@ -201,7 +214,7 @@ GeoGraphy Day36を開始します。
 2. HANDOVER.md の「次回やること（Day36）」を読んで作業を開始してください
 
 開発スタイル：SDD × CDD
-- 始業時は HANDOVER.md → ルート CLAUDE.md → 作業対象モジュールの CLAUDE.md → spec の順で読むこと
+- 始業時は HANDOVER.md → 各モジュールの CLAUDE.md / docs/spec/[機能].spec.md を確認 → 更新か継続か判定 → 必要箇所だけ更新してから実装
 - ファイル更新は filesystem:edit_file を使うこと（write_file は新規作成のみ）
 - 完了条件は pnpm tsc --noEmit（型エラーゼロ）+ pnpm test --run（全テストグリーン）両方通過
 - プランを提示・承認を得てから実装を開始すること
