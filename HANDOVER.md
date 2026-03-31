@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day34（壁打ち + spec作成）｜2026-03-31
+# GeoGraphy 引き継ぎメモ｜Day35（壁打ち：シーケンサー・MacroKnob・MIDI設計）｜2026-03-31
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -20,7 +20,7 @@
 | 実装計画書（最新） | `docs/実装計画書_v3.1.md` |
 | CLAUDE.md（全体方針） | `CLAUDE.md`（v10） |
 | 引き継ぎメモ（最新） | `HANDOVER.md` |
-| **Shader Plugin spec（新設）** | **`docs/spec/shader-plugin.spec.md`** |
+| Shader Plugin spec | `docs/spec/shader-plugin.spec.md` |
 | 型定義 | `src/types/index.ts` |
 | geoAPI 型定義 | `src/types/geoAPI.d.ts` |
 | エンジン本体 | `src/core/engine.ts` |
@@ -28,121 +28,137 @@
 | App.tsx | `src/ui/App.tsx` |
 | Mixer Simple Window | `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx` |
 | FX Simple Window | `src/ui/FxSimpleWindow.tsx` |
-| Macro Knob Simple Window | `src/ui/MacroKnobSimpleWindow.tsx` |
-| PreferencesPanel | `src/ui/PreferencesPanel.tsx` |
+| MacroKnob（コア） | `src/core/macroKnob.ts` |
+| MacroKnob UI（要リネーム） | `src/ui/MacroKnobSimpleWindow.tsx` → `src/ui/panels/macro-knob/MacroKnobPanel.tsx` |
+| PreferencesPanel（要移動） | `src/ui/PreferencesPanel.tsx` → `src/ui/panels/preferences/PreferencesPanel.tsx` |
 | Electron メインプロセス | `electron/main.js` |
 | Electron preload | `electron/preload.js` |
-| Icosphere | `src/plugins/geometry/solid/icosphere/` |
-| Torus | `src/plugins/geometry/solid/torus/` |
-| Torusknot | `src/plugins/geometry/solid/torusknot/` |
-| Hex Grid | `src/plugins/geometry/terrain/hex-grid/` |
-
----
-
-## 今回のセッション（Day34）で完了したこと
-
-### A. 別 AI との壁打ち内容を GeoGraphy アーキテクチャに照合・ブラッシュアップ
-
-壁打ちの主要テーマ：
-- Graffiti コンセプト（透明 Geometry + Shader が描画するアイデア）
-- Shader Plugin の3つの設計案（GeometryPlugin一種 / FX一種 / 独立型）
-- GeoGraffi ビジョン（位置情報 AR SNS）
-- R3F・PLATEAU・WebXR の役割整理
-- GeoGraphy の本質（VJツール / Three.js アセットライブラリ）
-
-**決定事項：**
-- Shader Plugin は**選択肢3（独立型・疎結合）**で確定
-- 実装は**シーケンサー完成後**（`uProgress` の制御主体が必要なため）
-- R3F は GeoGraffi（将来の別アプリ）で採用・GeoGraphy 本体はバニラ Three.js のまま
-
-### B. `docs/spec/shader-plugin.spec.md` 新規作成
-
-| セクション | 内容 |
-|---|---|
-| Purpose | 透明 Geometry + Shader のコアコンセプト・Graffiti ビジョン |
-| Constraints | MUSTルール（疎結合・ライフサイクル・dispose等） |
-| Interface | `ShaderPlugin` 型・`GeometryData` 型・`engine.getGeometryData()` API |
-| Behavior | Effect Type（Fill/Outline/Detail）・標準 Uniforms・3-State シーケンス |
-| ディレクトリ構成 | `src/plugins/shaders/` の構造 |
-| Layer との関係 | Geometry → Shader → FX の順序 |
-| Test Cases | 6つの検証条件 |
-| 実装時の注意 | 変更が必要なファイル一覧 |
-| **実装しない理由** | **シーケンサー待ちの根拠を明記** |
-
-### C. CLAUDE.md の spec 一覧テーブルに shader-plugin.spec.md を追記
-
-### D. Obsidian に GeoGraffi ビジョン保存
-
-| ファイル | パス |
-|---|---|
-| GeoGraffi ビジョン | `/Users/shinbigan/GeoGraphy Vault/decisions/geograffi-vision.md` |
-| GeoGraffi 要件定義書 draft v0.1 | `/Users/shinbigan/GeoGraphy Vault/decisions/geograffi-要件定義書_draft_v0.1.md` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day32`（Day34 は壁打ち+spec作成のみのため実装コミットなし）
-- **テスト**: 104 tests グリーン・tsc エラーゼロ（Day34開始時に確認済み）
-- **コードベースに変更なし**（Day34は設計作業のみ）
+- **タグ**: `day34`（Day35 は壁打ち・設計作業のみ・実装コミットなし）
+- **テスト**: 104 tests グリーン・tsc エラーゼロ（Day35開始時確認済み）
+- **コードベースに変更なし**（Day35 は設計作業のみ）
 
 ---
 
-## Day34 壁打ちサマリー
+## Day35 で確定したアーキテクチャ決定事項
 
-### Shader Plugin アーキテクチャ（確定）
+### A. シーケンサー設計（Sequencer Plugin）
 
 | 設計項目 | 決定内容 |
 |---|---|
-| 型 | `ShaderPlugin`（独立型・`PluginBase` 継承） |
-| Geometry との接続 | `engine.getGeometryData(layerId)` 経由（疎結合） |
-| 新設する型 | `GeometryData`（頂点・エッジ・面・type・boundingBox） |
-| 標準 Uniforms | `uTime` / `uProgress` / `uEffectType` / `uColor` / `uSprayRadius` / `uLineWidth` / `uNoiseStrength` |
-| Effect Type | 0=Fill / 1=Outline / 2=Detail |
-| ライフサイクル | FX Plugin と同じ（Setup でインスタンス化・Play 中は enabled 切り替えのみ） |
-| 実装タイミング | **シーケンサー完成後** |
+| 位置づけ | **Plugin**（コントリビューター開発可能） |
+| ディレクトリ | `src/plugins/sequencers/simple-sequencer/` |
+| 接続先 | **MacroKnob ID に値を送るだけ**（Plugin.params を直接知らない・疎結合） |
+| 本質 | 「1小節のキャンバスに Shape（波形）を描く」・BPM グリッド同期 |
+| ステップ数 | 1〜32 可変（タイムライン幅固定・仕切り線のみ変化） |
+| ループ長 | 64拍固定（16小節×4拍）・Ableton Link 同期 |
+| 操作系 | ドラッグ＆ドロップ（デザインモード）＋ライブクリック（ライブモード） |
+| v1 波形 | hold / linear / sine / saw / saw-down / square |
+| v2 波形 | random / custom（ベジェ編集） |
+| 実装タイミング | **MacroKnob Panel 完成後** |
+| 参照モデル | Massive Stepper/Performer・ShaperBox 3 |
 
-### GeoGraffi（将来の別アプリ）確定
+### B. MacroKnob / MIDI アーキテクチャ（コア固定）
 
-| 項目 | 内容 |
+| 設計項目 | 決定内容 |
 |---|---|
-| 本質 | 位置情報 AR SNS（現実の都市をキャンバスに落書き） |
-| GeoGraphy との関係 | アセット（Geometry/Shader/SceneState）をそのまま import |
-| 技術スタック | R3F + WebXR + PLATEAU + GPS |
-| 着手タイミング | スマートグラス市場に「決定打」が出たら |
-| ドキュメント | Obsidian の `decisions/` に保存済み |
+| 位置づけ | **コア固定**（Plugin 化しない・コントリビューター触れない） |
+| 役割 | 全入力源（MIDI/Sequencer/LFO）のルーター兼、値の正規化レイヤー |
+| 命名変更 | `MacroKnobSimpleWindow` → **`MacroKnobPanel`**（Window ではなく Panel） |
+| 移動先 | `src/ui/panels/macro-knob/MacroKnobPanel.tsx`（新設ディレクトリ） |
+| MIDI 受信 | **MIDI 2.0 を `electron/main.js` 経由（IPC）で処理** |
+| MIDI 2.0 メリット | CC番号 32,768個・32bit 解像度・双方向・Property Exchange（JSON自動認識） |
 
-### 3層構造の整理
+### C. Panel ディレクトリの新設（確定）
 
 ```
-層3: GeoGraffi        ← 将来の別アプリ（AR SNS・R3F・PLATEAU）
-層2: Shader Plugin    ← 次の設計ターゲット（シーケンサー後に実装）
-層1: GeoGraphy core  ← 今開発中・104 tests green
+src/ui/panels/                   ← 【新設】
+├── CLAUDE.md                    ← Panel 共通ルール
+├── preferences/
+│   ├── CLAUDE.md                ← Preferences 固有（新設）
+│   └── PreferencesPanel.tsx     ← 移動
+└── macro-knob/
+    ├── CLAUDE.md                ← MacroKnob + MIDI 2.0 固有（新設・最重要）
+    └── MacroKnobPanel.tsx       ← リネーム＋移動
 ```
+
+### D. CC番号 Rosetta Stone（The Standard）
+
+全 Plugin がデフォルトで準拠する共通 CC 定義。シーケンサー「使い回し」の基盤。
+
+| CC番号 | 抽象概念 | Geometry 例 | FX 例 | Shader 例 |
+|---|---|---|---|---|
+| CC 20 | Primary Amount | Size / Radius | Mix (Dry/Wet) | Emission |
+| CC 21 | Density / Detail | Segments | Grain Size | Tiling |
+| CC 22 | Deformation | Twist / Noise | Glitch | Displacement |
+| CC 23 | Sharpness / Width | Stroke / InnerRadius | Contrast | Fresnel |
+| CC 24 | Temporal Speed | Rotation Speed | Feedback Rate | UV Flow |
+
+**CC定義は気長に・全 Plugin の params を比較しながら定義する。**
+確定したら `docs/spec/cc-standard.spec.md` に書く（GeoGraphy の「憲法」）。
+
+### E. ディレクトリ全体（確定版）
+
+```
+src/plugins/
+├── geometry/       ← 既存
+├── particles/      ← 既存
+├── fx/             ← 既存
+├── lights/         ← 既存
+├── mixers/         ← 既存（現状維持）
+├── transitions/    ← 既存（UI なし・現状維持）
+├── sequencers/     ← 【新設】Sequencer Plugin（固有スキーマ・固有 CLAUDE.md）
+└── windows/        ← 将来の外部コントリビューター向け（空・v2〜）
+```
+
+### F. 命名原則の更新
+
+| 名称 | 定義 | 例 |
+|---|---|---|
+| **Window** | Plugin エコシステムの UI | `MixerSimpleWindow` / `SequencerWindow` |
+| **Panel** | アプリ固定・コントリビューターが触れない | `PreferencesPanel` / `MacroKnobPanel` |
+| **Simple Window** | Plugin 付属のデフォルト最小 UI | `FxSimpleWindow` |
+
+---
+
+## Day35 Obsidian 保存ファイル
+
+| ファイル | パス |
+|---|---|
+| MacroKnob / MIDI 設計まとめ | `/Users/shinbigan/GeoGraphy Vault/decisions/macroknob-midi-architecture-day35.md` |
+| Sequencer 設計まとめ | `/Users/shinbigan/GeoGraphy Vault/decisions/sequencer-architecture-day35.md` |
 
 ---
 
 ## 発生した問題と解決策
 
-なし（Day34 は設計・ドキュメント作業のみ）
+なし（Day35 は設計・壁打ち作業のみ）
 
 ---
 
-## 次回やること（Day35）
+## 次回やること（Day36）
 
 | 優先度 | 作業 |
 |---|---|
-| ★★★ | 録画機能の動作確認（`pnpm dev:electron` → ⌘R → ⌘⇧R → WebM 保存） |
-| ★★★ | Phase 13 の壁打ち（次に実装する UI はどれか） |
-| ★★ | ビジネスモデル定義を `docs/` に残す（Lite/Pro・Plugin SDK モデル） |
-| ★★ | LICENSE ファイル追加（OSS 公開直前でよい・急がない） |
+| ★★★ | `docs/spec/cc-standard.spec.md` 新設（全 Plugin params 比較・Rosetta Stone 確定） |
+| ★★★ | `docs/spec/macro-knob.spec.md` 更新（CC統合・MIDI Learn・MIDI 2.0 IPC 設計） |
+| ★★★ | `src/ui/panels/` ディレクトリ新設・ファイル移動・リネーム実装 |
+| ★★ | `simple-window.spec.md` 更新（MacroKnob を Panel 側に移動） |
+| ★★ | `docs/spec/sequencer.spec.md` 新設（MacroKnob 経由設計で執筆） |
+| ★ | 録画機能の動作確認（`pnpm dev:electron` → ⌘R → ⌘⇧R → WebM 保存） |
 
-**Phase 13 候補（壁打ちで決める）：**
-- Layer Simple Window
-- Geometry Simple Window
-- Orbit カメラ UI（Icosphere/Torus/Torusknot 向け）
-- シーケンサー設計（Shader Plugin の前提）
+**実装優先順位：**
+```
+1. MacroKnob Panel 完成（Panel 移動・命名変更・MIDI 2.0 設計）
+2. cc-standard.spec.md 執筆（全 Plugin params 比較表）
+3. sequencer.spec.md 執筆
+4. Sequencer 実装（MacroKnob 完成後）
+```
 
 ---
 
@@ -154,7 +170,7 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 
 ---
 
-## 環境メモ
+## 環境メモ（累積）
 
 - **ファイル更新鉄則**: 既存ファイルの更新は `filesystem:edit_file` を使う・`write_file` は新規作成のみ
 - **preserveDrawingBuffer: true**（Day31確立）: `drawImage` で WebGL canvas を読み取るには必須
@@ -162,22 +178,27 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 - **Geometry 自動登録**: `import.meta.glob` で `solid/` 配下も自動スキャン済み・手動登録不要
 - **Shader Plugin**（Day34確立）: 独立型（選択肢3）・`GeometryData` 経由・実装はシーケンサー後
 - **GeoGraffi**（Day34確立）: 将来の別アプリ・スマートグラス決定打待ち・Obsidian に保存済み
+- **MacroKnob = コア固定**（Day35確立）: Plugin 化しない・Panel として分離・コントリビューター触れない
+- **MIDI 2.0 = main.js 経由**（Day35確立）: IPC でレンダラーへ・CC 32,768個・32bit 解像度
+- **Sequencer → MacroKnob 経由**（Day35確立）: Sequencer は macroKnobId に値を送るだけ・paramId を直接知らない
+- **CC Rosetta Stone**（Day35確立）: CC20〜24 を全 Plugin 共通定義・詳細は比較後に確定
 - **CLAUDE.md の読み方**: ルート → 作業対象モジュール → spec の順で読む
 - **今後 `dist-electron/` は絶対にコミットしない**（`.gitignore` 済み）
 - **git push の前に必ず `git status` で staged を確認してから `git tag` を打つこと**
+- **zsh でインラインコメント（`#`）はエラーになる**: コメント行とコマンド行は必ず分けて渡す
 
 ---
 
 ## 次回チャット用スタートプロンプト
 
 ```
-GeoGraphy Day35を開始します。
+GeoGraphy Day36を開始します。
 まず HANDOVER.md を読んでください（/Users/shinbigan/geography/HANDOVER.md）
 
 その後、以下の手順で進めてください：
 1. 下記コマンドの結果を貼り付けます
    cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
-2. HANDOVER.md の「次回やること（Day35）」を読んで作業を開始してください
+2. HANDOVER.md の「次回やること（Day36）」を読んで作業を開始してください
 
 開発スタイル：SDD × CDD
 - 始業時は HANDOVER.md → ルート CLAUDE.md → 作業対象モジュールの CLAUDE.md → spec の順で読むこと
