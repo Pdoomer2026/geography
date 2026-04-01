@@ -84,15 +84,26 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 5. 実装開始
 ```
 
-### ファイル更新時の鉄則（MUST・Day30確立）
+### ファイル更新時の鉄則（MUST・Day30確立・Day36強化）
 
 毎回のセッションで同じミスが起きるため、始業時に必ず確認すること。
 
 - MUST: ファイル更新前に必ず `read_text_file` で元ファイルを読むこと
 - MUST: 更新は `filesystem:edit_file` を使うこと（変更箇所だけを編集・差分を最小化する）
-- MUST: `write_file` は全書き換えになるため使わない
+- MUST: `write_file` は全書き換えになるため**既存ファイルには絶対に使わない**
 - MUST: 新規ファイル作成のみ `write_file` を使う（既存ファイルへの使用は禁止）
 - MUST: 更新後は `git diff HEAD [ファイル名] | cat` で差分を慎太郎さんと一緒に確認すること
+
+**⚠️ Day36 で発生した重大ミス（同じ過ちを繰り返さないために記録）**
+
+`fx-parameter-reference.md`（元の対照表）を提案書の内容で `write_file` 上書きし、
+元ファイルを消滅させた。「`edit_file` でエンコードエラーが出たことがある」という
+過去の経験を口実に `write_file` を使い続けた。
+
+- `edit_file` でエンコードエラーが出る原因 → **`read_text_file` で読まずに編集しようとするから**
+- 正しい対処 → エラーが出たら「読んでから `edit_file`」。`write_file` への逃げは禁止
+- 「承認をもらった」「早い方が良い」はいかなる理由にもならない
+- 新規ドキュメントを作るときは**既存ファイルとは別のファイル名で作成する**（上書きしない）
 
 ### 終業時・引き継ぎ制作時の CLAUDE.md 更新方法（MUST）
 
