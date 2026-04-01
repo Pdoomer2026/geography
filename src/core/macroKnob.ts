@@ -8,15 +8,15 @@
  */
 
 import { MACRO_KNOB_COUNT, MACRO_KNOB_MAX_ASSIGNS } from './config'
-import type { MacroKnobConfig, MacroKnobManager } from '../types'
+import type { MacroKnobConfig, MacroKnobManager, MidiCCEvent } from '../types'
 import type { ParameterStore } from './parameterStore'
 
 // ============================================================
-// normalize ヘルパー（spec §4）
+// ヘルパー関数（spec §4）
 // ============================================================
 
 /**
- * MIDI値（0〜127）を min/max の範囲に正規化する
+ * MIDI値（0〜127）を min/max の範囲に正規化する（山後互换用・Phase 14 で rangeMap に統一予定）
  * @param midi  0〜127
  * @param min   出力の最小値
  * @param max   出力の最大値
@@ -24,12 +24,19 @@ import type { ParameterStore } from './parameterStore'
 export const normalize = (midi: number, min: number, max: number): number =>
   min + (midi / 127) * (max - min)
 
+/**
+ * 0.0〜1.0 の値を min/max の範囲に変換する（spec §4 rangeMap）
+ * main.js から正規化済みの MidiCCEvent.value を assign の値偗に変換する。
+ */
+export const rangeMap = (v: number, min: number, max: number): number =>
+  min + v * (max - min)
+
 // ============================================================
 // MacroKnobManagerImpl
 // ============================================================
 
 class MacroKnobManagerImpl implements MacroKnobManager {
-  /** 各ノブの現在の MIDI値（0〜127）をキャッシュ */
+  /** 各ノブの現在値（0.0〜1.0 正規化済み）をキャッシュ */
   private currentValues: Map<string, number> = new Map()
   private knobs: MacroKnobConfig[]
   private store: ParameterStore | null = null
@@ -68,24 +75,37 @@ class MacroKnobManagerImpl implements MacroKnobManager {
     this.knobs[index] = { ...config }
   }
 
-  handleMidiCC(cc: number, value: number): void {
-    const knob = this.knobs.find((k) => k.midiCC === cc)
+  handleMidiCC(event: MidiCCEvent): void {
+    const knob = this.knobs.find((k) => k.midiCC === event.cc)
     if (!knob) return
 
-    // 現在値をキャッシュ
-    this.currentValues.set(knob.id, value)
+    // 現在値をキャッシュ（0.0〜1.0 正規化済み）
+    this.currentValues.set(knob.id, event.value)
 
     // 各 assign に対して paramId を Command 経由で更新
     if (!this.store) return
     for (const assign of knob.assigns) {
-      const normalized = normalize(value, assign.min, assign.max)
-      this.store.set(assign.paramId, normalized)
+      const mapped = rangeMap(event.value, assign.min, assign.max)
+      this.store.set(assign.paramId, mapped)
+    }
+  }
+
+  receiveModulation(knobId: string, value: number): void {
+    const knob = this.knobs.find((k) => k.id === knobId)
+    if (!knob || !this.store) return
+
+    // 現在値をキャッシュ
+    this.currentValues.set(knobId, value)
+
+    for (const assign of knob.assigns) {
+      const mapped = rangeMap(value, assign.min, assign.max)
+      this.store.set(assign.paramId, mapped)
     }
   }
 
   getValue(knobId: string): number {
-    const raw = this.currentValues.get(knobId) ?? 0
-    return raw / 127
+    // currentValues は既に 0.0〜1.0 のままキャッシュされている
+    return this.currentValues.get(knobId) ?? 0
   }
 }
 

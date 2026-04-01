@@ -9,17 +9,41 @@
 ## FX Plugin Interface
 
 ```typescript
-interface FXPlugin extends PluginBase {
+/**
+ * FXPlugin は ModulatablePlugin を継承する。
+ * params は ModulatablePlugin が持つため FXPlugin 側に定義不要。
+ * CC Standard 経由で MacroKnob から外部制御される。
+ */
+interface FXPlugin extends ModulatablePlugin {
   create(composer: EffectComposer): void
   update(delta: number, beat: number): void
   destroy(): void
-  params: Record<string, PluginParam>
+  // params: Record<string, PluginParam> ← ModulatablePlugin から継承
 }
 
-// PluginBase（必須フィールド）
+// ModulatablePlugin → PluginBase（必須フィールド）
 // renderer: 'threejs'  ← 必ず指定
-// enabled: boolean     ← false のとき pass.enabled = false でスキップ
+// enabled: boolean     ← ON/OFF は create()/destroy() で制御（下記参照）
 ```
+
+### Plugin 二分類（重要）
+
+| 分類 | Interface | params | MIDI 2.0 制御 |
+|---|---|---|---|
+| **ModulatablePlugin** | FXPlugin / GeometryPlugin 等 | ✅ あり | ✅ 可能 |
+| **PluginBase のみ** | TransitionPlugin / WindowPlugin 等 | ❌ なし | ❌ 不要 |
+
+FXPlugin は ModulatablePlugin → CC Standard → MacroKnob 経由で外部制御される。
+
+### enabled の挙動（MUST・plugin-lifecycle.spec.md 準拠）
+
+```
+FX ON  → create()   で pass を composer に追加
+FX OFF → destroy()  で pass を composer から削除・dispose()
+```
+
+`pass.enabled = false` だけでスキップするのは禁止。
+ON/OFF は必ず instantiate / destroy で行うこと。
 
 ---
 

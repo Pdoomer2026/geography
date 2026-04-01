@@ -46,6 +46,13 @@ src/plugins/mixers/
 ## MixerPlugin Interface
 
 ```typescript
+/**
+ * MixerPlugin は現在 PluginBase を継承していない特殊な存在。
+ * params を持たないため ModulatablePlugin 非対象。
+ *
+ * TODO（v2〜）: CC706（Crossfade）対応時に ModulatablePlugin への編入を検討する。
+ *   その時点で PluginBase 継承に統一する。
+ */
 interface MixerPlugin {
   id: string
   name: string
@@ -54,6 +61,16 @@ interface MixerPlugin {
   component: React.FC   // Mixer Simple Window として表示される
 }
 ```
+
+### Plugin 二分類における MixerPlugin の位置づけ
+
+| 分類 | 対象 | MixerPlugin |
+|---|---|---|
+| ModulatablePlugin | Geometry / FX / Particle | — |
+| PluginBase のみ | Transition / Window | — |
+| **特殊** | **現在は独自定義** | **✅ ここ** |
+
+Mixer は UI を持つコンポーネントのため、MIDI 2.0 外部制御は現在不要。
 
 ---
 

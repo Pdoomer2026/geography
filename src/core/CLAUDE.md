@@ -52,14 +52,22 @@ src/core/
 ## MacroKnobManager
 
 ```
-MIDI 機器（物理ノブ）
-  ↓ CC 番号
-Input Driver（MIDI Driver）
-  ↓
-MacroKnobManager（src/core/macroKnob.ts）← エンジン固定部分
-  ↓ normalize() して
+MIDI 1.0 機器                    MIDI 2.0 機器
+  ↓ Web MIDI API                   ↓ ネイティブ API
+  ↓                                ↓
+electron/main.js （両方ともここで受信・0.0〜1.0 に正規化）
+  ↓ IPC 'geo:midi-cc'（MidiCCEvent）
+MacroKnobManager（src/core/macroKnob.ts）← コア固定
+  ↓ rangeMap(event.value, min, max)
 Parameter Store → Command 経由でパラメーター更新
+  ↓
+ModulatablePlugin.params.value
 ```
+
+- `handleMidiCC(event: MidiCCEvent)` — value は main.js 側で 0.0〜1.0 正規化済み
+- `receiveModulation(knobId, value)` — Sequencer Plugin からの値受取り（0.0〜1.0）
+- `rangeMap(v, min, max)` — 0.0〜1.0 を assign の min/max に変換（normalize は Phase 14 で統一）
+- IPC チャンネル: `'geo:midi-cc'`（MIDI 1.0/2.0 共通）
 
 詳細仕様: `docs/spec/macro-knob.spec.md`
 

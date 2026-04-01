@@ -96,8 +96,8 @@ src/ui/
 │  Canvas エリア（Three.js 全レイヤー）│
 │  Mixer Simple Window（フローティング）│
 │  FX Simple Window（フローティング）  │
-│  Macro Knob Simple Window（フローティング）│
-│  Preferences Panel（フローティング） │
+│  MacroKnob Panel（フローティング）          │  ← Phase 13 以降（現在は MacroKnobSimpleWindow）
+│  Preferences Panel（フローティング）         │
 │                                     │
 └─────────────────────────────────────┘
 ```

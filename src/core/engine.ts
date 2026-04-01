@@ -18,6 +18,7 @@ import type {
   Layer,
   LayerRouting,
   MacroKnobConfig,
+  MidiCCEvent,
   SceneState,
   ScreenAssign,
   ScreenAssignState,
@@ -135,8 +136,8 @@ export class Engine {
     return macroKnobManager.getKnobs()
   }
 
-  handleMidiCC(cc: number, value: number): void {
-    macroKnobManager.handleMidiCC(cc, value)
+  handleMidiCC(event: MidiCCEvent): void {
+    macroKnobManager.handleMidiCC(event)
   }
 
   // --- FX コントロール API（layerId 対応）---

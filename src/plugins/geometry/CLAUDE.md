@@ -9,23 +9,36 @@ GeoGraphy の主役。Three.js で幾何学パターンを描画する。
 ## Geometry Plugin Interface
 
 ```typescript
-interface GeometryPlugin extends PluginBase {
+/**
+ * GeometryPlugin は ModulatablePlugin を継承する。
+ * params は ModulatablePlugin が持つため GeometryPlugin 側に定義不要。
+ * CC Standard 経由で MacroKnob から外部制御される。
+ */
+interface GeometryPlugin extends ModulatablePlugin {
   create(scene: THREE.Scene): void
   update(delta: number, beat: number): void
   destroy(scene: THREE.Scene): void
-  params: Record<string, PluginParam>
+  // params: Record<string, PluginParam> ← ModulatablePlugin から継承
+  cameraPreset?: CameraPreset  // 推奨カメラ位置（未定義時は DEFAULT_CAMERA_PRESET）
 }
 
-// PluginBase（必須フィールド）
-interface PluginBase {
-  id: string
-  name: string
-  renderer: 'threejs' | 'pixijs' | 'opentype' | string  // 必ず 'threejs' を指定
-  enabled: boolean  // false のとき Registry は update() を呼ばない
-}
+// ModulatablePlugin → PluginBase（必須フィールド）
+// id: string
+// name: string
+// renderer: 'threejs' | 'pixijs' | 'opentype' | string  ← 必ず 'threejs' を指定
+// enabled: boolean  ← false のとき Registry は update() を呼ばない
 ```
 
 **renderer と enabled は必須。`renderer: 'threejs'` / `enabled: true` をデフォルトにすること。**
+
+### Plugin 二分類（重要）
+
+| 分類 | Interface | params | MIDI 2.0 制御 |
+|---|---|---|---|
+| **ModulatablePlugin** | GeometryPlugin / FXPlugin 等 | ✅ あり | ✅ 可能 |
+| **PluginBase のみ** | TransitionPlugin / WindowPlugin 等 | ❌ なし | ❌ 不要 |
+
+GeometryPlugin は ModulatablePlugin → CC Standard → MacroKnob 経由で外部制御される。
 
 ---
 
@@ -80,13 +93,17 @@ contrast: 1.0
 brightness: 1.0
 
 ## Macro Knobs
+# defaultCC は CC Standard v0.1 の番号を使用（docs/spec/cc-standard.spec.md §3）
+# midiCC は MIDI 1.0: 0〜127 / MIDI 2.0 AC: 0〜32767 / -1=未割り当て
 knob1:
   name: CHAOS
-  midi_cc: 1
+  midiCC: -1
   assign:
     - param: speed
+      defaultCC: CC300  # MOTION / Temporal Speed
       min: 0.0  max: 2.0  curve: linear
     - param: bloom.strength
+      defaultCC: CC700  # BLEND / Blend Amount
       min: 0.3  max: 1.5  curve: linear
 ```
 

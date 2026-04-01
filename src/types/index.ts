@@ -14,6 +14,20 @@ export interface PluginBase {
   enabled: boolean
 }
 
+/**
+ * ModulatablePlugin（MIDI 2.0 / MacroKnob 制御可能な Plugin の中間層）
+ *
+ * params を持ち、CC Standard 経由で MacroKnob から外部制御される Plugin はここを継承する。
+ * 対象: Geometry / FX / Particle / Light / Sequencer（新設予定）
+ * 非対象: Transition / Window / Mixer（params を持たない・外部制御不要）
+ *
+ * spec: docs/spec/macro-knob.spec.md §2
+ */
+export interface ModulatablePlugin extends PluginBase {
+  /** CC Standard 経由で MacroKnob から制御可能なパラメーター群 */
+  params: Record<string, PluginParam>
+}
+
 // ============================================================
 // パラメーター定義
 // ============================================================
@@ -38,11 +52,10 @@ export interface CameraPreset {
 // Geometry / Particle / Light Plugin
 // ============================================================
 
-export interface GeometryPlugin extends PluginBase {
+export interface GeometryPlugin extends ModulatablePlugin {
   create(scene: THREE.Scene): void
   update(delta: number, beat: number): void
   destroy(scene: THREE.Scene): void
-  params: Record<string, PluginParam>
   /** 推奨カメラ位置。未定義時は DEFAULT_CAMERA_PRESET を使用 */
   cameraPreset?: CameraPreset
 }
@@ -57,11 +70,10 @@ export interface LightPlugin extends GeometryPlugin {}
 // FX Plugin
 // ============================================================
 
-export interface FXPlugin extends PluginBase {
+export interface FXPlugin extends ModulatablePlugin {
   create(composer: unknown): void // EffectComposer は後で型付け
   update(delta: number, beat: number): void
   destroy(): void
-  params: Record<string, PluginParam>
 }
 
 export type CSSBlendMode =
@@ -182,6 +194,28 @@ export interface MacroAssign {
   min: number
   max: number
   curve: CurveType
+  /**
+   * CC Standard v0.1 のデフォルト CC 番号（ユーザーが上書き可能）
+   * 詳細: docs/spec/cc-standard.spec.md §3
+   * 例: radius → CC101, speed → CC300, hue → CC400
+   */
+  defaultCC?: number
+}
+
+/**
+ * MIDI CC イベント（MIDI 1.0 / MIDI 2.0 共通フォーマット）
+ * electron/main.js が変換して IPC 'geo:midi-cc' で送信する。
+ * value は main.js 側で 0.0〜1.0 に正規化済み。
+ * spec: docs/spec/macro-knob.spec.md §3
+ */
+export interface MidiCCEvent {
+  /** CC番号: MIDI 1.0 = 0〜127 / MIDI 2.0 AC = 0〜32767 */
+  cc: number
+  /** 正規化済み値: 0.0〜1.0（main.js 側で正規化する） */
+  value: number
+  protocol: 'midi1' | 'midi2'
+  /** MIDI 1.0 = 7bit(128) / MIDI 2.0 = 32bit(4294967296) */
+  resolution: 128 | 4294967296
 }
 
 export interface MacroKnobConfig {
@@ -189,7 +223,7 @@ export interface MacroKnobConfig {
   id: string
   /** 表示名（例: 'CHAOS'） */
   name: string
-  /** MIDI CC番号: 0〜127 */
+  /** MIDI CC番号: 0〜127（MIDI 1.0）/ 0〜32767（MIDI 2.0 AC）/ -1=未割り当て */
   midiCC: number
   /** 最大 MACRO_KNOB_MAX_ASSIGNS 個 */
   assigns: MacroAssign[]
@@ -198,10 +232,20 @@ export interface MacroKnobConfig {
 export interface MacroKnobManager {
   getKnobs(): MacroKnobConfig[]
   setKnob(id: string, config: MacroKnobConfig): void
-  /** value: 0〜127 の MIDI CC値を受け取り、各 assign の paramId を Command 経由で更新 */
-  handleMidiCC(cc: number, value: number): void
+  /**
+   * MidiCCEvent を受け取り各 assign の paramId を Command 経由で更新する。
+   * event.value は main.js 側で 0.0〜1.0 正規化済み。
+   * Phase 14 実装対象（現在は旧シグネチャ handleMidiCC(cc, value) が実装中）
+   */
+  handleMidiCC(event: MidiCCEvent): void
   /** 0.0〜1.0 に正規化した現在値を返す */
   getValue(knobId: string): number
+  /**
+   * Sequencer Plugin から値を受け取る（0.0〜1.0）。
+   * knobId に対応する assigns の min/max に rangeMap して paramId を更新する。
+   * Phase 14 実装対象。
+   */
+  receiveModulation(knobId: string, value: number): void
 }
 
 // ============================================================
