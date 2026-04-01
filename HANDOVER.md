@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day35（壁打ち＋要件定義書v2.0＋実装計画書v3.2）｜2026-03-31
+# GeoGraphy 引き継ぎメモ｜Day36（CC Standard・FXパラメーター対照表・映像設計提案書）｜2026-04-02
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -44,9 +44,9 @@
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day34`（Day35 は壁打ち・設計作業のみ・実装コミットなし）
-- **テスト**: 104 tests グリーン・tsc エラーゼロ（Day35開始時確認済み）
-- **コードベースに変更なし**（Day35 は設計作業のみ）
+- **タグ**: `day34`（Day36 はドキュメント・spec 作業のみ・実装コミットなし）
+- **テスト**: 104 tests グリーン・tsc エラーゼロ（Day35開始時確認済み・Day36でコード変更なし）
+- **コードベースに変更なし**（Day36 は設計・spec 作業のみ）
 
 ---
 
@@ -142,21 +142,26 @@ src/plugins/
 
 ## 発生した問題と解決策
 
-なし（Day35 は設計・壁打ち作業のみ）
+- **Day36 重大ミス**：`fx-parameter-reference.md` を `write_file` で上書き → 元ファイル消滅（復元済み）
+  → 原因：`read_text_file` で読まずに `edit_file` しようとしたときのエンコードエラーを口実に `write_file` を使用
+  → 正しい対処：エラーが出ても `read_text_file` → `edit_file` のみ。`write_file` 逃げは絶対禁止
+  → CLAUDE.md にルール強化を記録済み
 
 ---
 
-## 次回やること（Day36）
+## 次回やること（Day37）
 
 | 優先度 | 作業 |
 |---|---|
-| ★★★ | `docs/spec/cc-standard.spec.md` 新設（全 Plugin params 比較・Rosetta Stone 確定） |
-| ★★★ | `docs/spec/macro-knob.spec.md` 更新（CC統合・MIDI Learn・MIDI 2.0 IPC 設計） |
+| ★★★ | `docs/spec/macro-knob.spec.md` 更新（CC Standard 統合・MIDI Learn・MIDI 2.0 IPC 設計） |
 | ★★★ | `src/ui/panels/` 新設・`PreferencesPanel.tsx` 移動・`MacroKnobSimpleWindow.tsx` → `MacroKnobPanel.tsx` リネーム（Phase 13） |
 | ★★★ | `src/ui/panels/CLAUDE.md` 新規作成（Panel 共通ルール） |
 | ★★★ | `src/ui/panels/preferences/CLAUDE.md` 新規作成 |
 | ★★★ | `src/ui/panels/macro-knob/CLAUDE.md` 新規作成（最重要・MIDI 2.0 設計含む） |
-| ★★ | `docs/spec/cc-standard.spec.md` 新設（全 Plugin params 比較・CC Rosetta Stone 確定） |
+| ★★ | Glitch Plugin 未公開パラメーター公開（`amount`, `distortion_x`, `distortion_y`） |
+| ★★ | Feedback Plugin `scale` / `rotation` 拡張実装 |
+| ★★ | FilmPass Plugin 新規実装 |
+| ★★ | FreiChenShader Plugin 新規実装 |
 | ★★ | `docs/spec/sequencer.spec.md` 新設（MacroKnob 経由設計で執筆） |
 | ★ | 録画機能の動作確認（`pnpm dev:electron` → ⌘R → ⌘⇧R → WebM 保存） |
 
@@ -170,7 +175,7 @@ src/plugins/
 6. 各 CLAUDE.md 新規作成
 7. pnpm tsc --noEmit → 型エラーゼロ確認
 8. pnpm test --run → 104 tests グリーン確認
-9. git commit + tag day36
+9. git commit + tag day37
 ```
 
 ---
@@ -194,7 +199,10 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 - **MacroKnob = コア固定**（Day35確立）: Plugin 化しない・Panel として分離・コントリビューター触れない
 - **MIDI 2.0 = main.js 経由**（Day35確立）: IPC でレンダラーへ・CC 32,768個・32bit 解像度
 - **Sequencer → MacroKnob 経由**（Day35確立）: Sequencer は macroKnobId に値を送るだけ・paramId を直接知らない
-- **CC Rosetta Stone**（Day35確立）: CC20〜24 を全 Plugin 共通定義・詳細は比較後に確定
+- **CC Standard v0.1**（Day36確立）: Block 1xx〜9xx 体系・全Plugin横断マッピング表・AI自然言語インターフェース設計完了・`docs/spec/cc-standard.spec.md`
+- **FX未公開パラメーター対照表**（Day36確立）: `docs/spec/fx-parameter-reference.md` に全整理・Glitch が最も未開拓
+- **映像設計提案書**（Day36確立）: `docs/spec/fx-visual-design-proposals.md` に映像スタイル5パターン・Sequencer制御提案
+- **write_file禁止強化**（Day36確立）: エンコードエラーが出ても `write_file` 逃げは禁止。`read_text_file` → `edit_file` のみ
 - **CLAUDE.md の読み方**: ルート → 作業対象モジュール → spec の順で読む
 - **今後 `dist-electron/` は絶対にコミットしない**（`.gitignore` 済み）
 - **git push の前に必ず `git status` で staged を確認してから `git tag` を打つこと**
@@ -205,13 +213,13 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-GeoGraphy Day36を開始します。
+GeoGraphy Day37を開始します。
 まず HANDOVER.md を読んでください（/Users/shinbigan/geography/HANDOVER.md）
 
 その後、以下の手順で進めてください：
 1. 下記コマンドの結果を貼り付けます
    cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
-2. HANDOVER.md の「次回やること（Day36）」を読んで作業を開始してください
+2. HANDOVER.md の「次回やること（Day37）」を読んで作業を開始してください
 
 開発スタイル：SDD × CDD
 - 始業時は HANDOVER.md → 各モジュールの CLAUDE.md / docs/spec/[機能].spec.md を確認 → 更新か継続か判定 → 必要箇所だけ更新してから実装
