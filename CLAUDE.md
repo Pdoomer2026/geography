@@ -154,6 +154,24 @@ git tag dayN && git push origin dayN
 - `git checkout day12` のように任意の日に戻れる
 - HANDOVER.md の「現在のコミット」欄にもタグ名を記載すること
 
+### コミットメッセージの形式（Day39確立・Linus スタイル）
+
+Claude がコミットコマンドを渡すときは必ず **タイトル + ボディ**の2段構成にすること。
+
+```bash
+# タイトル（1行目）：何をしたか
+# ボディ（3行目以降）：なぜその変更をしたのか・何を判断したのか
+git commit -m "feat: add orbit camera to icosphere (Day40)" \
+           -m "壁打ちで Orbit カメラが必要と確定。
+camera-system.spec.md の CameraPreset 機構を拡張し OrbitControls を統合。
+Icosphere / Torus / Torusknot の 3 Plugin に cameraPreset を追加。"
+```
+
+- 1行目：`type: 内容の要約 (DayN)` 形式
+- ボディ：「なぜ」と「何を判断したか」を必ず恂ること
+- `git log --oneline` では1行目だけ表示されるのでログの見やすさは変わらない
+- 詳細は `git show <commit>` でいつでも参照できる
+
 ### spec ファイル一覧
 
 | ファイル | 対象 | 担当 | 状態 |
