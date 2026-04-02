@@ -1,6 +1,6 @@
 /**
  * FX Plugins バレルエクスポート
- * FxStack に登録する全 11 FX Plugin をまとめてエクスポートする。
+ * FxStack に登録する全 12 FX Plugin をまとめてエクスポートする。
  */
 
 // クラスエクスポート（レイヤーごとに独立したインスタンスを生成するため）
@@ -15,6 +15,7 @@ export { CRTPlugin }           from './crt'
 export { GlitchPlugin }        from './glitch'
 export { ColorGradingPlugin }  from './color-grading'
 export { FilmPlugin }          from './film'
+export { FreiChenPlugin }      from './frei-chen'
 
 // シングルトン（テスト・外部参照用に残す）
 export { afterImagePlugin }    from './after-image'
@@ -28,6 +29,7 @@ export { crtPlugin }           from './crt'
 export { glitchPlugin }        from './glitch'
 export { colorGradingPlugin }  from './color-grading'
 export { filmPlugin }          from './film'
+export { freiChenPlugin }      from './frei-chen'
 
 import { AfterImagePlugin }    from './after-image'
 import { FeedbackPlugin }      from './feedback'
@@ -40,6 +42,7 @@ import { CRTPlugin }           from './crt'
 import { GlitchPlugin }        from './glitch'
 import { ColorGradingPlugin }  from './color-grading'
 import { FilmPlugin }          from './film'
+import { FreiChenPlugin }      from './frei-chen'
 import type { FXPlugin } from '../../types'
 
 /**
@@ -60,5 +63,6 @@ export function createFxPlugins(): FXPlugin[] {
     new GlitchPlugin(),
     new ColorGradingPlugin(),
     new FilmPlugin(),
+    new FreiChenPlugin(),
   ]
 }
