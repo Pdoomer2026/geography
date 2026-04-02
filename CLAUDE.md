@@ -105,6 +105,26 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 - 「承認をもらった」「早い方が良い」はいかなる理由にもならない
 - 新規ドキュメントを作るときは**既存ファイルとは別のファイル名で作成する**（上書きしない）
 
+**⚠️ Day39 で発生した問題：Unicode NFC/NFD 不一致による edit_file ミスマッチ（Day39確立）**
+
+macOS の APFS ファイルシステムは日本語を NFD 形式で保存する。
+Claude が NFC 形式で `oldText` を送ると一致しない → `edit_file` が失敗する。
+
+- MUST: `write_file` で日本語を含む新規ファイルを作成した直後に、以下の正規化コマンドを慎太郎さんに実行してもらうこと
+- 毎回ではなく**新規作成の直後に 1 回だけ**実行すれば十分
+
+```bash
+# Unicode NFC 正規化（write_file で作成した日本語ファイルに必ず実行）
+python3 -c "
+import unicodedata, pathlib
+p = pathlib.Path('/Users/shinbigan/geography/[作成したファイルのパス]')
+p.write_text(unicodedata.normalize('NFC', p.read_text('utf-8')), 'utf-8')
+"
+```
+
+- `edit_file` の `oldText` に日本語を含める場合は**できるだけ短く・ASCII を anchor にする**こと
+- エラーが出たら NFC 正規化を疑い、上記コマンドを実行してから再試行する
+
 ### 終業時・引き継ぎ制作時の CLAUDE.md 更新方法（MUST）
 
 CLAUDE.md を更新するときは「どのファイルに書くべきか」を必ず判断すること。
