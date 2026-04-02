@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day37（MIDI 2.0 型システム・ModulatablePlugin・全CLAUDE.md検証）｜2026-04-02
+# GeoGraphy 引き継ぎメモ｜Day38（Phase 13 UI整理・FX Plugin 拡張4本）｜2026-04-02
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -27,8 +27,9 @@
 | エンジン本体（Day37更新済み） | `src/core/engine.ts` |
 | LayerManager | `src/core/layerManager.ts` |
 | App.tsx | `src/ui/App.tsx` |
-| MacroKnob UI（要リネーム） | `src/ui/MacroKnobSimpleWindow.tsx` → `src/ui/panels/macro-knob/MacroKnobPanel.tsx` |
-| PreferencesPanel（要移動） | `src/ui/PreferencesPanel.tsx` → `src/ui/panels/preferences/PreferencesPanel.tsx` |
+| MacroKnob UI | `src/ui/panels/macro-knob/MacroKnobPanel.tsx` |
+| PreferencesPanel | `src/ui/panels/preferences/PreferencesPanel.tsx` |
+| FX Plugin バレル | `src/plugins/fx/index.ts` |
 | Electron メインプロセス | `electron/main.js` |
 | Electron preload | `electron/preload.js` |
 
@@ -37,9 +38,26 @@
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day37`（commit: `fc66c9d`）
-- **テスト**: 104 tests グリーン・tsc エラーゼロ（Day37終了時確認済み）
-- **変更ファイル数**: 9ファイル（spec・型定義・実装・全CLAUDE.md）
+- **タグ**: `day38`（commit: `a2ecc11`）、`day38-phase13`（commit: `66c8f92`）
+- **テスト**: 104 tests グリーン・tsc エラーゼロ（Day38終了時確認済み）
+- **FX Plugin 総数**: 12本
+
+---
+
+## Day38 で完了したこと
+
+### Phase 13：UI パネルディレクトリ整理
+- `src/ui/panels/` ディレクトリ新設・各 `CLAUDE.md` 作成
+- `PreferencesPanel.tsx` → `src/ui/panels/preferences/PreferencesPanel.tsx` に移動
+- `MacroKnobSimpleWindow.tsx` → `src/ui/panels/macro-knob/MacroKnobPanel.tsx` にリネーム移動
+- `App.tsx` の import パス更新
+
+### FX Plugin 拡張・新規（計4本）
+- **GlitchPlugin**：`interval` パラメーター追加（10〜240フレーム、`randX` を毎フレーム上書き）
+- **FeedbackPlugin**：`decay`（0.9〜1.0）/ `offsetX` / `offsetY`（±0.05）追加、GLSL uniform も更新
+- **FilmPlugin**：新規実装（`intensity` / `grayscale`、`FilmPass` 使用）
+- **FreiChenPlugin**：新規実装（Frei-Chen エッジ検出、`width` / `height`、`ShaderPass` 使用）
+- `src/plugins/fx/index.ts`：全 12 本体制に更新
 
 ---
 
@@ -167,32 +185,15 @@ midiCC: number
 
 ---
 
-## 次回やること（Day38）
+## 次回やること（Day39）
 
 | 優先度 | 作業 |
 |---|---|
-| ★★★ | `src/ui/panels/` ディレクトリ新設 |
-| ★★★ | `src/ui/panels/CLAUDE.md` 新規作成（Panel 共通ルール） |
-| ★★★ | `src/ui/panels/preferences/CLAUDE.md` 新規作成 |
-| ★★★ | `src/ui/panels/macro-knob/CLAUDE.md` 新規作成（MIDI 2.0 設計含む・最重要） |
-| ★★★ | Phase 13 実装（PreferencesPanel 移動・MacroKnobSimpleWindow → MacroKnobPanel リネーム・App.tsx import 更新） |
-| ★★ | Glitch Plugin 未公開パラメーター公開（`amount`, `distortion_x`, `distortion_y`） |
-| ★★ | Feedback Plugin `scale` / `rotation` 拡張実装 |
-| ★★ | FilmPass Plugin 新規実装 |
-| ★★ | FreiChenShader Plugin 新規実装 |
-| ★★ | `docs/spec/sequencer.spec.md` 新設（MacroKnob 経由設計で執筆） |
-
-**Phase 13 実装順序：**
-```
-1. CLAUDE.md / spec を読む（macro-knob.spec.md・ui/CLAUDE.md）
-2. src/ui/panels/ ディレクトリ新設（write_file で各 CLAUDE.md を新規作成）
-3. PreferencesPanel.tsx を src/ui/panels/preferences/ へ移動
-4. MacroKnobSimpleWindow.tsx → src/ui/panels/macro-knob/MacroKnobPanel.tsx へリネーム＋移動
-5. App.tsx の import を全て更新
-6. pnpm tsc --noEmit → 型エラーゼロ確認
-7. pnpm test --run → 104 tests グリーン確認
-8. git commit + tag day38
-```
+| ★★★ | `docs/spec/shader-plugin.spec.md` 執筆（疎結合デフォルト・オプション密結合・グラフィティ美学） |
+| ★★ | Orbit カメラシステム実装（Icosphere / Torus / Torusknot 用） |
+| ★★ | Aerial カメラ実装（Hex Grid 用・真上俯瞰） |
+| ★★ | Plugin Store v1 設計（手動フォルダ追加方式・v3 in-app store まで rework 不要な設計） |
+| ★ | `docs/spec/sequencer.spec.md` 新設（MacroKnob 経由設計で執筆） |
 
 ---
 
@@ -231,13 +232,13 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-GeoGraphy Day38を開始します。
+GeoGraphy Day39を開始します。
 引き継ぎスキル
 
 その後、以下の手順で進めてください：
 1. 下記コマンドの結果を貼り付けます
    cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
-2. HANDOVER.md の「次回やること（Day38）」を読んで作業を開始してください
+2. HANDOVER.md の「次回やること（Day39）」を読んで作業を開始してください
 
 開発スタイル：SDD × CDD
 - 始業時は HANDOVER.md → 各モジュールの CLAUDE.md / docs/spec/[機能].spec.md を確認 → 更新か継続か判定 → 必要箇所だけ更新してから実装
