@@ -2,6 +2,11 @@
  * Glitch FX Plugin
  * three/examples/jsm の GlitchPass を使用。
  * デフォルト: enabled=false
+ *
+ * 公開パラメーター:
+ *   goWild    — 0: 通常グリッチ / 1: 常時グリッチ (Wild Mode)
+ *   interval  — グリッチ発生間隔 (フレーム数)。小さいほど頻繁。
+ *               GlitchPass.randX を毎フレーム上書きして固定化する。
  */
 
 import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js'
@@ -15,7 +20,8 @@ export class GlitchPlugin implements FXPlugin {
   enabled = false
 
   params: Record<string, PluginParam> = {
-    goWild: { value: 0, min: 0, max: 1, label: 'Wild Mode' },
+    goWild:   { value: 0,   min: 0,   max: 1,   label: 'Wild Mode' },
+    interval: { value: 120, min: 10,  max: 240, label: 'Interval (frames)' },
   }
 
   private pass: GlitchPass | null = null
@@ -31,6 +37,9 @@ export class GlitchPlugin implements FXPlugin {
   update(_delta: number, _beat: number): void {
     if (!this.pass) return
     this.pass.goWild = this.params.goWild.value > 0.5
+    // interval パラメーターで randX を固定値に上書き（毎フレーム）
+    ;(this.pass as GlitchPass & { randX: number }).randX =
+      Math.round(this.params.interval.value)
     this.pass.enabled = this.enabled
   }
 
