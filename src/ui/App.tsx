@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { engine } from '../core/engine'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
-import { MacroKnobSimpleWindow } from './MacroKnobSimpleWindow'
+import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
 import { FxSimpleWindow } from './FxSimpleWindow'
-import { PreferencesPanel } from './PreferencesPanel'
+import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 import type { GeoGraphyProject } from '../types'
 
@@ -191,7 +191,7 @@ export default function App() {
       {/* Preferences Panel */}
       <PreferencesPanel open={prefsOpen} onClose={() => setPrefsOpen(false)} />
 
-      {uiVisible.macro && <MacroKnobSimpleWindow />}
+      {uiVisible.macro && <MacroKnobPanel />}
       {uiVisible.fx && <FxSimpleWindow />}
       {uiVisible.mixer && <MixerSimpleWindow />}
 

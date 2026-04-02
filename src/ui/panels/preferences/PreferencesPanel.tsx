@@ -7,7 +7,8 @@
  */
 
 import { useState } from 'react'
-import { engine } from '../core/engine'
+import { engine } from '../../../core/engine'
+
 
 // ----------------------------------------------------------------
 // 型定義

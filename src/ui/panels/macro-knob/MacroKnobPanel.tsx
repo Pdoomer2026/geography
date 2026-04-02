@@ -1,11 +1,11 @@
 /**
- * MacroKnobSimpleWindow — Macro Knob Manager のデフォルト最小 UI（Simple Window）
+ * MacroKnobPanel — Macro Knob Manager のデフォルト UI
  *
- * 旧名称: MacroKnobPanel
- * spec: docs/spec/macro-knob.spec.md §2 Constraints
+ * 旧名称: MacroKnobSimpleWindow（src/ui/MacroKnobSimpleWindow.tsx）
+ * spec: docs/spec/macro-knob.spec.md
  *
  * View メニュー（⌘1）またはキーボード「1」で表示/非表示を切り替えられる。
- * カスタム Window Plugin がないときのフォールバックとして機能する（v2〜）。
+ * コア固定・Plugin 化しない・コントリビューターが触れない。
  *
  * 32ノブ（8×4）固定パネル。
  * MIDI CC番号・現在値（0.0〜1.0）・名前を表示。
@@ -13,9 +13,9 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
-import { macroKnobManager } from '../core/macroKnob'
-import { useDraggable } from './useDraggable'
-import type { MacroKnobConfig } from '../types'
+import { macroKnobManager } from '../../../core/macroKnob'
+import { useDraggable } from '../../useDraggable'
+import type { MacroKnobConfig } from '../../../types'
 
 // 8列 × 4行 = 32ノブ
 const COLS = 8
@@ -193,10 +193,10 @@ function EditDialog({ config, onSave, onClose }: EditDialogProps) {
 }
 
 // ============================================================
-// MacroKnobSimpleWindow — メインコンポーネント
+// MacroKnobPanel — メインコンポーネント
 // ============================================================
 
-export function MacroKnobSimpleWindow() {
+export function MacroKnobPanel() {
   const [knobs, setKnobs] = useState<MacroKnobConfig[]>([])
   const [values, setValues] = useState<number[]>(new Array(32).fill(0))
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -246,7 +246,7 @@ export function MacroKnobSimpleWindow() {
           className="text-[9px] text-[#5a5a88] mb-2 tracking-widest flex items-center gap-2"
           style={{ cursor: 'grab' }}
         >
-          <span>MACRO KNOB SIMPLE WINDOW</span>
+          <span>MACRO KNOB PANEL</span>
           <span className="text-[#3a3a5e]">32 × MIDI</span>
           <span className="ml-auto text-[#3a3a5e]">
             {knobs.filter(k => k.assigns.length > 0).length} ASSIGNED
