@@ -125,6 +125,24 @@ p.write_text(unicodedata.normalize('NFC', p.read_text('utf-8')), 'utf-8')
 - `edit_file` の `oldText` に日本語を含める場合は**できるだけ短く・ASCII を anchor にする**こと
 - エラーが出たら NFC 正規化を疑い、上記コマンドを実行してから再試行する
 
+### Obsidian dev-log の作成（MUST・Day39確立）
+
+セッション終了時に必ず Obsidian の dev-log を作成すること。
+
+- **ファイル名**: `YYYY-MM-DD_DayN.md`
+- **保存先**: `/Users/shinbigan/GeoGraphy Vault/dev-log/`
+- **内容**: 今日やったこと・重要な判断・学び・次回の予定を自然な文章で記述する
+- **作成後**: python3 で NFC 正規化を必ず実行する（`write_file` が NFD で保存するため）
+
+```bash
+# dev-log NFC 正規化
+python3 -c "
+import unicodedata, pathlib
+p = pathlib.Path('/Users/shinbigan/GeoGraphy Vault/dev-log/YYYY-MM-DD_DayN.md')
+p.write_text(unicodedata.normalize('NFC', p.read_text('utf-8')), 'utf-8')
+"
+```
+
 ### 終業時・引き継ぎ制作時の CLAUDE.md 更新方法（MUST）
 
 CLAUDE.md を更新するときは「どのファイルに書くべきか」を必ず判断すること。
