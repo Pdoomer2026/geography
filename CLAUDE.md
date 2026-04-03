@@ -1,4 +1,4 @@
-# GeoGraphy - CLAUDE.md v10
+# GeoGraphy - CLAUDE.md v11
 
 ## プロジェクト概要
 
@@ -84,7 +84,25 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 5. 実装開始
 ```
 
-### ファイル更新時の鉄則（MUST・Day30確立・Day36強化）
+### ファイル更新時の鉄則（MUST・Day30確立・Day36強化・Day39最重要ルール追加）
+
+**⚠️ 最重要ルール（Day39確立）：HANDOVER.md・日本語ファイルは必ず NFC 正規化してから編集すること**
+
+macOS APFS は日本語を NFD 形式で保存する。NFC 正規化していないファイルは `edit_file` の `oldText` がマッチしない。
+これが未解決のまま `write_file` で逃げると情報消失リスクがある。
+
+**セッション開始時に HANDOVER.md を NFC 正規化するコマンド（毎回実行すること）：**
+
+```bash
+python3 -c "
+import unicodedata, pathlib
+p = pathlib.Path('/Users/shinbigan/geography/HANDOVER.md')
+p.write_text(unicodedata.normalize('NFC', p.read_text('utf-8')), 'utf-8')
+print('HANDOVER.md NFC 正規化完了')
+"
+```
+
+**新規ファイルを `write_file` で作成した直後も同様に NFC 正規化すること。**
 
 毎回のセッションで同じミスが起きるため、始業時に必ず確認すること。
 

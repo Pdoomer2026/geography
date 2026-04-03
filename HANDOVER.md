@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day38（Phase 13 UI整理・FX Plugin 拡張4本）｜2026-04-02
+# GeoGraphy 引き継ぎメモ｜Day39（spec 整備・開発ルール確立）｜2026-04-03
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -6,7 +6,6 @@
 - **スタック**: Vite / React 18 / TypeScript / Three.js r160+ / pnpm v10.32+ / Electron 41
 - **開発スタイル**: SDD × CDD（仕様駆動 × コンパイラ駆動）
 - **GitHub**: https://github.com/Pdoomer2026/geography
-- **開発サーバー（ブラウザ）**: `pnpm dev`（ポート5173）
 - **開発サーバー（Electron）**: `pnpm dev:electron`
 - **プロジェクトルート**: `/Users/shinbigan/geography`
 
@@ -16,184 +15,112 @@
 
 | ファイル | パス |
 |---|---|
-| 要件定義書（最新） | `docs/要件定義書_v2.0.md` |
-| 実装計画書（最新） | `docs/実装計画書_v3.2.md` |
-| CLAUDE.md（全体方針） | `CLAUDE.md`（v10） |
+| CLAUDE.md（全体方針） | `CLAUDE.md`（v10・Day39 最終更新済み） |
 | 引き継ぎメモ（最新） | `HANDOVER.md` |
-| MacroKnob spec（Day37更新済み） | `docs/spec/macro-knob.spec.md` |
-| CC Standard spec | `docs/spec/cc-standard.spec.md` |
-| 型定義（Day37更新済み） | `src/types/index.ts` |
-| MacroKnob コア（Day37更新済み） | `src/core/macroKnob.ts` |
-| エンジン本体（Day37更新済み） | `src/core/engine.ts` |
-| LayerManager | `src/core/layerManager.ts` |
-| App.tsx | `src/ui/App.tsx` |
+| Shader Plugin spec（Day39更新） | `docs/spec/shader-plugin.spec.md` |
+| CC Standard spec（Day39更新） | `docs/spec/cc-standard.spec.md`（v0.2） |
+| カメラ spec（Day40 必読） | `docs/spec/camera-system.spec.md` |
+| MacroKnob spec（Day37更新） | `docs/spec/macro-knob.spec.md` |
+| 型定義（Day37更新） | `src/types/index.ts` |
+| MacroKnob コア（Day37更新） | `src/core/macroKnob.ts` |
+| エンジン本体（Day37更新） | `src/core/engine.ts` |
 | MacroKnob UI | `src/ui/panels/macro-knob/MacroKnobPanel.tsx` |
 | PreferencesPanel | `src/ui/panels/preferences/PreferencesPanel.tsx` |
 | FX Plugin バレル | `src/plugins/fx/index.ts` |
 | Electron メインプロセス | `electron/main.js` |
-| Electron preload | `electron/preload.js` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day38`（commit: `a2ecc11`）、`day38-phase13`（commit: `66c8f92`）
-- **テスト**: 104 tests グリーン・tsc エラーゼロ（Day38終了時確認済み）
+- **タグ**: `day39`（最新コミット: `a60beac`）
+- **テスト**: 104 tests グリーン・tsc エラーゼロ（Day39 はコード変更なし）
 - **FX Plugin 総数**: 12本
 
 ---
 
-## Day38 で完了したこと
+## Day39 で完了したこと（spec 作業・ルール整備のみ・コード変更なし）
 
-### Phase 13：UI パネルディレクトリ整理
-- `src/ui/panels/` ディレクトリ新設・各 `CLAUDE.md` 作成
-- `PreferencesPanel.tsx` → `src/ui/panels/preferences/PreferencesPanel.tsx` に移動
-- `MacroKnobSimpleWindow.tsx` → `src/ui/panels/macro-knob/MacroKnobPanel.tsx` にリネーム移動
-- `App.tsx` の import パス更新
+### A. `docs/spec/shader-plugin.spec.md` 拡充
+- `ShaderPlugin` の継承元を `PluginBase` → **`ModulatablePlugin`** に変更
+- `create()` シグネチャを `create(scene, geometryData)` → **`create(scene)`** に修正（engine 経由で取得）
+- **§3-A「疎結合 vs 密結合（カップリング分類）」セクションを新設**
+  - Preferences トグル方式は不採用 → ディレクトリ構造で分類する設計に確定
+  - `shaders/graffiti/` 等 → 疎結合（デフォルト・9割カバー）
+  - `shaders/native/` → 密結合（3ケースのみ許容）
+- §9「実装保留の理由」を Day39 時点に更新
 
-### FX Plugin 拡張・新規（計4本）
-- **GlitchPlugin**：`interval` パラメーター追加（10〜240フレーム、`randX` を毎フレーム上書き）
-- **FeedbackPlugin**：`decay`（0.9〜1.0）/ `offsetX` / `offsetY`（±0.05）追加、GLSL uniform も更新
-- **FilmPlugin**：新規実装（`intensity` / `grayscale`、`FilmPass` 使用）
-- **FreiChenPlugin**：新規実装（Frei-Chen エッジ検出、`width` / `height`、`ShaderPass` 使用）
-- `src/plugins/fx/index.ts`：全 12 本体制に更新
+**密結合が必要な 3 ケース（Day39 壁打ちで確定）：**
+| ケース | 例 |
+|---|---|
+| 意味的部位アクセス | HexGrid の特定セルだけ光らせる |
+| 毎フレーム変形データ同期 | Contour の地形変形中にリアルタイム同期 |
+| Geometry 固有 UV 構造 | Torus の内側リングだけ色を変える |
+
+### B. `docs/spec/cc-standard.spec.md` Block 8xx 追加（v0.1 → v0.2）
+- Block 8xx を「対象外」→ **SHADER** に昇格
+- CC800〜CC805 を定義：
+  - CC800: Effect Type（0=Fill / 1=Outline / 2=Detail）
+  - CC801: Draw Progress（`uProgress`）← MacroKnob / シーケンサーの主要制御軸
+  - CC802: Line Width / CC803: Spray Radius / CC804: Noise Strength / CC805: Shader Color
+- §5 横断マッピング表に Shader Plugin テーブルを追加
+
+### C. CLAUDE.md に3つのルールを追記（Day39確立）
+1. **NFC 正規化ルール**：`write_file` で日本語ファイル作成後に python3 で NFC 正規化
+2. **Linus スタイルのコミットメッセージ**：タイトル + ボディの2段構成・Day40 から全面適用
+3. **Obsidian dev-log 作成ルール**：セッション終了時に必ず作成・NFC 正規化も実行
+
+### D. Obsidian dev-log を Day17〜Day39 分遡って作成（計 20 ファイル）
 
 ---
 
-## Day37 で確定したアーキテクチャ決定事項
+## Day37・Day38 で確定したアーキテクチャ（継続して有効）
 
-### A. Plugin 二分類（最重要・Day37確立）
-
+### Plugin 二分類（Day37確立）
 ```
 ModulatablePlugin（MIDI 2.0 / MacroKnob 制御可能）
-  extends PluginBase + params: Record<string, PluginParam>
-  ├── GeometryPlugin   → radius, speed, hue 等を CC Standard 経由で制御
-  ├── FXPlugin         → strength, amount 等を CC Standard 経由で制御
-  ├── ParticlePlugin   → size, count, speed 等を CC Standard 経由で制御
-  ├── LightPlugin      → 同上
-  └── SequencerPlugin  → 新設予定・Sequencer 自身も制御される側
+  → GeometryPlugin / FXPlugin / ParticlePlugin / LightPlugin / SequencerPlugin（予定）
 
 PluginBase のみ（外部制御不要）
-  ├── TransitionPlugin → execute() 純粋関数・選択のみ
-  ├── WindowPlugin     → UI コンポーネントのみ
-  └── MixerPlugin      → 現在独自定義（TODO: v2〜 CC706 対応時に検討）
+  → TransitionPlugin / WindowPlugin / MixerPlugin
 ```
 
-**Plugin 自体は MIDI を受信しない。制御経路は以下のみ：**
+制御経路：`MIDI → main.js → IPC 'geo:midi-cc' → MacroKnob → ParameterStore → Plugin.params.value`
+
+### Shader Plugin カップリング分類（Day39確立）
 ```
-MIDI 2.0 / 1.0 → main.js → IPC 'geo:midi-cc' → MacroKnob → ParameterStore → Plugin.params.value
+src/plugins/shaders/
+  graffiti/  scan/  growth/  ← 疎結合（推奨・engine.getGeometryData() 経由）
+  native/                    ← 密結合（3ケースのみ許容）
 ```
 
-### B. MidiCCEvent 型（Day37新設）
-
+### ShaderPlugin Interface（実装時に src/types/index.ts に追加）
 ```typescript
-interface MidiCCEvent {
-  cc: number           // MIDI 1.0: 0〜127 / MIDI 2.0 AC: 0〜32767
-  value: number        // 正規化済み 0.0〜1.0（main.js 側で正規化）
-  protocol: 'midi1' | 'midi2'
-  resolution: 128 | 4294967296
+interface ShaderPlugin extends ModulatablePlugin {
+  create(scene: THREE.Scene): void
+  update(delta: number, beat: number): void
+  destroy(scene: THREE.Scene): void
+  // params.uProgress が必須（CC801 に対応）
 }
 ```
 
-IPC チャンネル: `'geo:midi-cc'`（MIDI 1.0/2.0 共通）
-
-### C. rangeMap / normalize の使い分け（Day37確立）
-
-```typescript
-// normalize(midi, min, max) ← 既存・Phase 14 で rangeMap に統一予定
-// テスト TC-2〜TC-4 はこちらを参照（そのまま有効）
-
-// rangeMap(v, min, max) ← Day37新設・0.0〜1.0 → min/max に変換
-// handleMidiCC・receiveModulation 内部で使用
-const rangeMap = (v: number, min: number, max: number) => min + v * (max - min)
-```
-
-### D. MacroAssign.defaultCC（Day37新設）
-
-```typescript
-interface MacroAssign {
-  paramId: string
-  min: number
-  max: number
-  curve: CurveType
-  defaultCC?: number  // CC Standard v0.1 の CC番号（例: CC101, CC300）
-}
-```
-
-### E. MacroKnobManager 新シグネチャ（Day37確立）
-
-```typescript
-interface MacroKnobManager {
-  handleMidiCC(event: MidiCCEvent): void      // 旧: (cc, value) → 新: (event)
-  receiveModulation(knobId: string, value: number): void  // 新設
-  getKnobs(): MacroKnobConfig[]
-  setKnob(id: string, config: MacroKnobConfig): void
-  getValue(knobId: string): number
-}
-```
-
-### F. MacroKnobConfig.midiCC の3状態（Day37確立）
-
-```typescript
-midiCC: number
-// 0〜127    = MIDI 1.0 CC番号
-// 0〜32767  = MIDI 2.0 AC番号
-// -1        = 未割り当て
-```
-
 ---
 
-## Day37 で更新したファイル一覧
-
-| ファイル | 変更内容 |
-|---|---|
-| `docs/spec/macro-knob.spec.md` | CC Standard 統合・MidiCCEvent・rangeMap・MIDI 2.0 IPC フロー・共存ルール |
-| `src/types/index.ts` | ModulatablePlugin 追加・MidiCCEvent 追加・MacroAssign.defaultCC 追加・GeometryPlugin/FXPlugin の extends 変更・MacroKnobManager 新シグネチャ・receiveModulation 追加 |
-| `src/core/macroKnob.ts` | handleMidiCC(event: MidiCCEvent) に変更・receiveModulation() 実装・rangeMap() 追加・currentValues を 0〜1 キャッシュに変更 |
-| `src/core/engine.ts` | handleMidiCC ラッパーを新シグネチャに更新・MidiCCEvent を import に追加 |
-| `src/plugins/fx/CLAUDE.md` | Interface を ModulatablePlugin に更新・Plugin 二分類表追加・enabled の挙動（instantiate/destroy）を明記 |
-| `src/plugins/geometry/CLAUDE.md` | Interface を ModulatablePlugin に更新・Plugin 二分類表追加・Macro Knobs を CC Standard（defaultCC）に更新 |
-| `src/core/CLAUDE.md` | MacroKnobManager フロー図を新シグネチャに更新 |
-| `src/plugins/mixers/CLAUDE.md` | MixerPlugin の独自定義理由と TODO（v2〜 CC706）を明記 |
-| `src/ui/CLAUDE.md` | レイアウトコメントに Phase 13 注記追加 |
-
----
-
-## 発生した問題と解決策
-
-- **tsc 1回目失敗**（engine.ts:139）: edit_file の反映タイミングのズレ。2回目で解消。
-  → `pnpm tsc --noEmit` を2回実行して確認するのが安全。
-- **旧シグネチャが engine.ts に残存**: `handleMidiCC(cc, value)` ラッパーが残っていた。
-  → `MidiCCEvent` を import に追加して同時に修正。
-
----
-
-## Day37 で議論・確認した設計概念
-
-### Plugin と MIDI 2.0 の関係
-- Plugin 自体は MIDI を受信しない（直接通信なし）
-- `params` を持つ Plugin（ModulatablePlugin）が MIDI 2.0 制御の対象
-- `params` を持たない Plugin（Transition・Window）は対象外
-- これが「疎結合」の本質
-
-### CC Standard と JSON の役割
-- CC Standard（番号体系）: CC101 = "Primary Amount" という共通語彙
-- JSON（Scene State）: AI や外部ツールが CC番号でシーンを記述できる
-- Plugin 独自パラメーター名（strength, radius 等）は変わらない
-- MacroKnob が CC番号 → paramId の変換を担う
-
----
-
-## 次回やること（Day39）
+## 次回やること（Day40）
 
 | 優先度 | 作業 |
 |---|---|
-| ★★★ | `docs/spec/shader-plugin.spec.md` 執筆（疎結合デフォルト・オプション密結合・グラフィティ美学） |
-| ★★ | Orbit カメラシステム実装（Icosphere / Torus / Torusknot 用） |
-| ★★ | Aerial カメラ実装（Hex Grid 用・真上俯瞰） |
-| ★★ | Plugin Store v1 設計（手動フォルダ追加方式・v3 in-app store まで rework 不要な設計） |
-| ★ | `docs/spec/sequencer.spec.md` 新設（MacroKnob 経由設計で執筆） |
+| ★★★ | Orbit カメラシステム実装（Icosphere / Torus / Torusknot 用） |
+| ★★★ | Aerial カメラ実装（Hex Grid 用・真上俯瞰） |
+| ★★ | Plugin Store v1 設計（手動フォルダ追加方式） |
+| ★ | `docs/spec/sequencer.spec.md` 新設（MacroKnob 経由設計） |
+
+**Day40 始業時の必須手順：**
+1. HANDOVER.md を読む
+2. `docs/spec/camera-system.spec.md` を必ず読む
+3. `pnpm tsc --noEmit && pnpm test --run` で 104 tests 確認
+4. Orbit カメラ実装開始
 
 ---
 
@@ -207,24 +134,20 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 
 ## 環境メモ（累積）
 
-- **ファイル更新鉄則**: 既存ファイルの更新は `filesystem:edit_file` を使う・`write_file` は新規作成のみ
-- **ModulatablePlugin**（Day37確立）: params を持つ Plugin の中間層・Geometry/FX/Particle/Light/Sequencer が対象
-- **MidiCCEvent**（Day37確立）: MIDI 1.0/2.0 共通フォーマット・value は main.js で 0〜1 正規化済み
-- **rangeMap(v, min, max)**（Day37確立）: 0〜1 → min/max 変換・normalize は Phase 14 で統一予定
-- **IPC チャンネル 'geo:midi-cc'**（Day37確立）: MIDI 1.0/2.0 どちらもこのチャンネルで受け取る
-- **currentValues キャッシュ**（Day37確立）: 0〜127 ではなく 0〜1 で保持・getValue() の除算不要
-- **preserveDrawingBuffer: true**（Day31確立）: `drawImage` で WebGL canvas を読み取るには必須
-- **録画**（Day32確立）: `startRecording()` / `stopRecording()` は `engine.ts` に実装済み・IPC は `save-recording`
-- **Geometry 自動登録**: `import.meta.glob` で `solid/` 配下も自動スキャン済み・手動登録不要
-- **Shader Plugin**（Day34確立）: 独立型・`GeometryData` 経由・実装はシーケンサー後
-- **MacroKnob = コア固定**（Day35確立）: Plugin 化しない・Panel として分離
-- **Sequencer → MacroKnob 経由**（Day35確立）: Sequencer は macroKnobId に値を送るだけ
-- **CC Standard v0.1**（Day36確立）: Block 1xx〜9xx 体系・`docs/spec/cc-standard.spec.md`
-- **write_file禁止**: エンコードエラーが出ても `write_file` 逃げは禁止。`read_text_file` → `edit_file` のみ
-- **CLAUDE.md の読み方**: ルート → 作業対象モジュール → spec の順で読む
-- **今後 `dist-electron/` は絶対にコミットしない**（`.gitignore` 済み）
-- **git タグは commit 後に打つこと**（タグ先打ちは orphaned tag になる）
-- **zsh でインラインコメント（`#`）はエラーになる**: コメント行とコマンド行は必ず分けて渡す
+- **NFC 正規化**（Day39確立）: `write_file` で日本語ファイル作成後は python3 で NFC 正規化を実行
+- **Linus スタイルコミット**（Day39確立）: `git commit -m "タイトル" -m "ボディ（なぜ変えたか）"` で Day40 から適用
+- **Obsidian dev-log**（Day39確立）: 毎セッション終了時に `GeoGraphy Vault/dev-log/YYYY-MM-DD_DayN.md` を作成
+- **終業時の必須手順**: dev-log 作成 → NFC 正規化 → git commit → git tag dayN → git push origin main --tags
+- **ModulatablePlugin**（Day37確立）: params を持つ Plugin の中間層
+- **MidiCCEvent**（Day37確立）: MIDI 1.0/2.0 共通フォーマット・value は 0〜1 正規化済み
+- **rangeMap(v, min, max)**（Day37確立）: 0〜1 → min/max 変換
+- **CC Standard v0.2**（Day39確立）: Block 8xx SHADER 追加・`docs/spec/cc-standard.spec.md`
+- **preserveDrawingBuffer: true**（Day31確立）: `drawImage` で WebGL canvas 読み取りに必須
+- **録画**（Day32確立）: `startRecording()` / `stopRecording()` は `engine.ts` 実装済み
+- **Geometry 自動登録**: `import.meta.glob` で `solid/` 配下も自動スキャン済み
+- **write_file 禁止**: 既存ファイルへの使用は禁止。`read_text_file` → `edit_file` のみ
+- **git タグは commit 後に打つこと**
+- **zsh でインラインコメント（`#`）はエラー**: コメント行とコマンド行は必ず分けて渡す
 - **tsc が反映ズレで失敗する場合**: 2回実行すると解消する
 
 ---
@@ -232,17 +155,25 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-GeoGraphy Day39を開始します。
+GeoGraphy Day40を開始します。
 引き継ぎスキル
 
 その後、以下の手順で進めてください：
-1. 下記コマンドの結果を貼り付けます
+1. まず HANDOVER.md を NFC 正規化してください（必須）：
+   python3 -c "
+import unicodedata, pathlib
+p = pathlib.Path('/Users/shinbigan/geography/HANDOVER.md')
+p.write_text(unicodedata.normalize('NFC', p.read_text('utf-8')), 'utf-8')
+print('NFC 正規化完了')
+"
+2. 下記コマンドの結果を貼り付けます
    cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
-2. HANDOVER.md の「次回やること（Day39）」を読んで作業を開始してください
+3. HANDOVER.md の「次回やること（Day40）」を読んで作業を開始してください
 
 開発スタイル：SDD × CDD
-- 始業時は HANDOVER.md → 各モジュールの CLAUDE.md / docs/spec/[機能].spec.md を確認 → 更新か継続か判定 → 必要箇所だけ更新してから実装
+- 始業時は HANDOVER.md → docs/spec/camera-system.spec.md を読んでから実装開始
 - ファイル更新は filesystem:edit_file を使うこと（write_file は新規作成のみ）
 - 完了条件は pnpm tsc --noEmit（型エラーゼロ）+ pnpm test --run（全テストグリーン）両方通過
 - プランを提示・承認を得てから実装を開始すること
+- コミットは Linus スタイル（タイトル + ボディ）で
 ```
