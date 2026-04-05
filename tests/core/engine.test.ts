@@ -5,9 +5,12 @@
  * engine はシングルトンの layerManager / Three.js に強依存するため、
  * FX API の核心ロジック（getFxPlugins / setFxEnabled / setFxParam）を
  * FxStack + FXPlugin レベルで単体検証する。
+ *
+ * Camera API (setAutoRotate) は LayerManager レベルで検証する。
+ * spec: docs/spec/camera-system.spec.md §9
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { FxStack } from '../../src/core/fxStack'
 import type { FXPlugin, PluginParam } from '../../src/types'
 
@@ -112,5 +115,36 @@ describe('engine FX コントロール API（FxStack レベル検証）', () => 
     expect(stack.getPlugin('bloom')?.params['strength'].value).toBe(2.0)
     expect(stack.getPlugin('bloom')?.params['radius'].value).toBe(0.7)
     expect(stack.getPlugin('bloom')?.params['threshold'].value).toBe(0.1) // 変更なし
+  })
+})
+
+// ----------------------------------------------------------------
+// Engine.setAutoRotate() 委譲検証
+// spec: camera-system.spec.md §9
+// engine.setAutoRotate は layerManager.setAutoRotate への単純委譲であることを検証する
+// ----------------------------------------------------------------
+
+describe('engine.setAutoRotate — layerManager への委譲検証', () => {
+  it('TC-engine-1: setAutoRotate() が layerManager.setAutoRotate を呼び出す', async () => {
+    // layerManager をモックして、委譲が正しく行われることだけを確認する
+    const { layerManager } = await import('../../src/core/layerManager')
+    const spy = vi.spyOn(layerManager, 'setAutoRotate')
+
+    const { engine } = await import('../../src/core/engine')
+    engine.setAutoRotate('layer-1', false)
+
+    expect(spy).toHaveBeenCalledWith('layer-1', false)
+    spy.mockRestore()
+  })
+
+  it('TC-engine-2: setAutoRotate(true) も正しく委譲される', async () => {
+    const { layerManager } = await import('../../src/core/layerManager')
+    const spy = vi.spyOn(layerManager, 'setAutoRotate')
+
+    const { engine } = await import('../../src/core/engine')
+    engine.setAutoRotate('layer-2', true)
+
+    expect(spy).toHaveBeenCalledWith('layer-2', true)
+    spy.mockRestore()
   })
 })

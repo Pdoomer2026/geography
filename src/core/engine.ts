@@ -450,6 +450,16 @@ export class Engine {
     })
   }
 
+  /**
+   * orbit モードのレイヤーの自動周回を切り替える。
+   * spec: camera-system.spec.md §9
+   * true  → カメラが Geometry 周りを自動周回
+   * false → OrbitControls による手動操作に切り替わる
+   */
+  setAutoRotate(layerId: string, autoRotate: boolean): void {
+    layerManager.setAutoRotate(layerId, autoRotate)
+  }
+
   /** レイヤーに Plugin をセット。pluginId が null なら None（plugin=null・mute=true） */
   setLayerPlugin(layerId: string, pluginId: string | null): void {
     if (pluginId === null) {
