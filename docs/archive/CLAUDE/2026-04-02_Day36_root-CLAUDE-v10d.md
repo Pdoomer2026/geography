@@ -1,4 +1,4 @@
-# GeoGraphy - CLAUDE.md v11
+# GeoGraphy - CLAUDE.md v10
 
 ## プロジェクト概要
 
@@ -84,25 +84,7 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 5. 実装開始
 ```
 
-### ファイル更新時の鉄則（MUST・Day30確立・Day36強化・Day39最重要ルール追加）
-
-**⚠️ 最重要ルール（Day39確立）：HANDOVER.md・日本語ファイルは必ず NFC 正規化してから編集すること**
-
-macOS APFS は日本語を NFD 形式で保存する。NFC 正規化していないファイルは `edit_file` の `oldText` がマッチしない。
-これが未解決のまま `write_file` で逃げると情報消失リスクがある。
-
-**セッション開始時に HANDOVER.md を NFC 正規化するコマンド（毎回実行すること）：**
-
-```bash
-python3 -c "
-import unicodedata, pathlib
-p = pathlib.Path('/Users/shinbigan/geography/HANDOVER.md')
-p.write_text(unicodedata.normalize('NFC', p.read_text('utf-8')), 'utf-8')
-print('HANDOVER.md NFC 正規化完了')
-"
-```
-
-**新規ファイルを `write_file` で作成した直後も同様に NFC 正規化すること。**
+### ファイル更新時の鉄則（MUST・Day30確立・Day36強化）
 
 毎回のセッションで同じミスが起きるため、始業時に必ず確認すること。
 
@@ -110,24 +92,7 @@ print('HANDOVER.md NFC 正規化完了')
 - MUST: 更新は `filesystem:edit_file` を使うこと（変更箇所だけを編集・差分を最小化する）
 - MUST: `write_file` は全書き換えになるため**既存ファイルには絶対に使わない**
 - MUST: 新規ファイル作成のみ `write_file` を使う（既存ファイルへの使用は禁止）
-- MUST: `write_file` で新規作成した直後は NFC 正規化を実行する：`python3 /Users/shinbigan/nfc_normalize.py`
 - MUST: 更新後は `git diff HEAD [ファイル名] | cat` で差分を慎太郎さんと一緒に確認すること
-
-**⚠️ CLAUDE.md 更新時の必須手順（AI への命令の品質管理・Day39確立）**
-
-CLAUDE.md は「AI への命令書」であり、その変遷を追うことで「ルールが機能したか」を dev-log / handover で検証できる。
-
-CLAUDE.md を編集する**前**に必ずアーカイブする：
-
-```bash
-bash /Users/shinbigan/archive_claude_before_edit.sh DayN [module]
-# module: root / core / plugins-fx / plugins-geometry / plugins-mixers / ui / ui-panels
-# 例: bash /Users/shinbigan/archive_claude_before_edit.sh Day40 root
-```
-
-- アーカイブ保存先: `docs/archive/CLAUDE/YYYY-MM-DD_DayN_[module]-CLAUDE.md`
-- アーカイブ後に `edit_file` で編集する
-- 編集後に `python3 /Users/shinbigan/nfc_normalize.py` で NFC 正規化
 
 **⚠️ Day36 で発生した重大ミス（同じ過ちを繰り返さないために記録）**
 
@@ -139,44 +104,6 @@ bash /Users/shinbigan/archive_claude_before_edit.sh DayN [module]
 - 正しい対処 → エラーが出たら「読んでから `edit_file`」。`write_file` への逃げは禁止
 - 「承認をもらった」「早い方が良い」はいかなる理由にもならない
 - 新規ドキュメントを作るときは**既存ファイルとは別のファイル名で作成する**（上書きしない）
-
-**⚠️ Day39 で発生した問題：Unicode NFC/NFD 不一致による edit_file ミスマッチ（Day39確立）**
-
-macOS の APFS ファイルシステムは日本語を NFD 形式で保存する。
-Claude が NFC 形式で `oldText` を送ると一致しない → `edit_file` が失敗する。
-
-- MUST: `write_file` で日本語を含む新規ファイルを作成した直後に、以下の正規化コマンドを慎太郎さんに実行してもらうこと
-- 毎回ではなく**新規作成の直後に 1 回だけ**実行すれば十分
-
-```bash
-# Unicode NFC 正規化（write_file で作成した日本語ファイルに必ず実行）
-python3 -c "
-import unicodedata, pathlib
-p = pathlib.Path('/Users/shinbigan/geography/[作成したファイルのパス]')
-p.write_text(unicodedata.normalize('NFC', p.read_text('utf-8')), 'utf-8')
-"
-```
-
-- `edit_file` の `oldText` に日本語を含める場合は**できるだけ短く・ASCII を anchor にする**こと
-- エラーが出たら NFC 正規化を疑い、上記コマンドを実行してから再試行する
-
-### Obsidian dev-log の作成（MUST・Day39確立）
-
-セッション終了時に必ず Obsidian の dev-log を作成すること。
-
-- **ファイル名**: `YYYY-MM-DD_DayN.md`
-- **保存先**: `/Users/shinbigan/GeoGraphy Vault/dev-log/`
-- **内容**: 今日やったこと・重要な判断・学び・次回の予定を自然な文章で記述する
-- **作成後**: python3 で NFC 正規化を必ず実行する（`write_file` が NFD で保存するため）
-
-```bash
-# dev-log NFC 正規化
-python3 -c "
-import unicodedata, pathlib
-p = pathlib.Path('/Users/shinbigan/GeoGraphy Vault/dev-log/YYYY-MM-DD_DayN.md')
-p.write_text(unicodedata.normalize('NFC', p.read_text('utf-8')), 'utf-8')
-"
-```
 
 ### 終業時・引き継ぎ制作時の CLAUDE.md 更新方法（MUST）
 
@@ -206,24 +133,6 @@ git tag dayN && git push origin dayN
 - タグは「その Day の最後の feat: コミット」に打つ
 - `git checkout day12` のように任意の日に戻れる
 - HANDOVER.md の「現在のコミット」欄にもタグ名を記載すること
-
-### コミットメッセージの形式（Day39確立・Linus スタイル）
-
-Claude がコミットコマンドを渡すときは必ず **タイトル + ボディ**の2段構成にすること。
-
-```bash
-# タイトル（1行目）：何をしたか
-# ボディ（3行目以降）：なぜその変更をしたのか・何を判断したのか
-git commit -m "feat: add orbit camera to icosphere (Day40)" \
-           -m "壁打ちで Orbit カメラが必要と確定。
-camera-system.spec.md の CameraPreset 機構を拡張し OrbitControls を統合。
-Icosphere / Torus / Torusknot の 3 Plugin に cameraPreset を追加。"
-```
-
-- 1行目：`type: 内容の要約 (DayN)` 形式
-- ボディ：「なぜ」と「何を判断したか」を必ず恂ること
-- `git log --oneline` では1行目だけ表示されるのでログの見やすさは変わらない
-- 詳細は `git show <commit>` でいつでも参照できる
 
 ### spec ファイル一覧
 
