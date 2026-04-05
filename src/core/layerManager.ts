@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { DEFAULT_CAMERA_PRESET, MAX_LAYERS } from './config'
 import { FxStack } from './fxStack'
-import type { CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from '../types'
+import type { CameraMode, CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from '../types'
 
 export class LayerManager {
   private layers: Layer[] = []
@@ -77,6 +78,9 @@ export class LayerManager {
         blendMode: 'normal',
         fxStack,
         mute: false,
+        cameraMode: { type: 'static' },
+        cameraAngle: 0,
+        controls: null,
       })
     }
   }
@@ -118,8 +122,15 @@ export class LayerManager {
     const layer = this.layers.find((entry) => entry.id === layerId)
     if (!layer) return
 
+    // 旧 Plugin を破棄
     if (layer.plugin) {
       layer.plugin.destroy(layer.scene)
+    }
+
+    // 旧 OrbitControls を破棄
+    if (layer.controls) {
+      ;(layer.controls as OrbitControls).dispose()
+      layer.controls = null
     }
 
     layer.plugin = plugin
@@ -127,10 +138,51 @@ export class LayerManager {
       plugin.create(layer.scene)
     }
 
-    // カメラプリセット適用（spec: camera-system.spec.md）
+    // カメラプリセット適用（spec: camera-system.spec.md §5）
     const preset = plugin?.cameraPreset ?? DEFAULT_CAMERA_PRESET
-    layer.camera.position.set(preset.position.x, preset.position.y, preset.position.z)
-    layer.camera.lookAt(preset.lookAt.x, preset.lookAt.y, preset.lookAt.z)
+    const mode: CameraMode = preset.mode ?? { type: 'static' }
+    layer.cameraMode = mode
+    layer.cameraAngle = 0
+
+    if (mode.type === 'static') {
+      layer.camera.position.set(preset.position.x, preset.position.y, preset.position.z)
+      layer.camera.lookAt(preset.lookAt.x, preset.lookAt.y, preset.lookAt.z)
+
+    } else if (mode.type === 'orbit') {
+      // 初期位置を angle=0 から計算
+      layer.camera.position.set(mode.radius, mode.height, 0)
+      layer.camera.lookAt(0, 0, 0)
+      // OrbitControls を生成（autoRotate 時は無効化しておく）
+      const controls = new OrbitControls(layer.camera, layer.renderer.domElement)
+      controls.enabled = !mode.autoRotate
+      layer.controls = controls
+
+    } else if (mode.type === 'aerial') {
+      // 真上俯瞰の初期位置
+      layer.camera.position.set(0, mode.height, 0)
+      layer.camera.lookAt(0, 0, 0)
+      // OrbitControls: 回転ロック・zoom/pan 有効
+      const controls = new OrbitControls(layer.camera, layer.renderer.domElement)
+      controls.enableRotate = false
+      controls.enableZoom = true
+      controls.enablePan = true
+      layer.controls = controls
+    }
+  }
+
+  /**
+   * orbit モードのレイヤーの autoRotate を切り替える。
+   * 将来の Camera WindowPlugin から呼ぶ接続口（spec: camera-system.spec.md §9）
+   */
+  setAutoRotate(layerId: string, autoRotate: boolean): void {
+    const layer = this.layers.find((l) => l.id === layerId)
+    if (!layer) return
+    const mode = layer.cameraMode
+    if (mode.type !== 'orbit') return
+    layer.cameraMode = { ...mode, autoRotate }
+    if (layer.controls) {
+      ;(layer.controls as OrbitControls).enabled = !autoRotate
+    }
   }
 
   setOpacity(layerId: string, opacity: number): void {
@@ -161,6 +213,25 @@ export class LayerManager {
       layer.plugin.update(delta, beat)
       layer.fxStack.update(delta, beat)
 
+      // カメラモードに応じた更新（spec: camera-system.spec.md §5）
+      const mode = layer.cameraMode
+      if (mode.type === 'orbit' && mode.autoRotate) {
+        layer.cameraAngle += mode.speed * delta
+        layer.camera.position.set(
+          Math.cos(layer.cameraAngle) * mode.radius,
+          mode.height,
+          Math.sin(layer.cameraAngle) * mode.radius,
+        )
+        layer.camera.lookAt(0, 0, 0)
+      } else if (
+        (mode.type === 'orbit' && !mode.autoRotate) ||
+        mode.type === 'aerial'
+      ) {
+        if (layer.controls) {
+          ;(layer.controls as OrbitControls).update()
+        }
+      }
+
       const composer = this.composers.get(layer.id)
       const hasFx = layer.fxStack.getOrdered().length > 0
       if (composer && hasFx) {
@@ -190,6 +261,9 @@ export class LayerManager {
     for (const layer of this.layers) {
       if (layer.plugin) {
         layer.plugin.destroy(layer.scene)
+      }
+      if (layer.controls) {
+        ;(layer.controls as OrbitControls).dispose()
       }
       layer.fxStack.dispose()
       layer.renderer.dispose()

@@ -13,8 +13,9 @@ const torusPlugin: GeometryPlugin = {
   enabled: true,
   params: structuredClone(defaultParams),
   cameraPreset: {
-    position: { x: 0, y: 4, z: 12 },
-    lookAt:   { x: 0, y: 0, z: 0  },
+    position: { x: 12, y: 4, z: 0 },
+    lookAt:   { x: 0,  y: 0, z: 0 },
+    mode: { type: 'orbit', radius: 12, height: 4, speed: 0.4, autoRotate: true },
   },
 
   create(scene: THREE.Scene): void {

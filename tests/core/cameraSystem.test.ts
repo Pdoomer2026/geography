@@ -42,6 +42,32 @@ vi.mock('three', () => {
   return { Scene, PerspectiveCamera, WebGLRenderer, Vector3 }
 })
 
+const orbitControlsDispose = vi.fn()
+const orbitControlsUpdate = vi.fn()
+let orbitControlsInstance: {
+  enabled: boolean
+  enableRotate: boolean
+  enableZoom: boolean
+  enablePan: boolean
+  dispose: () => void
+  update: () => void
+} | null = null
+
+vi.mock('three/examples/jsm/controls/OrbitControls.js', () => {
+  class OrbitControls {
+    enabled = true
+    enableRotate = true
+    enableZoom = true
+    enablePan = true
+    dispose = orbitControlsDispose
+    update = orbitControlsUpdate
+    constructor(_camera: unknown, _domElement: unknown) {
+      orbitControlsInstance = this
+    }
+  }
+  return { OrbitControls }
+})
+
 vi.mock('three/examples/jsm/postprocessing/EffectComposer.js', () => {
   class EffectComposer {
     constructor(_renderer: unknown) {}
@@ -147,5 +173,72 @@ describe('Camera System', () => {
 
     manager.setPlugin('layer-1', plugin)
     expect(positionSet).toHaveBeenCalledWith(0, 0, 5)
+  })
+
+  it('TC-6: orbit モードの Plugin をセットすると cameraMode が orbit になる', () => {
+    const preset = {
+      position: { x: 10, y: 3, z: 0 },
+      lookAt: { x: 0, y: 0, z: 0 },
+      mode: { type: 'orbit' as const, radius: 10, height: 3, speed: 0.5, autoRotate: true },
+    }
+    const plugin = makePlugin(preset)
+    manager.setPlugin('layer-1', plugin)
+
+    const layer = manager.getLayers().find((l) => l.id === 'layer-1')
+    expect(layer?.cameraMode.type).toBe('orbit')
+  })
+
+  it('TC-7: orbit + autoRotate:true で update() を呼ぶとカメラ position が変化する', () => {
+    const preset = {
+      position: { x: 10, y: 3, z: 0 },
+      lookAt: { x: 0, y: 0, z: 0 },
+      mode: { type: 'orbit' as const, radius: 10, height: 3, speed: 1.0, autoRotate: true },
+    }
+    const plugin = makePlugin(preset)
+    manager.setPlugin('layer-1', plugin)
+    positionSet.mockClear()
+
+    manager.update(0.5, 0)
+    // angle = 0.5 * 1.0 = 0.5rad → position が変化しているはず
+    expect(positionSet).toHaveBeenCalled()
+    const [x, , z] = positionSet.mock.calls[0] as [number, number, number]
+    expect(x).toBeCloseTo(Math.cos(0.5) * 10, 3)
+    expect(z).toBeCloseTo(Math.sin(0.5) * 10, 3)
+  })
+
+  it('TC-8: aerial モードは enableRotate=false が設定される', () => {
+    orbitControlsInstance = null
+    const preset = {
+      position: { x: 0, y: 20, z: 0 },
+      lookAt: { x: 0, y: 0, z: 0 },
+      mode: { type: 'aerial' as const, height: 20 },
+    }
+    const plugin = makePlugin(preset)
+    manager.setPlugin('layer-1', plugin)
+
+    expect(orbitControlsInstance).not.toBeNull()
+    expect(orbitControlsInstance?.enableRotate).toBe(false)
+    expect(orbitControlsInstance?.enableZoom).toBe(true)
+  })
+
+  it('TC-9: setAutoRotate(false) で autoRotate フラグが切り替わる', () => {
+    const preset = {
+      position: { x: 10, y: 3, z: 0 },
+      lookAt: { x: 0, y: 0, z: 0 },
+      mode: { type: 'orbit' as const, radius: 10, height: 3, speed: 0.5, autoRotate: true },
+    }
+    const plugin = makePlugin(preset)
+    manager.setPlugin('layer-1', plugin)
+
+    manager.setAutoRotate('layer-1', false)
+
+    const layer = manager.getLayers().find((l) => l.id === 'layer-1')
+    const mode = layer?.cameraMode
+    expect(mode?.type).toBe('orbit')
+    if (mode?.type === 'orbit') {
+      expect(mode.autoRotate).toBe(false)
+    }
+    // OrbitControls が enabled になっているはず
+    expect(orbitControlsInstance?.enabled).toBe(true)
   })
 })

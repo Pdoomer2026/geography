@@ -43,9 +43,31 @@ export interface PluginParam {
 // Camera System（spec: docs/spec/camera-system.spec.md）
 // ============================================================
 
+/**
+ * カメラモード（spec: docs/spec/camera-system.spec.md §2）
+ * - static : position/lookAt 固定（デフォルト）
+ * - orbit  : Geometry 周りを自動周回 or OrbitControls 手動操作
+ * - aerial : 真上俯瞰・OrbitControls（回転ロック・zoom/pan 有効）
+ */
+export type CameraMode =
+  | { type: 'static' }
+  | {
+      type: 'orbit'
+      radius: number       // 周回半径
+      height: number       // カメラの高さ（y 座標）
+      speed: number        // 自動周回速度（rad/s）
+      autoRotate: boolean  // true=自動周回 / false=OrbitControls 手動
+    }
+  | {
+      type: 'aerial'
+      height: number       // 見下ろす高さ（y 座標）
+    }
+
 export interface CameraPreset {
   position: { x: number; y: number; z: number }
   lookAt: { x: number; y: number; z: number }
+  /** 省略時は { type: 'static' } として扱う */
+  mode?: CameraMode
 }
 
 // ============================================================
@@ -115,6 +137,12 @@ export interface Layer {
   /** FX ポストプロセッシングスタック */
   fxStack: IFxStack
   mute: boolean
+  /** 現在適用中のカメラモード（spec: camera-system.spec.md §8） */
+  cameraMode: CameraMode
+  /** orbit モードの現在角度（ラジアン） */
+  cameraAngle: number
+  /** orbit / aerial モード時に生成される OrbitControls（型は unknown で保持・layerManager 内でキャスト） */
+  controls: unknown
 }
 
 // ============================================================
