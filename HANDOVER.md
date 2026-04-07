@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day42（CC Mapping 3層構造設計確定）｜2026-04-07
+# GeoGraphy 引き継ぎメモ｜Day43（CC Mapping 3層構造 実装完了）｜2026-04-07
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -15,127 +15,117 @@
 | ファイル | パス |
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md`（v11） |
-| CC Mapping SSoT | `docs/spec/cc-mapping.md`（v0.2・Day42新設） |
-| CC Mapping 設計仕様 | `docs/spec/cc-mapping.spec.md`（Day42新設） |
-| CC Standard | `docs/spec/cc-standard.spec.md`（v0.3・CC204/205更新） |
+| CC Mapping SSoT | `docs/spec/cc-mapping.md`（v0.2） |
+| CC Mapping 設計仕様 | `docs/spec/cc-mapping.spec.md` |
+| CC Standard | `docs/spec/cc-standard.spec.md`（v0.3） |
+| CC Map 生成スクリプト | `scripts/generate-cc-map.ts`（Day43新設） |
+| CC Map JSON（自動生成物） | `settings/cc-map.json`（Day43新設・手動編集禁止） |
+| CC Map Service | `src/core/ccMapService.ts`（Day43新設） |
 | MacroKnob spec | `docs/spec/macro-knob.spec.md` |
-| Preferences spec | `docs/spec/preferences-panel.spec.md` |
-| エンジン本体 | `src/core/engine.ts` |
 | MacroKnob コア | `src/core/macroKnob.ts` |
+| geoAPI 型定義 | `src/types/geoAPI.d.ts` |
+| エンジン本体 | `src/core/engine.ts` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day41`（Day42 はまだコミット・タグなし）
-- **テスト**: 110 tests グリーン・tsc エラーゼロ（Day42 は設計フェーズのみ・実装なし）
+- **タグ**: `day41`（Day42・Day43 はこのセッションでコミット予定）
+- **テスト**: 112 tests グリーン・tsc エラーゼロ
 
 ---
 
-## Day42 で完了したこと（全て設計・壁打ちフェーズ）
+## Day43 で完了したこと
 
-### A. CC Mapping 3層構造の設計確定
+### A. 型定義更新（`src/types/index.ts`）
 
-**問題の発見**: `cc-standard.spec.md` §5 の横断マッピング表が Markdown にしか存在せず、
-runtime・MacroKnob・AI が参照できない「断絶」を発見。
-これを解消しないと MacroKnob D&D・MIDI IPC・AI 自然言語インターフェース全てが砂の上に建つと判断。
+- `MacroAssign.ccNumber: number`（必須フィールド）を追加・旧 `defaultCC?: number` を削除
+- `MacroKnobManager` Interface に `addAssign()` / `removeAssign()` を追加
+- `GeoGraphyProject` に `macroKnobAssigns: MacroKnobConfig[]` を追加（永続化対応）
 
-**確定した3層構造**:
+### B. `src/core/macroKnob.ts` 更新
 
-```
-Layer 0: docs/spec/cc-mapping.md（SSoT・人間 + AI が読む）
-  Plugin × paramId × CC番号 × blockName × 値域
-  開発者が編集・Claude Desktop が更新支援
-  セマンティック情報は cc-standard.spec.md に委譲（重複なし）
-        ↓ pnpm gen:cc-map（自動生成スクリプト）
+- `addAssign(knobId, assign)` 実装（MAX_ASSIGNS 超過時は throw）
+- `removeAssign(knobId, paramId)` 実装
 
-Layer 1: settings/cc-map.json（runtime が使う・自動生成物）
-  CC番号 × 値域のみ・セマンティック情報は持たない
-  MacroKnob / ccMapService の lookup 元
-  手動編集禁止
-        ↓ ユーザーが Preferences > CC Map タブで上書き
+### C. `scripts/generate-cc-map.ts` 新規作成
 
-Layer 2: ~/Documents/GeoGraphy/cc-overrides.json（ユーザー差分のみ）
-  変更した CC番号だけを保存・Layer 1 を汚染しない
-  Runtime lookup 優先順位: Layer 2 → Layer 1
-```
+- `docs/spec/cc-mapping.md` をパースして `settings/cc-map.json` を生成
+- 未マッピング paramId を警告出力する機能付き
+- `tsx` を devDependencies に追加
+- `package.json` に `"gen:cc-map": "tsx scripts/generate-cc-map.ts"` を追加
 
-**役割分担の確定**:
+### D. `settings/cc-map.json` 生成
 
-```
-cc-mapping.md     → pluginId × paramId × CC番号 × 値域（SSoT）
-cc-standard.spec.md → CC番号 × Block × AI語彙（参照先）
-AI は両ファイルを組み合わせて自然言語 → CC番号 → paramId を解決する
-```
+- `pnpm gen:cc-map` を実行して 71 mappings を生成
+- Geometry 7本・Particle 1本・FX 12本 = 全 20 Plugin 対応
 
-### B. 新規作成ファイル
+### E. `src/core/ccMapService.ts` 新規作成
 
-| ファイル | 内容 |
-|---|---|
-| `docs/spec/cc-mapping.spec.md` | 3層構造の設計仕様書（ccMapService Interface・UI仕様・実装順序） |
-| `docs/spec/cc-mapping.md` v0.2 | 全 Plugin 横断マッピング SSoT（全 Plugin の config.ts から実データで作成） |
+- `ParamMapping` / `CcMapService` Interface を定義
+- Layer 1（cc-map.json）と Layer 2（cc-overrides.json）をマージして lookup
+- `getCcNumber()` / `getMapping()` / `getAllMappings()` / `applyOverride()` / `resetOverride()` / `resetAllOverrides()` を実装
+- `window.geoAPI` が optional なことに対応（`?.` チェーン）
 
-**cc-mapping.md の収録内容**（全て実コードから起こした正確なデータ）:
-- Geometry 7本: icosphere / torus / torusknot / contour / hex-grid / grid-tunnel / grid-wave
-- Particle 1本: starfield
-- FX 12本: bloom / after-image / feedback / color-grading / glitch / kaleidoscope / rgb-shift / zoom-blur / mirror / crt / film / frei-chen
+### F. `electron/main.js` + `electron/preload.js` 更新
 
-### C. cc-standard.spec.md v0.3 更新
+- `load-cc-map` IPC ハンドラー追加（settings/cc-map.json を返す）
+- `load-cc-overrides` IPC ハンドラー追加（~/Documents/GeoGraphy/cc-overrides.json を返す）
+- `save-cc-overrides` IPC ハンドラー追加
+- preload.js に `loadCcMap` / `loadCcOverrides` / `saveCcOverrides` を公開
 
-- バージョン v0.2 → v0.3
-- Block 2xx FORM に CC204（Topology A）・CC205（Topology B）を正式追加
-  （torusknot の `p` / `q` に対応・「将来追加候補」から「実装済み」に格上げ）
-- §5 横断マッピング表に「SSoT は cc-mapping.md」の注記を追加
-- 参照元を `fx-parameter-reference.md` から `cc-mapping.md` に更新
-- §7 新規 Plugin 開発ガイドラインに「cc-mapping.md への追記」ステップを追加
+### G. `src/types/geoAPI.d.ts` 更新
 
-### D. アーカイブ整備
+- `loadCcMap()` / `loadCcOverrides()` / `saveCcOverrides()` を型定義に追加
 
-- `docs/archive/spec/` を新設
-- `cc-standard.spec.md` v0.2 をアーカイブ
-- `cc-mapping.md` v0.1（途中版）をアーカイブ
+### H. テスト更新（`tests/core/macroKnob.test.ts`）
+
+- 既存テストの `assigns` に `ccNumber` フィールドを追加（型定義変更に追従）
+- TC-9: `addAssign()` → assigns に追加される
+- TC-10: `removeAssign()` → assigns から削除される
+- TC-11: `addAssign()` が MACRO_KNOB_MAX_ASSIGNS を超えると throw
 
 ---
 
-## 確立した新ルール（Day42）
+## 確立した新ルール（Day43）
 
-### AI が cc-mapping.md を読む際のルール
-- `cc-mapping.md` で `paramId → CC番号 → Block` を特定する
-- `cc-standard.spec.md` の該当 CC# 定義で AI語彙・意味を参照する
-- 2ファイルが役割分担・意味情報の重複記載はしない
+### write_file を使う場合の正しいフロー
+```
+move_file（既存 → .claude/ にバックアップ）
+  → write_file（新規作成）
+  → NFC 正規化
+```
+（`create_file` は Claude Desktop 専用・filesystem MCP では `write_file` を使う）
 
-### 新 Plugin 追加時のフロー
-```
-1. Plugin の config.ts に params を定義
-2. docs/spec/cc-mapping.md に該当セクションを追記
-3. pnpm gen:cc-map を実行（未マッピングの paramId が警告として出る）
-4. settings/cc-map.json が自動再生成される
-```
+### pnpm gen:cc-map の実行タイミング
+- 新 Plugin 追加時: cc-mapping.md に追記 → pnpm gen:cc-map
+- CC 番号変更時: cc-mapping.md を編集 → pnpm gen:cc-map
+- cc-map.json は手動編集禁止・自動生成物
 
 ---
 
-## 次回やること（Day43）
+## 次回やること（Day44）
 
-### Claude Code 実装タスク（設計完了・実装待ち）
+### 優先度 ★★★
+| 作業 |
+|---|
+| MIDI IPC 経路実装（`electron/main.js` → `App.tsx` → `engine.handleMidiCC`） |
+| D&D アサイン UI（Simple Window の `[≡]` ハンドル → MacroKnob へのドロップ） |
+| `ccMapService.init()` を `engine.initialize()` から呼ぶ |
 
-| 優先度 | 作業 |
-|---|---|
-| ★★★ | `scripts/generate-cc-map.ts` 実装（cc-mapping.md → cc-map.json 変換・未マッピング警告） |
-| ★★★ | `settings/` ディレクトリ新設・`pnpm gen:cc-map` 実行・`cc-map.json` 生成 |
-| ★★★ | `src/core/ccMapService.ts` 実装（CcMapService Interface・Layer 2 優先 lookup） |
-| ★★★ | `electron/main.js` に cc-overrides IPC 追加（load-cc-overrides / save-cc-overrides） |
-| ★★★ | `MacroAssign` 型の `ccNumber` を ccMapService 経由に統一 |
-| ★★★ | `macroKnob.ts` に `addAssign()` / `removeAssign()` を追加 |
-| ★★★ | `GeoGraphyProject` に `macroKnobAssigns` を追加（永続化） |
-| ★★ | Preferences > CC Map タブ実装 |
-| ★★ | MIDI IPC 経路実装（main.js → App.tsx → engine.handleMidiCC） |
+### 優先度 ★★
+| 作業 |
+|---|
+| Preferences > CC Map タブ実装（`src/ui/panels/preferences/PreferencesPanel.tsx`） |
+| MIDI デバイス接続 Panel（Preferences > MIDI タブ） |
+| MacroKnob Preset Save/Load |
 
-### Claude Desktop タスク
-| 優先度 | 作業 |
-|---|---|
-| ★★ | CLAUDE.md の spec 一覧に cc-mapping 関連を追記 |
-| ★ | Obsidian dev-log 作成（2026-04-07_Day42.md） |
+### 優先度 ★
+| 作業 |
+|---|
+| CLAUDE.md の spec 一覧に cc-mapping 関連を追記 |
+| Obsidian dev-log 作成（Day42・Day43 分） |
 
 ---
 
@@ -149,14 +139,16 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 
 ## 環境メモ（累積）
 
-- **NFC 正規化**（Day39確立）: `write_file` / `create_file` で日本語ファイル作成後は python3 で NFC 正規化を実行
-- **大幅更新フロー**（Day41確立）: `move_file → create_file → NFC 正規化`（write_file は既存ファイルに使わない）
-- **spec アーカイブ**（Day41確立・Day42 docs/archive/spec/ 新設）: `docs/archive/spec/YYYY-MM-DD_DayN_[name].spec.md`
+- **NFC 正規化**（Day39確立）: 日本語ファイル作成後は python3 で NFC 正規化を実行
+- **大幅更新フロー**（Day41確立）: `move_file → write_file → NFC 正規化`
+- **write_file は新規ファイルのみ**: 既存ファイルへの使用は禁止（move_file でバックアップしてから write_file）
+- **create_file は filesystem MCP には存在しない**: `write_file` を使う
+- **spec アーカイブ**（Day41確立）: `docs/archive/spec/YYYY-MM-DD_DayN_[name].spec.md`
 - **cc-mapping.md 更新後は pnpm gen:cc-map 必須**（Day42確立）
+- **tsx が必要**: `pnpm gen:cc-map` は tsx 経由で実行（devDependencies に追加済み）
 - **Linus スタイルコミット**（Day39確立）: `git commit -m "タイトル" -m "ボディ（なぜ変えたか）"`
 - **Obsidian dev-log**（Day39確立）: 毎セッション終了時に `GeoGraphy Vault/dev-log/YYYY-MM-DD_DayN.md` を作成
 - **終業時の必須手順**: dev-log 作成 → NFC 正規化 → git commit → git tag dayN → git push origin main --tags
-- **write_file 禁止**: 既存ファイルへの使用は禁止。`move_file` → `create_file` のフローを使う
 - **git タグは commit 後に打つこと**
 - **tsc が反映ズレで失敗する場合**: 2回実行すると解消する
 
@@ -165,18 +157,6 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-GeoGraphy Day43を開始します。
+Day44開始
 引き継ぎスキル
-
-その後、以下の手順で進めてください：
-1. まず HANDOVER.md を NFC 正規化してください（必須）：
-   python3 -c "
-import unicodedata, pathlib
-p = pathlib.Path('/Users/shinbigan/geography/HANDOVER.md')
-p.write_text(unicodedata.normalize('NFC', p.read_text('utf-8')), 'utf-8')
-print('NFC 正規化完了')
-"
-2. 下記コマンドの結果を貼り付けます
-   cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
-3. HANDOVER.md の「次回やること（Day43）」を読んで作業を開始してください
 ```

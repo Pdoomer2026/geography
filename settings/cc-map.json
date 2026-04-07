@@ -1,0 +1,908 @@
+{
+  "version": "0.2",
+  "generatedAt": "2026-04-07T04:17:55.011Z",
+  "generatedFrom": "docs/spec/cc-mapping.md",
+  "mappings": [
+    {
+      "pluginType": "geometry",
+      "pluginId": "icosphere",
+      "params": [
+        {
+          "paramId": "radius",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 0.5,
+          "pluginMax": 10,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "detail",
+          "ccNumber": 201,
+          "block": "FORM",
+          "blockName": "Density/Detail",
+          "pluginMin": 0,
+          "pluginMax": 5,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "speed",
+          "ccNumber": 300,
+          "block": "MOTION",
+          "blockName": "Temporal Speed",
+          "pluginMin": 0,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "hue",
+          "ccNumber": 400,
+          "block": "COLOR",
+          "blockName": "Hue",
+          "pluginMin": 0,
+          "pluginMax": 360,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "度数→CC変換"
+        }
+      ]
+    },
+    {
+      "pluginType": "geometry",
+      "pluginId": "torus",
+      "params": [
+        {
+          "paramId": "radius",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 0.5,
+          "pluginMax": 10,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "tube",
+          "ccNumber": 102,
+          "block": "EXISTENCE",
+          "blockName": "Secondary Amount",
+          "pluginMin": 0.1,
+          "pluginMax": 4,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "tubularSegs",
+          "ccNumber": 201,
+          "block": "FORM",
+          "blockName": "Density/Detail",
+          "pluginMin": 8,
+          "pluginMax": 256,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "radialSegs",
+          "ccNumber": 202,
+          "block": "FORM",
+          "blockName": "Inner Shape",
+          "pluginMin": 3,
+          "pluginMax": 64,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "speed",
+          "ccNumber": 300,
+          "block": "MOTION",
+          "blockName": "Temporal Speed",
+          "pluginMin": 0,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "hue",
+          "ccNumber": 400,
+          "block": "COLOR",
+          "blockName": "Hue",
+          "pluginMin": 0,
+          "pluginMax": 360,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "度数→CC変換"
+        }
+      ]
+    },
+    {
+      "pluginType": "geometry",
+      "pluginId": "torusknot",
+      "params": [
+        {
+          "paramId": "radius",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 0.5,
+          "pluginMax": 8,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "tube",
+          "ccNumber": 102,
+          "block": "EXISTENCE",
+          "blockName": "Secondary Amount",
+          "pluginMin": 0.1,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "tubularSegs",
+          "ccNumber": 201,
+          "block": "FORM",
+          "blockName": "Density/Detail",
+          "pluginMin": 32,
+          "pluginMax": 512,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "radialSegs",
+          "ccNumber": 202,
+          "block": "FORM",
+          "blockName": "Inner Shape",
+          "pluginMin": 3,
+          "pluginMax": 32,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "p",
+          "ccNumber": 204,
+          "block": "FORM",
+          "blockName": "Topology A",
+          "pluginMin": 1,
+          "pluginMax": 8,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "q",
+          "ccNumber": 205,
+          "block": "FORM",
+          "blockName": "Topology B",
+          "pluginMin": 1,
+          "pluginMax": 8,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値・CC205新設"
+        },
+        {
+          "paramId": "speed",
+          "ccNumber": 300,
+          "block": "MOTION",
+          "blockName": "Temporal Speed",
+          "pluginMin": 0,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "hue",
+          "ccNumber": 400,
+          "block": "COLOR",
+          "blockName": "Hue",
+          "pluginMin": 0,
+          "pluginMax": 360,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "度数→CC変換"
+        }
+      ]
+    },
+    {
+      "pluginType": "geometry",
+      "pluginId": "contour",
+      "params": [
+        {
+          "paramId": "size",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 10,
+          "pluginMax": 500,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "segments",
+          "ccNumber": 201,
+          "block": "FORM",
+          "blockName": "Density/Detail",
+          "pluginMin": 10,
+          "pluginMax": 150,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "speed",
+          "ccNumber": 300,
+          "block": "MOTION",
+          "blockName": "Temporal Speed",
+          "pluginMin": 0,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "amplitude",
+          "ccNumber": 302,
+          "block": "MOTION",
+          "blockName": "Deformation",
+          "pluginMin": 0.1,
+          "pluginMax": 8,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "scale",
+          "ccNumber": 303,
+          "block": "MOTION",
+          "blockName": "Frequency",
+          "pluginMin": 0.1,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "hue",
+          "ccNumber": 400,
+          "block": "COLOR",
+          "blockName": "Hue",
+          "pluginMin": 0,
+          "pluginMax": 360,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "度数→CC変換"
+        }
+      ]
+    },
+    {
+      "pluginType": "geometry",
+      "pluginId": "hex-grid",
+      "params": [
+        {
+          "paramId": "hexSize",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 0.5,
+          "pluginMax": 5,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "cols",
+          "ccNumber": 201,
+          "block": "FORM",
+          "blockName": "Density/Detail",
+          "pluginMin": 4,
+          "pluginMax": 30,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "rows",
+          "ccNumber": 202,
+          "block": "FORM",
+          "blockName": "Inner Shape",
+          "pluginMin": 4,
+          "pluginMax": 30,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "speed",
+          "ccNumber": 300,
+          "block": "MOTION",
+          "blockName": "Temporal Speed",
+          "pluginMin": 0,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "maxHeight",
+          "ccNumber": 302,
+          "block": "MOTION",
+          "blockName": "Deformation",
+          "pluginMin": 0,
+          "pluginMax": 10,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "hue",
+          "ccNumber": 400,
+          "block": "COLOR",
+          "blockName": "Hue",
+          "pluginMin": 0,
+          "pluginMax": 360,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "度数→CC変換"
+        }
+      ]
+    },
+    {
+      "pluginType": "geometry",
+      "pluginId": "grid-tunnel",
+      "params": [
+        {
+          "paramId": "radius",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 1,
+          "pluginMax": 10,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "segments",
+          "ccNumber": 201,
+          "block": "FORM",
+          "blockName": "Density/Detail",
+          "pluginMin": 3,
+          "pluginMax": 24,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "rings",
+          "ccNumber": 202,
+          "block": "FORM",
+          "blockName": "Inner Shape",
+          "pluginMin": 5,
+          "pluginMax": 40,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "speed",
+          "ccNumber": 300,
+          "block": "MOTION",
+          "blockName": "Temporal Speed",
+          "pluginMin": 0,
+          "pluginMax": 3,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "length",
+          "ccNumber": 507,
+          "block": "SPACE",
+          "blockName": "Depth",
+          "pluginMin": 10,
+          "pluginMax": 100,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "hue",
+          "ccNumber": 400,
+          "block": "COLOR",
+          "blockName": "Hue",
+          "pluginMin": 0,
+          "pluginMax": 360,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "度数→CC変換"
+        }
+      ]
+    },
+    {
+      "pluginType": "geometry",
+      "pluginId": "grid-wave",
+      "params": [
+        {
+          "paramId": "size",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 1,
+          "pluginMax": 500,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "segments",
+          "ccNumber": 201,
+          "block": "FORM",
+          "blockName": "Density/Detail",
+          "pluginMin": 10,
+          "pluginMax": 100,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "speed",
+          "ccNumber": 300,
+          "block": "MOTION",
+          "blockName": "Temporal Speed",
+          "pluginMin": 0.1,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "amplitude",
+          "ccNumber": 302,
+          "block": "MOTION",
+          "blockName": "Deformation",
+          "pluginMin": 0.1,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "frequency",
+          "ccNumber": 303,
+          "block": "MOTION",
+          "blockName": "Frequency",
+          "pluginMin": 0.1,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "pluginType": "particle",
+      "pluginId": "starfield",
+      "params": [
+        {
+          "paramId": "size",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 0.01,
+          "pluginMax": 0.3,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "opacity",
+          "ccNumber": 103,
+          "block": "EXISTENCE",
+          "blockName": "Opacity",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "count",
+          "ccNumber": 201,
+          "block": "FORM",
+          "blockName": "Density/Detail",
+          "pluginMin": 500,
+          "pluginMax": 10000,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "speed",
+          "ccNumber": 300,
+          "block": "MOTION",
+          "blockName": "Temporal Speed",
+          "pluginMin": 0,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "depth",
+          "ccNumber": 507,
+          "block": "SPACE",
+          "blockName": "Depth",
+          "pluginMin": 10,
+          "pluginMax": 200,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "bloom",
+      "params": [
+        {
+          "paramId": "strength",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 0,
+          "pluginMax": 3,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "radius",
+          "ccNumber": 603,
+          "block": "EDGE",
+          "blockName": "Sharpness/Blur",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "threshold",
+          "ccNumber": 700,
+          "block": "BLEND",
+          "blockName": "Blend Amount",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "after-image",
+      "params": [
+        {
+          "paramId": "damp",
+          "ccNumber": 701,
+          "block": "BLEND",
+          "blockName": "Feedback Amount",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "残像持続"
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "feedback",
+      "params": [
+        {
+          "paramId": "amount",
+          "ccNumber": 701,
+          "block": "BLEND",
+          "blockName": "Feedback Amount",
+          "pluginMin": 0,
+          "pluginMax": 0.95,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "decay",
+          "ccNumber": 703,
+          "block": "BLEND",
+          "blockName": "Feedback Scale",
+          "pluginMin": 0.9,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "減衰率"
+        },
+        {
+          "paramId": "offsetX",
+          "ccNumber": 500,
+          "block": "SPACE",
+          "blockName": "Position X",
+          "pluginMin": -0.05,
+          "pluginMax": 0.05,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "フィードバック流れ方向"
+        },
+        {
+          "paramId": "offsetY",
+          "ccNumber": 501,
+          "block": "SPACE",
+          "blockName": "Position Y",
+          "pluginMin": -0.05,
+          "pluginMax": 0.05,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "フィードバック流れ方向"
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "color-grading",
+      "params": [
+        {
+          "paramId": "saturation",
+          "ccNumber": 401,
+          "block": "COLOR",
+          "blockName": "Saturation",
+          "pluginMin": 0,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "brightness",
+          "ccNumber": 402,
+          "block": "COLOR",
+          "blockName": "Brightness",
+          "pluginMin": 0,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "contrast",
+          "ccNumber": 403,
+          "block": "COLOR",
+          "blockName": "Contrast",
+          "pluginMin": 0,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "glitch",
+      "params": [
+        {
+          "paramId": "goWild",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "0=通常/1=Wild"
+        },
+        {
+          "paramId": "interval",
+          "ccNumber": 304,
+          "block": "MOTION",
+          "blockName": "Randomness",
+          "pluginMin": 10,
+          "pluginMax": 240,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "値小=高頻度"
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "kaleidoscope",
+      "params": [
+        {
+          "paramId": "segments",
+          "ccNumber": 203,
+          "block": "FORM",
+          "blockName": "Symmetry/Repeat",
+          "pluginMin": 2,
+          "pluginMax": 16,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "int値"
+        },
+        {
+          "paramId": "angle",
+          "ccNumber": 301,
+          "block": "MOTION",
+          "blockName": "Phase/Offset",
+          "pluginMin": 0,
+          "pluginMax": 6.28,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "rgb-shift",
+      "params": [
+        {
+          "paramId": "amount",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 0,
+          "pluginMax": 0.05,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "angle",
+          "ccNumber": 301,
+          "block": "MOTION",
+          "blockName": "Phase/Offset",
+          "pluginMin": 0,
+          "pluginMax": 6.28,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "zoom-blur",
+      "params": [
+        {
+          "paramId": "strength",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 0,
+          "pluginMax": 2,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "mirror",
+      "params": [
+        {
+          "paramId": "horizontal",
+          "ccNumber": 203,
+          "block": "FORM",
+          "blockName": "Symmetry/Repeat",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "0=縦/1=横"
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "crt",
+      "params": [
+        {
+          "paramId": "scanlineIntensity",
+          "ccNumber": 600,
+          "block": "EDGE",
+          "blockName": "Edge Strength",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "走査線強度"
+        },
+        {
+          "paramId": "curvature",
+          "ccNumber": 604,
+          "block": "EDGE",
+          "blockName": "Vignette",
+          "pluginMin": 0,
+          "pluginMax": 0.5,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "樽型歪み"
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "film",
+      "params": [
+        {
+          "paramId": "intensity",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "ノイズ強度"
+        },
+        {
+          "paramId": "grayscale",
+          "ccNumber": 401,
+          "block": "COLOR",
+          "blockName": "Saturation",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "0=カラー/1=グレー"
+        }
+      ]
+    },
+    {
+      "pluginType": "fx",
+      "pluginId": "frei-chen",
+      "params": [
+        {
+          "paramId": "width",
+          "ccNumber": 600,
+          "block": "EDGE",
+          "blockName": "Edge Strength",
+          "pluginMin": 64,
+          "pluginMax": 1920,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "aspect.x・小さいほどエッジ太"
+        },
+        {
+          "paramId": "height",
+          "ccNumber": 601,
+          "block": "EDGE",
+          "blockName": "Edge Thickness",
+          "pluginMin": 64,
+          "pluginMax": 1080,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "aspect.y"
+        }
+      ]
+    }
+  ]
+}

@@ -396,6 +396,27 @@ ipcMain.handle('get-autosave', async () => {
   return await readFile(AUTOSAVE_PATH, 'utf-8')
 })
 
+/** settings/cc-map.json を読み込む（なければ null） */
+ipcMain.handle('load-cc-map', async () => {
+  const ccMapPath = join(__dirname, '..', 'settings', 'cc-map.json')
+  if (!existsSync(ccMapPath)) return null
+  return await readFile(ccMapPath, 'utf-8')
+})
+
+/** cc-overrides.json を読み込む（なければ null） */
+ipcMain.handle('load-cc-overrides', async () => {
+  const overridesPath = join(GEO_DIR, 'cc-overrides.json')
+  if (!existsSync(overridesPath)) return null
+  return await readFile(overridesPath, 'utf-8')
+})
+
+/** cc-overrides.json を保存する */
+ipcMain.handle('save-cc-overrides', async (_event, data) => {
+  const overridesPath = join(GEO_DIR, 'cc-overrides.json')
+  await writeFile(overridesPath, data, 'utf-8')
+  return { success: true }
+})
+
 // ── アプリライフサイクル ────────────────────────────────────────────
 
 app.whenReady().then(async () => {

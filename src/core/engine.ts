@@ -250,6 +250,7 @@ export class Engine {
         fx: enabledFxIds,
       },
       sceneState: this.getSceneState(),
+      macroKnobAssigns: macroKnobManager.getKnobs(),
       presetRefs: {},
     }
   }

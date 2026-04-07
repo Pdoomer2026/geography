@@ -8,7 +8,7 @@
  */
 
 import { MACRO_KNOB_COUNT, MACRO_KNOB_MAX_ASSIGNS } from './config'
-import type { MacroKnobConfig, MacroKnobManager, MidiCCEvent } from '../types'
+import type { MacroAssign, MacroKnobConfig, MacroKnobManager, MidiCCEvent } from '../types'
 import type { ParameterStore } from './parameterStore'
 
 // ============================================================
@@ -73,6 +73,23 @@ class MacroKnobManagerImpl implements MacroKnobManager {
       throw new Error(`MacroKnob "${id}" が存在しません`)
     }
     this.knobs[index] = { ...config }
+  }
+
+  addAssign(knobId: string, assign: MacroAssign): void {
+    const knob = this.knobs.find((k) => k.id === knobId)
+    if (!knob) throw new Error(`MacroKnob "${knobId}" が存在しません`)
+    if (knob.assigns.length >= MACRO_KNOB_MAX_ASSIGNS) {
+      throw new Error(
+        `MacroKnob "${knobId}": assigns は最大 ${MACRO_KNOB_MAX_ASSIGNS} 個までです`
+      )
+    }
+    knob.assigns.push({ ...assign })
+  }
+
+  removeAssign(knobId: string, paramId: string): void {
+    const knob = this.knobs.find((k) => k.id === knobId)
+    if (!knob) throw new Error(`MacroKnob "${knobId}" が存在しません`)
+    knob.assigns = knob.assigns.filter((a) => a.paramId !== paramId)
   }
 
   handleMidiCC(event: MidiCCEvent): void {

@@ -79,6 +79,17 @@ contextBridge.exposeInMainWorld('geoAPI', {
   saveRecording: (buffer, defaultName) =>
     ipcRenderer.invoke('save-recording', buffer, defaultName),
 
+  // ── CC Map / CC Overrides ────────────────────────────────────────
+
+  loadCcMap: () =>
+    ipcRenderer.invoke('load-cc-map'),
+
+  loadCcOverrides: () =>
+    ipcRenderer.invoke('load-cc-overrides'),
+
+  saveCcOverrides: (data) =>
+    ipcRenderer.invoke('save-cc-overrides', data),
+
   /**
    * onMenuEvents で登録したリスナーをすべて解除する
    */

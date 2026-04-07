@@ -219,15 +219,15 @@ export type CurveType = 'linear'
 
 export interface MacroAssign {
   paramId: string
+  /**
+   * CC Standard の CC 番号（ccMapService が提供する実効値）
+   * spec: docs/spec/cc-mapping.spec.md §9
+   * 例: radius → 101, speed → 300, hue → 400
+   */
+  ccNumber: number
   min: number
   max: number
   curve: CurveType
-  /**
-   * CC Standard v0.1 のデフォルト CC 番号（ユーザーが上書き可能）
-   * 詳細: docs/spec/cc-standard.spec.md §3
-   * 例: radius → CC101, speed → CC300, hue → CC400
-   */
-  defaultCC?: number
 }
 
 /**
@@ -261,9 +261,17 @@ export interface MacroKnobManager {
   getKnobs(): MacroKnobConfig[]
   setKnob(id: string, config: MacroKnobConfig): void
   /**
+   * D&D アサイン追加（spec: docs/spec/macro-knob.spec.md §4-3）
+   * assigns が MACRO_KNOB_MAX_ASSIGNS を超える場合はエラー
+   */
+  addAssign(knobId: string, assign: MacroAssign): void
+  /**
+   * アサイン解除（spec: docs/spec/macro-knob.spec.md §4-3）
+   */
+  removeAssign(knobId: string, paramId: string): void
+  /**
    * MidiCCEvent を受け取り各 assign の paramId を Command 経由で更新する。
    * event.value は main.js 側で 0.0〜1.0 正規化済み。
-   * Phase 14 実装対象（現在は旧シグネチャ handleMidiCC(cc, value) が実装中）
    */
   handleMidiCC(event: MidiCCEvent): void
   /** 0.0〜1.0 に正規化した現在値を返す */
@@ -271,7 +279,6 @@ export interface MacroKnobManager {
   /**
    * Sequencer Plugin から値を受け取る（0.0〜1.0）。
    * knobId に対応する assigns の min/max に rangeMap して paramId を更新する。
-   * Phase 14 実装対象。
    */
   receiveModulation(knobId: string, value: number): void
 }
@@ -315,6 +322,8 @@ export interface GeoGraphyProject {
   }
   /** 現在の描画状態（SceneState 型と同一） */
   sceneState: SceneState
+  /** MacroKnob アサイン設定（spec: docs/spec/macro-knob.spec.md §5-1）*/
+  macroKnobAssigns: MacroKnobConfig[]
   /** 各プラグインのプリセットファイル参照（任意） */
   presetRefs: Record<string, string>
 }

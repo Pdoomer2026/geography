@@ -52,10 +52,10 @@ describe('MacroKnobManager', () => {
       name: 'TEST',
       midiCC: 10,
       assigns: [
-        { paramId: 'p1', min: 0, max: 1, curve: 'linear' },
-        { paramId: 'p2', min: 0, max: 1, curve: 'linear' },
-        { paramId: 'p3', min: 0, max: 1, curve: 'linear' },
-        { paramId: 'p4', min: 0, max: 1, curve: 'linear' }, // 4つ目 → エラー
+        { paramId: 'p1', ccNumber: 101, min: 0, max: 1, curve: 'linear' },
+        { paramId: 'p2', ccNumber: 201, min: 0, max: 1, curve: 'linear' },
+        { paramId: 'p3', ccNumber: 300, min: 0, max: 1, curve: 'linear' },
+        { paramId: 'p4', ccNumber: 400, min: 0, max: 1, curve: 'linear' }, // 4つ目 → エラー
       ],
     }
     expect(() => macroKnobManager.setKnob('macro-1', tooManyAssigns)).toThrow()
@@ -68,16 +68,67 @@ describe('MacroKnobManager', () => {
       name: 'CHAOS',
       midiCC: 7,
       assigns: [
-        { paramId: 'geo.speed', min: 0, max: 5, curve: 'linear' },
-        { paramId: 'geo.scale', min: 0.1, max: 3, curve: 'linear' },
+        { paramId: 'geo.speed', ccNumber: 300, min: 0, max: 5, curve: 'linear' },
+        { paramId: 'geo.scale', ccNumber: 101, min: 0.1, max: 3, curve: 'linear' },
       ],
     }
     expect(() => macroKnobManager.setKnob('macro-1', config)).not.toThrow()
     expect(macroKnobManager.getKnobs()[0]).toMatchObject({ name: 'CHAOS', midiCC: 7 })
   })
 
-  // 追加: getValue は未操作のとき 0 を返す
-  it('getValue は操作前 0 を返す', () => {
-    expect(macroKnobManager.getValue('macro-1')).toBe(0)
+  // TC-6: receiveModulation → rangeMap
+  // TC-7: handleMidiCC → rangeMap
+  // TC-8: last-write-wins
+  // ↓ 上記 3ケースは ParameterStore の注入が必要なため engine.test.ts 側で検証
+
+  // TC-9: addAssign() → assigns に追加される
+  it('TC-9: addAssign() → assigns に追加される', () => {
+    macroKnobManager.addAssign('macro-1', {
+      paramId: 'hue',
+      ccNumber: 400,
+      min: 0,
+      max: 1,
+      curve: 'linear',
+    })
+    const knob = macroKnobManager.getKnobs().find((k) => k.id === 'macro-1')
+    expect(knob?.assigns).toHaveLength(1)
+    expect(knob?.assigns[0].paramId).toBe('hue')
+    expect(knob?.assigns[0].ccNumber).toBe(400)
+  })
+
+  // TC-10: removeAssign() → assigns から削除される
+  it('TC-10: removeAssign() → assigns から削除される', () => {
+    macroKnobManager.addAssign('macro-1', {
+      paramId: 'hue',
+      ccNumber: 400,
+      min: 0,
+      max: 1,
+      curve: 'linear',
+    })
+    macroKnobManager.removeAssign('macro-1', 'hue')
+    const knob = macroKnobManager.getKnobs().find((k) => k.id === 'macro-1')
+    expect(knob?.assigns).toHaveLength(0)
+  })
+
+  // TC-11: addAssign() が MACRO_KNOB_MAX_ASSIGNS を超えるとエラー
+  it(`TC-11: addAssign() が ${MACRO_KNOB_MAX_ASSIGNS} 个超えると throw`, () => {
+    for (let i = 0; i < MACRO_KNOB_MAX_ASSIGNS; i++) {
+      macroKnobManager.addAssign('macro-1', {
+        paramId: `param${i}`,
+        ccNumber: 100 + i,
+        min: 0,
+        max: 1,
+        curve: 'linear',
+      })
+    }
+    expect(() =>
+      macroKnobManager.addAssign('macro-1', {
+        paramId: 'over',
+        ccNumber: 999,
+        min: 0,
+        max: 1,
+        curve: 'linear',
+      })
+    ).toThrow()
   })
 })

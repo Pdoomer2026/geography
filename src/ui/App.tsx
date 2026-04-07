@@ -41,6 +41,7 @@ export default function App() {
           savedAt: '',
           setup: { geometry: [], fx: [] },
           sceneState: { layers: [] },
+          macroKnobAssigns: [],
           presetRefs: {},
         })
         currentFilePathRef.current = null

@@ -75,6 +75,13 @@ declare global {
        * 保存先パスを返す。
        */
       saveRecording(buffer: ArrayBuffer, defaultName: string): Promise<{ filePath?: string; canceled: boolean }>
+
+      // ── CC Map / CC Overrides ─────────────────────────────────
+      // spec: docs/spec/cc-mapping.spec.md §6
+
+      loadCcMap(): Promise<string | null>
+      loadCcOverrides(): Promise<string | null>
+      saveCcOverrides(data: string): Promise<{ success: boolean }>
     }
   }
 }
