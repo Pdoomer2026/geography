@@ -119,32 +119,50 @@ describe('engine FX コントロール API（FxStack レベル検証）', () => 
 })
 
 // ----------------------------------------------------------------
-// Engine.setAutoRotate() 委譲検証
-// spec: camera-system.spec.md §9
-// engine.setAutoRotate は layerManager.setAutoRotate への単純委譲であることを検証する
+// Engine Camera Plugin API 委譲検証
+// spec: camera-plugin.spec.md §9
+// engine の Camera Plugin API が layerManager への単純委譲であることを検証する
 // ----------------------------------------------------------------
 
-describe('engine.setAutoRotate — layerManager への委譲検証', () => {
-  it('TC-engine-1: setAutoRotate() が layerManager.setAutoRotate を呼び出す', async () => {
-    // layerManager をモックして、委譲が正しく行われることだけを確認する
+describe('engine Camera Plugin API — layerManager への委譲検証', () => {
+  it('TC-engine-1: setCameraPlugin() が layerManager.setCameraPlugin を呼び出す', async () => {
     const { layerManager } = await import('../../src/core/layerManager')
-    const spy = vi.spyOn(layerManager, 'setAutoRotate')
+    const spy = vi.spyOn(layerManager, 'setCameraPlugin')
 
     const { engine } = await import('../../src/core/engine')
-    engine.setAutoRotate('layer-1', false)
+    engine.setCameraPlugin('layer-1', 'static-camera')
 
-    expect(spy).toHaveBeenCalledWith('layer-1', false)
+    expect(spy).toHaveBeenCalledWith(
+      'layer-1',
+      expect.objectContaining({ id: 'static-camera' }),
+      undefined,
+      true,
+    )
     spy.mockRestore()
   })
 
-  it('TC-engine-2: setAutoRotate(true) も正しく委譲される', async () => {
+  it('TC-engine-2: setCameraParam() が Camera Plugin の params を更新する', async () => {
     const { layerManager } = await import('../../src/core/layerManager')
-    const spy = vi.spyOn(layerManager, 'setAutoRotate')
-
     const { engine } = await import('../../src/core/engine')
-    engine.setAutoRotate('layer-2', true)
 
-    expect(spy).toHaveBeenCalledWith('layer-2', true)
+    // getCameraPlugin が null でなければ params を更新できる
+    const spy = vi.spyOn(layerManager, 'getCameraPlugin').mockReturnValue({
+      id: 'static-camera',
+      name: 'Static Camera',
+      renderer: 'threejs',
+      enabled: true,
+      params: {
+        posY: { value: 8, min: -50, max: 50, label: 'Pos Y' },
+      },
+      mount: vi.fn(),
+      update: vi.fn(),
+      dispose: vi.fn(),
+    })
+
+    engine.setCameraParam('layer-1', 'posY', 20)
+    const cam = layerManager.getCameraPlugin('layer-1')
+    expect(cam?.params.posY.value).toBe(20)
+
     spy.mockRestore()
   })
 })

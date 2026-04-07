@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day44（MIDI IPC 廃止・Camera Plugin 設計確定）｜2026-04-07
+# GeoGraphy 引き継ぎメモ｜Day45（Camera Plugin 実装完了）｜2026-04-07
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -15,126 +15,88 @@
 | ファイル | パス |
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md`（v11） |
-| Camera Plugin spec（新規） | `docs/spec/camera-plugin.spec.md`（Day44新設） |
-| Preferences Panel spec | `docs/spec/preferences-panel.spec.md`（Day44更新） |
-| Simple Window spec | `docs/spec/simple-window.spec.md`（Day44更新） |
-| MacroKnob spec | `docs/spec/macro-knob.spec.md`（Day44更新） |
-| CC Mapping spec | `docs/spec/cc-mapping.spec.md`（Day44更新） |
-| CC Standard spec | `docs/spec/cc-standard.spec.md`（Day44更新） |
-| App.tsx（MIDI受信追加） | `src/ui/App.tsx` |
-| engine.ts（ccMapService接続） | `src/core/engine.ts` |
+| Camera Plugin spec | `docs/spec/camera-plugin.spec.md` |
+| Camera Plugin 実装 | `src/plugins/cameras/`（orbit / aerial / static / index.ts） |
+| types | `src/types/index.ts`（CameraPlugin インターフェース追加済み） |
+| LayerManager | `src/core/layerManager.ts`（Camera Plugin 機構に全面移行済み） |
+| engine.ts | `src/core/engine.ts`（setCameraPlugin / getCameraPlugin / setCameraParam 追加済み） |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day43`
+- **タグ**: `day44`（Day45 はセッション終了後に打つ）
 - **テスト**: 112 tests グリーン・tsc エラーゼロ
 
 ---
 
-## Day44 で完了したこと
+## Day45 で完了したこと
 
-### A. MIDI 受信設計の根本的な修正（spec 3ファイル更新）
+### Camera Plugin 実装（Phase 14 完全移行）
 
-Day44 の壁打ちで「MIDI IPC 経路は不要」と確定。
+`cameraPreset` ベースの仮実装を廃止し、Camera Plugin アーキテクチャに完全移行した。
 
-- **外部コントローラー → GeoGraphy 入り口**: Web MIDI API（MIDI 1.0）で受信・renderer 直接
-- **GeoGraphy 内部バス**: MidiCCEvent フォーマット（MIDI 2.0 準拠・0.0〜1.0 float）で統一
-- 「CC番号体系 = MIDI 2.0 AC」と「受信プロトコル」は別の話として明確化
-- MIDI 2.0 ネイティブ受信は将来タスク（C++ addon 前提）
+#### 変更ファイル一覧
 
-更新した spec:
-- `macro-knob.spec.md` — §1 アーキテクチャ図・§2 MUST ルール修正
-- `cc-mapping.spec.md` — §1 概要の「MIDI IPC」削除・内部バス説明追加
-- `cc-standard.spec.md` — §1「MIDI 2.0 AC空間を選ぶ理由」に分離の注記追加
+| ファイル | 変更内容 |
+|---|---|
+| `src/types/index.ts` | `CameraMode` / `CameraPreset` 削除・`CameraPlugin extends ModulatablePlugin` 追加・`GeometryPlugin` に `defaultCameraPluginId?` / `defaultCameraParams?` 追加・`Layer` に `cameraPlugin` / `isCameraUserOverridden` 追加 |
+| `src/plugins/cameras/orbit/index.ts` | OrbitCameraPlugin 新規実装（autoRotate=1 で自動周回・0 で OrbitControls 手動） |
+| `src/plugins/cameras/aerial/index.ts` | AerialCameraPlugin 新規実装（真上俯瞰・OrbitControls 回転ロック） |
+| `src/plugins/cameras/static/index.ts` | StaticCameraPlugin 新規実装（position/lookAt 固定・毎フレーム追従） |
+| `src/plugins/cameras/index.ts` | import.meta.glob 自動登録・`getCameraPlugin()` / `listCameraPlugins()` 公開 |
+| `src/core/config.ts` | `DEFAULT_CAMERA_PRESET` 削除→ `DEFAULT_CAMERA_PLUGIN_ID = 'static-camera'` |
+| `src/core/layerManager.ts` | Camera Plugin 機構に全面移行・`setCameraPlugin()` / `getCameraPlugin()` 追加・`isCameraUserOverridden` フラグ管理・`setAutoRotate()` 削除 |
+| `src/core/engine.ts` | `setCameraPlugin()` / `getCameraPlugin()` / `setCameraParam()` / `listCameraPlugins()` 追加・`setAutoRotate()` 削除 |
+| `solid/icosphere/index.ts` | `cameraPreset` → `defaultCameraPluginId: 'orbit-camera'` + `defaultCameraParams` |
+| `solid/torus/index.ts` | 同上（radius:12, height:4, speed:0.4） |
+| `solid/torusknot/index.ts` | 同上（radius:10, height:3, speed:0.6） |
+| `terrain/hex-grid/index.ts` | `cameraPreset` → `defaultCameraPluginId: 'aerial-camera'` + `defaultCameraParams` |
+| `terrain/contour/index.ts` | `cameraPreset` → `defaultCameraPluginId: 'static-camera'` + `defaultCameraParams` |
+| `tunnel/grid-tunnel/index.ts` | 同上 |
+| `wave/grid-wave/index.ts` | `cameraPreset` 削除（DEFAULT = static-camera を使用） |
+| `tests/core/cameraSystem.test.ts` | Camera Plugin ベースの新テスト 9 件に全面書き換え |
+| `tests/core/engine.test.ts` | `setAutoRotate` テスト → Camera Plugin API テストに置き換え |
 
-### B. `ccMapService.init()` を `engine.initialize()` から呼ぶ（実装）
+#### 設計の核心
 
-- `src/core/engine.ts` に `ccMapService` を import
-- `engine.initialize()` 内で `await ccMapService.init()` を呼ぶように接続
-
-### C. Web MIDI API 受信を App.tsx に実装
-
-- `src/ui/App.tsx` に MIDI 受信 useEffect を追加
-- `navigator.requestMIDIAccess()` → Control Change（0xB0）を受信
-- `rawValue / 127` で正規化 → `MidiCCEvent` に変換 → `engine.handleMidiCC()` を呼ぶ
-- cleanup: unmount 時に `input.onmidimessage = null`
-
-### D. Camera Plugin 設計確定（spec 新規作成）
-
-`docs/spec/camera-plugin.spec.md` を新規作成。設計の核心：
-
-- **Camera は独立した Plugin** — `cameraPreset` 埋め込みは仮実装だったと確定
-- **`CameraPlugin extends ModulatablePlugin`** — params を持つ → MacroKnob / D&D 対象
-- **3種類**: OrbitCameraPlugin / AerialCameraPlugin / StaticCameraPlugin
-- **`defaultCameraPluginId + defaultCameraParams`** — Geometry Plugin はカメラ推奨を伝えるだけ
-- **`isCameraUserOverridden`** フラグ — ユーザーが手動変更後は Geometry 切り替えで追従しない
-- 「Geometry と Camera の相性」はマニュアルに記載・アプリ内で強制しない
-
-### E. Preferences Panel spec 更新
-
-Setup タブに **CAMERA セクション**を追加（レイヤーごとにドロップダウンで Camera Plugin を選択）。
-
-```
-GEOMETRY（レイヤーごと）: [ icosphere ▼ ] [ starfield ▼ ] [ None ▼ ]
-CAMERA（レイヤーごと）:   [ orbit-camera ▼ ] [ static-camera ▼ ] [ static-camera ▼ ]
-FX（チェックボックス）:   ☑ Bloom ☑ AfterImage ...
-```
-
-### F. Simple Window spec 更新
-
-- Geometry Simple Window・Camera Simple Window を一覧に追加
-- View メニューに Cmd+4（Geometry）・Cmd+5（Camera）を追加
-- キーボードショートカット `4` / `5` を追加
+- **Camera Plugin はレイヤーごとに独立したインスタンス**（`cloneCameraPlugin()` で params を structuredClone）
+- **`isCameraUserOverridden` フラグ**: Geometry 切り替え時の自動連動とユーザー意図を両立
+- **`defaultCameraParams`**: Geometry Plugin ごとに Camera Plugin の初期値を調整可能
 
 ---
 
-## 確立した新ルール（Day44）
+## 確立した新ルール（Day45）
 
-### MIDI 受信は renderer 直接・IPC 不要
-- Web MIDI API は renderer（App.tsx）で直接使う
-- `electron/main.js` への MIDI IPC 経路は不要（将来も追加しない）
-- MIDI 2.0 ネイティブ受信は C++ addon が必要・将来タスク
-
-### Camera Plugin 設計原則
-- Camera は独立した Plugin として設計する（Geometry に埋め込まない）
-- `cameraPreset` は仮実装・Day45 で廃止
-- `isCameraUserOverridden` フラグで自動連動とユーザー意図を両立
+- **Camera Plugin はレイヤーごとに独立したインスタンスを持つ**: `cloneCameraPlugin()` でレイヤー間の params 汚染を防ぐ
+- **`setAutoRotate()` は廃止**: `setCameraParam(layerId, 'autoRotate', 0/1)` で代替
 
 ---
 
-## 次回やること（Day45）
+## 次回やること（Day46）
 
-### 優先度 ★★★（Camera Plugin 実装）
+### 優先度 ★★★（UI）
 | 作業 |
 |---|
-| `CameraPlugin` インターフェースを `src/types/index.ts` に追加 |
-| `CameraMode` / `CameraPreset` を types から削除 |
-| `OrbitCameraPlugin` 実装（`src/plugins/cameras/orbit/`） |
-| `AerialCameraPlugin` 実装（`src/plugins/cameras/aerial/`） |
-| `StaticCameraPlugin` 実装（`src/plugins/cameras/static/`） |
-| Camera Plugin 自動登録（`src/plugins/cameras/index.ts`） |
-| `LayerManager` を Camera Plugin 機構に移行（`isCameraUserOverridden` フラグ含む） |
-| 各 Geometry Plugin から `cameraPreset` 削除・`defaultCameraPluginId` に置き換え |
-| `engine.ts` API 更新（`setCameraPlugin` / `applyCameraSetup` 等） |
 | `camera-system.spec.md` をアーカイブ（`camera-plugin.spec.md` に統合） |
-| テスト更新（`cameraSystem.test.ts`） |
+| `CameraSimpleWindow` 新設（`src/ui/panels/camera/CameraSimpleWindow.tsx`） |
+| Camera Plugin 切り替えドロップダウン + params スライダー + `[≡]` ハンドル |
+| Preferences Setup タブに Camera セクション追加（レイヤーごとのドロップダウン） |
+| View メニューに Camera Simple Window（Cmd+5）追加 |
+| `GeometrySimpleWindow` 新設（全 Geometry の params スライダー） |
 
-### 優先度 ★★（UI）
+### 優先度 ★★（実動確認）
 | 作業 |
 |---|
-| `GeometrySimpleWindow` 新設（全 Geometry の params スライダー + `[≡]` ハンドル） |
-| `CameraSimpleWindow` 新設（Camera Plugin 切り替え + params スライダー + `[≡]` ハンドル） |
-| Preferences Setup タブに Camera セクション追加 |
-| D&D アサイン UI（`[≡]` ハンドル → MacroKnob ドロップ） |
+| `pnpm dev` で起動して Orbit / Aerial / Static カメラが実際に動作することを確認 |
+| Geometry 切り替えで Camera が自動連動することを確認 |
 
 ### 優先度 ★
 | 作業 |
 |---|
-| Day42・Day43・Day44 の Obsidian dev-log 作成 |
-| `CLAUDE.md` の spec 一覧に `camera-plugin.spec.md` を追記 |
+| Day42〜Day45 の Obsidian dev-log 作成 |
+| `CLAUDE.md` の spec 一覧に `camera-plugin.spec.md` を追記（`camera-system.spec.md` はアーカイブ済みと記載） |
 
 ---
 
@@ -154,9 +116,9 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 - **create_file は filesystem MCP には存在しない**: `write_file` を使う
 - **spec アーカイブ**（Day41確立）: `docs/archive/spec/YYYY-MM-DD_DayN_[name].spec.md`
 - **cc-mapping.md 更新後は pnpm gen:cc-map 必須**（Day42確立）
-- **tsx が必要**: `pnpm gen:cc-map` は tsx 経由で実行（devDependencies に追加済み）
 - **MIDI 受信は App.tsx で直接**（Day44確立）: IPC 経路不要
-- **Camera は独立 Plugin**（Day44確立）: `cameraPreset` は仮実装・Day45 で廃止
+- **Camera は独立 Plugin**（Day44確立→Day45実装完了）: `cameraPreset` は完全廃止
+- **Camera Plugin はレイヤーごとに独立インスタンス**（Day45確立）: `cloneCameraPlugin()` で params 汚染防止
 - **Linus スタイルコミット**（Day39確立）: `git commit -m "タイトル" -m "ボディ（なぜ変えたか）"`
 - **Obsidian dev-log**（Day39確立）: 毎セッション終了時に `GeoGraphy Vault/dev-log/YYYY-MM-DD_DayN.md` を作成
 - **終業時の必須手順**: dev-log 作成 → NFC 正規化 → git commit → git tag dayN → git push origin main --tags
@@ -168,6 +130,6 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-Day45開始
+Day46開始
 引き継ぎスキル
 ```

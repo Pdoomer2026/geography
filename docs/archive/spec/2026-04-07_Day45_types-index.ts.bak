@@ -18,7 +18,7 @@ export interface PluginBase {
  * ModulatablePlugin（MIDI 2.0 / MacroKnob 制御可能な Plugin の中間層）
  *
  * params を持ち、CC Standard 経由で MacroKnob から外部制御される Plugin はここを継承する。
- * 対象: Geometry / FX / Particle / Light / Camera / Sequencer（新設予定）
+ * 対象: Geometry / FX / Particle / Light / Sequencer（新設予定）
  * 非対象: Transition / Window / Mixer（params を持たない・外部制御不要）
  *
  * spec: docs/spec/macro-knob.spec.md §2
@@ -40,36 +40,34 @@ export interface PluginParam {
 }
 
 // ============================================================
-// Camera Plugin（spec: docs/spec/camera-plugin.spec.md）
+// Camera System（spec: docs/spec/camera-system.spec.md）
 // ============================================================
 
 /**
- * CameraPlugin
- *
- * ModulatablePlugin を継承し params を持つ。
- * MacroKnob / D&D アサイン / CC Standard の制御対象になる。
- * レイヤーごとに 1 つアサインされ、LayerManager が管理する。
- *
- * spec: docs/spec/camera-plugin.spec.md §2
+ * カメラモード（spec: docs/spec/camera-system.spec.md §2）
+ * - static : position/lookAt 固定（デフォルト）
+ * - orbit  : Geometry 周りを自動周回 or OrbitControls 手動操作
+ * - aerial : 真上俯瞰・OrbitControls（回転ロック・zoom/pan 有効）
  */
-export interface CameraPlugin extends ModulatablePlugin {
-  /**
-   * カメラの初期配置と OrbitControls の生成を行う。
-   * LayerManager.setCameraPlugin() から呼ばれる。
-   */
-  mount(camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer): void
+export type CameraMode =
+  | { type: 'static' }
+  | {
+      type: 'orbit'
+      radius: number       // 周回半径
+      height: number       // カメラの高さ（y 座標）
+      speed: number        // 自動周回速度（rad/s）
+      autoRotate: boolean  // true=自動周回 / false=OrbitControls 手動
+    }
+  | {
+      type: 'aerial'
+      height: number       // 見下ろす高さ（y 座標）
+    }
 
-  /**
-   * フレームごとのカメラ更新。
-   * LayerManager.update() 内で呼ばれる。
-   */
-  update(delta: number): void
-
-  /**
-   * OrbitControls の dispose など後処理。
-   * LayerManager.setCameraPlugin() で旧 Plugin を差し替える際に呼ばれる。
-   */
-  dispose(): void
+export interface CameraPreset {
+  position: { x: number; y: number; z: number }
+  lookAt: { x: number; y: number; z: number }
+  /** 省略時は { type: 'static' } として扱う */
+  mode?: CameraMode
 }
 
 // ============================================================
@@ -80,18 +78,8 @@ export interface GeometryPlugin extends ModulatablePlugin {
   create(scene: THREE.Scene): void
   update(delta: number, beat: number): void
   destroy(scene: THREE.Scene): void
-  /**
-   * Geometry をアサインしたときに自動適用する Camera Plugin の ID。
-   * 省略時は DEFAULT_CAMERA_PLUGIN_ID ('static-camera') が使われる。
-   * ユーザーが後から Camera Plugin を変更した場合はこの値は無視される。
-   * spec: docs/spec/camera-plugin.spec.md §6-A
-   */
-  defaultCameraPluginId?: string
-  /**
-   * defaultCameraPluginId の Camera Plugin に適用する params 初期値のオーバーライド。
-   * spec: docs/spec/camera-plugin.spec.md §6-D
-   */
-  defaultCameraParams?: Record<string, number>
+  /** 推奨カメラ位置。未定義時は DEFAULT_CAMERA_PRESET を使用 */
+  cameraPreset?: CameraPreset
 }
 
 /** Particle Plugin は Geometry Plugin と同じ Interface */
@@ -149,14 +137,12 @@ export interface Layer {
   /** FX ポストプロセッシングスタック */
   fxStack: IFxStack
   mute: boolean
-  /** 現在アサインされている Camera Plugin（spec: camera-plugin.spec.md §5-A） */
-  cameraPlugin: CameraPlugin
-  /**
-   * true = ユーザーが手動で Camera Plugin を選んだ状態。
-   * Geometry 切り替えで Camera を自動連動しない。
-   * spec: docs/spec/camera-plugin.spec.md §6-C
-   */
-  isCameraUserOverridden: boolean
+  /** 現在適用中のカメラモード（spec: camera-system.spec.md §8） */
+  cameraMode: CameraMode
+  /** orbit モードの現在角度（ラジアン） */
+  cameraAngle: number
+  /** orbit / aerial モード時に生成される OrbitControls（型は unknown で保持・layerManager 内でキャスト） */
+  controls: unknown
 }
 
 // ============================================================

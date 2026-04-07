@@ -12,11 +12,8 @@ const torusPlugin: GeometryPlugin = {
   renderer: 'threejs',
   enabled: true,
   params: structuredClone(defaultParams),
-  cameraPreset: {
-    position: { x: 12, y: 4, z: 0 },
-    lookAt:   { x: 0,  y: 0, z: 0 },
-    mode: { type: 'orbit', radius: 12, height: 4, speed: 0.4, autoRotate: true },
-  },
+  defaultCameraPluginId: 'orbit-camera',
+  defaultCameraParams: { radius: 12, height: 4, speed: 0.4, autoRotate: 1 },
 
   create(scene: THREE.Scene): void {
     const radius      = this.params.radius.value

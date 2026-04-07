@@ -4,67 +4,47 @@ import type { MidiCCEvent } from '../types'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
 import { FxSimpleWindow } from './FxSimpleWindow'
+import { CameraSimpleWindow } from './CameraSimpleWindow'
+import { GeometrySimpleWindow } from './GeometrySimpleWindow'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 import type { GeoGraphyProject } from '../types'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
-  const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true })
+  const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true, camera: true, geometry: true })
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const currentFilePathRef = useRef<string | null>(null)
 
-  // Electron 自動保存（起動時復元 + 終了時保存）
   useAutosave()
 
-  // ── Web MIDI API（MIDI 1.0 受信）────────────────────────────────
   useEffect(() => {
     if (!navigator.requestMIDIAccess) return
-
     let midiAccess: MIDIAccess | null = null
-
     const onMidiMessage = (event: MIDIMessageEvent) => {
       const data = event.data
       if (!data || data.length < 3) return
-      // Status byte の上位4bit が 0xB = Control Change
       const statusType = data[0] & 0xf0
       if (statusType !== 0xb0) return
-
       const cc = data[1]
       const rawValue = data[2]
-      const midiEvent: MidiCCEvent = {
-        cc,
-        value: rawValue / 127,
-        protocol: 'midi1',
-        resolution: 128,
-      }
+      const midiEvent: MidiCCEvent = { cc, value: rawValue / 127, protocol: 'midi1', resolution: 128 }
       engine.handleMidiCC(midiEvent)
     }
-
     const setupMidi = (access: MIDIAccess) => {
       midiAccess = access
-      access.inputs.forEach((input) => {
-        input.onmidimessage = onMidiMessage
-      })
+      access.inputs.forEach((input) => { input.onmidimessage = onMidiMessage })
       access.onstatechange = () => {
-        access.inputs.forEach((input) => {
-          input.onmidimessage = onMidiMessage
-        })
+        access.inputs.forEach((input) => { input.onmidimessage = onMidiMessage })
       }
     }
-
-    navigator.requestMIDIAccess({ sysex: false })
-      .then(setupMidi)
-      .catch((err) => {
-        console.warn('[GeoGraphy] Web MIDI API アクセス失敗:', err)
-      })
-
+    navigator.requestMIDIAccess({ sysex: false }).then(setupMidi).catch((err) => {
+      console.warn('[GeoGraphy] Web MIDI API アクセス失敗:', err)
+    })
     return () => {
       if (midiAccess) {
-        midiAccess.inputs.forEach((input) => {
-          input.onmidimessage = null
-        })
+        midiAccess.inputs.forEach((input) => { input.onmidimessage = null })
       }
     }
   }, [])
@@ -72,34 +52,21 @@ export default function App() {
   useEffect(() => {
     if (!mountRef.current) return
     const container = mountRef.current
-    engine.initialize(container).then(() => {
-      engine.start()
-    })
-    return () => {
-      engine.dispose()
-    }
+    engine.initialize(container).then(() => { engine.start() })
+    return () => { engine.dispose() }
   }, [])
 
-  // ── メニューバーイベント受信 ────────────────────────────────────
   useEffect(() => {
     if (!window.geoAPI) return
-
     window.geoAPI.onMenuEvents({
-      // File > New
       onNew: () => {
         engine.restoreProject({
-          version: '1.0.0',
-          name: 'untitled',
-          savedAt: '',
-          setup: { geometry: [], fx: [] },
-          sceneState: { layers: [] },
-          macroKnobAssigns: [],
-          presetRefs: {},
+          version: '1.0.0', name: 'untitled', savedAt: '',
+          setup: { geometry: [], fx: [] }, sceneState: { layers: [] },
+          macroKnobAssigns: [], presetRefs: {},
         })
         currentFilePathRef.current = null
       },
-
-      // File > Open / Open Recent
       onOpen: (filePath: string, data: string) => {
         try {
           const project = JSON.parse(data) as GeoGraphyProject
@@ -109,49 +76,21 @@ export default function App() {
           console.warn('[GeoGraphy] プロジェクトの読み込みに失敗:', e)
         }
       },
-
-      // File > Save
       onSave: async () => {
         if (!window.geoAPI) return
         const filePath = currentFilePathRef.current
-        if (!filePath) {
-          window.geoAPI.onMenuEvents({ onSaveAs: handleSaveAs })
-          return
-        }
-        const project = engine.buildProject(
-          filePath.split('/').pop()?.replace(/\.geography$/, '') ?? 'untitled'
-        )
+        if (!filePath) { window.geoAPI.onMenuEvents({ onSaveAs: handleSaveAs }); return }
+        const project = engine.buildProject(filePath.split('/').pop()?.replace(/\.geography$/, '') ?? 'untitled')
         await window.geoAPI.saveProjectFile(filePath, JSON.stringify(project, null, 2))
       },
-
-      // File > Save As...
       onSaveAs: handleSaveAs,
-
-      // GeoGraphy > Preferences...
       onPreferences: () => setPrefsOpen((o) => !o),
-
-      // View > Mixer Simple Window（⌘3）
       onToggleMixerWindow: () => setUiVisible((v) => ({ ...v, mixer: !v.mixer })),
-
-      // View > FX Simple Window（⌘2）
       onToggleFxWindow: () => setUiVisible((v) => ({ ...v, fx: !v.fx })),
-
-      // View > Macro Knob Simple Window（⌘1）
       onToggleMacroKnobWindow: () => setUiVisible((v) => ({ ...v, macro: !v.macro })),
-
-      // View > Hide All Windows（H）
-      onHideAllWindows: () => setUiVisible({ macro: false, fx: false, mixer: false }),
-
-      // View > Show All Windows（S）
-      onShowAllWindows: () => setUiVisible({ macro: true, fx: true, mixer: true }),
-
-      // File > Start Recording（⌘R）
-      onStartRecording: () => {
-        engine.startRecording()
-        setIsRecording(true)
-      },
-
-      // File > Stop Recording（⌘⇧R）
+      onHideAllWindows: () => setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false }),
+      onShowAllWindows: () => setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true }),
+      onStartRecording: () => { engine.startRecording(); setIsRecording(true) },
       onStopRecording: async () => {
         const blob = await engine.stopRecording()
         setIsRecording(false)
@@ -161,10 +100,7 @@ export default function App() {
         await window.geoAPI.saveRecording(arrayBuffer, `recording-${timestamp}.webm`)
       },
     })
-
-    return () => {
-      window.geoAPI?.removeMenuListeners()
-    }
+    return () => { window.geoAPI?.removeMenuListeners() }
   }, [])
 
   async function handleSaveAs(filePath: string) {
@@ -176,14 +112,7 @@ export default function App() {
   }
 
   // キーボードショートカット
-  // 1 → Macro Knob Simple Window トグル
-  // 2 → FX Simple Window トグル
-  // 3 → Mixer Simple Window トグル
-  // P → Preferences Panel 開閉
-  // F → 全 Window 非表示 + フルスクリーン（本番モード）
-  // H → 全 Window 非表示（Hide）
-  // S → 全 Window 表示（Show）
-  // ESC → フルスクリーン解除（ブラウザ標準）
+  // 1:MacroKnob 2:FX 3:Mixer 4:Camera 5:Geometry P:Prefs H:Hide S:Show F:全画面
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
@@ -192,26 +121,26 @@ export default function App() {
       if (e.key === '1') setUiVisible((v) => ({ ...v, macro: !v.macro }))
       if (e.key === '2') setUiVisible((v) => ({ ...v, fx: !v.fx }))
       if (e.key === '3') setUiVisible((v) => ({ ...v, mixer: !v.mixer }))
+      if (e.key === '4') setUiVisible((v) => ({ ...v, camera: !v.camera }))
+      if (e.key === '5') setUiVisible((v) => ({ ...v, geometry: !v.geometry }))
       if (e.key === 'p' || e.key === 'P') setPrefsOpen((o) => !o)
       if (e.key === 'f' || e.key === 'F') {
-        setUiVisible({ macro: false, fx: false, mixer: false })
+        setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false })
         setPrefsOpen(false)
         document.documentElement.requestFullscreen?.().catch(() => {})
       }
       if (e.key === 'h' || e.key === 'H') {
-        setUiVisible({ macro: false, fx: false, mixer: false })
+        setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false })
       }
       if (e.key === 's' || e.key === 'S') {
-        setUiVisible({ macro: true, fx: true, mixer: true })
+        setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true })
       }
     }
-
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
-        setUiVisible({ macro: true, fx: true, mixer: true })
+        setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true })
       }
     }
-
     window.addEventListener('keydown', handleKey)
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     return () => {
@@ -227,28 +156,22 @@ export default function App() {
         style={{ width: '100vw', height: '100vh', background: '#000', position: 'relative' }}
       />
 
-      {/* ウィンドウドラッグ領域（titleBarStyle: hiddenInset 対応） */}
       <div
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 28,
-          // @ts-expect-error Electron 専用 CSS プロパティ（型定義なし）
-          WebkitAppRegion: 'drag',
-          zIndex: 400,
+          position: 'fixed', top: 0, left: 0, right: 0, height: 28,
+          // @ts-expect-error Electron 専用 CSS プロパティ
+          WebkitAppRegion: 'drag', zIndex: 400,
         }}
       />
 
-      {/* Preferences Panel */}
       <PreferencesPanel open={prefsOpen} onClose={() => setPrefsOpen(false)} />
 
       {uiVisible.macro && <MacroKnobPanel />}
       {uiVisible.fx && <FxSimpleWindow />}
       {uiVisible.mixer && <MixerSimpleWindow />}
+      {uiVisible.camera && <CameraSimpleWindow />}
+      {uiVisible.geometry && <GeometrySimpleWindow />}
 
-      {/* REC インジケーター */}
       {isRecording && (
         <div
           className="fixed top-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono select-none pointer-events-none"
@@ -258,12 +181,11 @@ export default function App() {
         </div>
       )}
 
-      {/* 操作ヒント */}
       <div
         className="fixed bottom-1 right-2 text-[9px] text-[#3a3a5e] select-none pointer-events-none"
         style={{ zIndex: 100 }}
       >
-        P:Prefs 1:MacroKnob 2:FX 3:Mixer | H:Hide S:Show F:全非表示+全画面
+        P:Prefs 1:MacroKnob 2:FX 3:Mixer 4:Camera 5:Geometry | H:Hide S:Show F:全非表示+全画面
       </div>
     </>
   )

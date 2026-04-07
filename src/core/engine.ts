@@ -12,7 +12,9 @@ import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
 import { macroKnobManager } from './macroKnob'
 import { ccMapService } from './ccMapService'
+import { getCameraPlugin, listCameraPlugins } from '../plugins/cameras'
 import type {
+  CameraPlugin,
   CSSBlendMode,
   FXPlugin,
   GeometryPlugin,
@@ -454,13 +456,57 @@ export class Engine {
   }
 
   /**
-   * orbit モードのレイヤーの自動周回を切り替える。
-   * spec: camera-system.spec.md §9
-   * true  → カメラが Geometry 周りを自動周回
-   * false → OrbitControls による手動操作に切り替わる
+   * Camera Plugin をレイヤーにアサインする（UI からの明示的な変更）。
+   * isCameraUserOverridden=true を立てるため Geometry 切り替えで追従しなくなる。
+   * spec: docs/spec/camera-plugin.spec.md §9
    */
-  setAutoRotate(layerId: string, autoRotate: boolean): void {
-    layerManager.setAutoRotate(layerId, autoRotate)
+  setCameraPlugin(layerId: string, pluginId: string): void {
+    const base = getCameraPlugin(pluginId)
+    if (!base) return
+    const plugin = { ...base, params: structuredClone(base.params) }
+    layerManager.setCameraPlugin(layerId, plugin, undefined, true)
+  }
+
+  /**
+   * レイヤーの現在の Camera Plugin を取得する。
+   * spec: docs/spec/camera-plugin.spec.md §9
+   */
+  getCameraPlugin(layerId: string): CameraPlugin | null {
+    return layerManager.getCameraPlugin(layerId)
+  }
+
+  /**
+   * Camera Plugin の param を更新する。
+   * spec: docs/spec/camera-plugin.spec.md §9
+   */
+  setCameraParam(layerId: string, paramKey: string, value: number): void {
+    const plugin = layerManager.getCameraPlugin(layerId)
+    if (plugin && paramKey in plugin.params) {
+      plugin.params[paramKey].value = value
+    }
+  }
+
+  /**
+   * 登録されている全 Camera Plugin の一覧を返す。
+   * UI（Preferences / Camera Simple Window）のドロップダウン用。
+   */
+  listCameraPlugins(): CameraPlugin[] {
+    return listCameraPlugins()
+  }
+
+  /** レイヤーの現在の Geometry Plugin を取得する。GeometrySimpleWindow 用。 */
+  getGeometryPlugin(layerId: string): GeometryPlugin | null {
+    const layer = layerManager.getLayers().find((l) => l.id === layerId)
+    return layer?.plugin ?? null
+  }
+
+  /** Geometry Plugin の param をリアルタイム更新する。GeometrySimpleWindow 用。 */
+  setGeometryParam(layerId: string, paramKey: string, value: number): void {
+    const layer = layerManager.getLayers().find((l) => l.id === layerId)
+    const plugin = layer?.plugin
+    if (plugin && paramKey in plugin.params) {
+      plugin.params[paramKey].value = value
+    }
   }
 
   /** レイヤーに Plugin をセット。pluginId が null なら None（plugin=null・mute=true） */

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_CAMERA_PRESET } from '../../src/core/config'
-import type { GeometryPlugin } from '../../src/types'
+import type { CameraPlugin, GeometryPlugin } from '../../src/types'
 import { LayerManager } from '../../src/core/layerManager'
 
-// --- Three.js モック（カメラのposition/lookAt を追跡できる形に拡張） ---
+// ============================================================
+// Three.js モック
+// ============================================================
 
 const positionSet = vi.fn()
 const cameraLookAt = vi.fn()
@@ -20,25 +21,23 @@ vi.mock('three', () => {
       positionSet(x, y, z)
     }
   }
-
   class Scene {}
-
   class PerspectiveCamera {
     position = new Vector3()
     aspect = 1
     lookAt = cameraLookAt
     updateProjectionMatrix(): void {}
   }
-
   class WebGLRenderer {
+    domElement = document.createElement('canvas')
     constructor(_: unknown) {}
     setSize(): void {}
     setPixelRatio(): void {}
     setClearColor(): void {}
     render = vi.fn()
     dispose = rendererDispose
+    autoClear = false
   }
-
   return { Scene, PerspectiveCamera, WebGLRenderer, Vector3 }
 })
 
@@ -81,30 +80,100 @@ vi.mock('three/examples/jsm/postprocessing/EffectComposer.js', () => {
 
 vi.mock('three/examples/jsm/postprocessing/RenderPass.js', () => {
   class RenderPass {
+    clear = false
     constructor(_scene: unknown, _camera: unknown) {}
   }
   return { RenderPass }
 })
 
-// --- ヘルパー ---
+// ============================================================
+// Camera Plugin モック
+// ============================================================
 
-function makePlugin(preset?: GeometryPlugin['cameraPreset']): GeometryPlugin {
+const mockCameraMount = vi.fn()
+const mockCameraUpdate = vi.fn()
+const mockCameraDispose = vi.fn()
+
+function makeStaticCamera(overrideParams?: Record<string, number>): CameraPlugin {
+  const params = {
+    posX:    { value: overrideParams?.posX    ?? 0,  min: -50, max: 50, label: 'Pos X' },
+    posY:    { value: overrideParams?.posY    ?? 8,  min: -50, max: 50, label: 'Pos Y' },
+    posZ:    { value: overrideParams?.posZ    ?? 12, min: -50, max: 50, label: 'Pos Z' },
+    lookAtX: { value: 0, min: -50, max: 50, label: 'LookAt X' },
+    lookAtY: { value: 0, min: -50, max: 50, label: 'LookAt Y' },
+    lookAtZ: { value: 0, min: -50, max: 50, label: 'LookAt Z' },
+  }
   return {
-    id: 'test-plugin',
+    id: 'static-camera',
+    name: 'Static Camera',
+    renderer: 'threejs',
+    enabled: true,
+    params,
+    mount: mockCameraMount,
+    update: mockCameraUpdate,
+    dispose: mockCameraDispose,
+  }
+}
+
+function makeOrbitCamera(): CameraPlugin {
+  return {
+    id: 'orbit-camera',
+    name: 'Orbit Camera',
+    renderer: 'threejs',
+    enabled: true,
+    params: {
+      radius:     { value: 10,  min: 1,   max: 50,  label: 'Radius' },
+      height:     { value: 3,   min: -20, max: 30,  label: 'Height' },
+      speed:      { value: 0.5, min: 0.0, max: 3.0, label: 'Speed' },
+      autoRotate: { value: 1,   min: 0,   max: 1,   label: 'Auto Rotate' },
+    },
+    mount: mockCameraMount,
+    update: mockCameraUpdate,
+    dispose: mockCameraDispose,
+  }
+}
+
+// ============================================================
+// Camera Plugin Registry モック
+// ============================================================
+
+vi.mock('../../src/plugins/cameras', () => ({
+  getCameraPlugin: (id: string) => {
+    // 毎回新しいインスタンスを返す（実装のファクトリパターンを再現）
+    if (id === 'static-camera') return makeStaticCamera()
+    if (id === 'orbit-camera')  return makeOrbitCamera()
+    return undefined
+  },
+  listCameraPlugins: () => [makeStaticCamera(), makeOrbitCamera()],
+}))
+
+// ============================================================
+// Geometry Plugin ヘルパー
+// ============================================================
+
+function makeGeometryPlugin(opts?: {
+  defaultCameraPluginId?: string
+  defaultCameraParams?: Record<string, number>
+}): GeometryPlugin {
+  return {
+    id: 'test-geometry',
     name: 'Test',
     renderer: 'threejs',
     enabled: true,
     params: {},
-    cameraPreset: preset,
-    create: vi.fn(),
-    update: vi.fn(),
+    defaultCameraPluginId: opts?.defaultCameraPluginId,
+    defaultCameraParams:   opts?.defaultCameraParams,
+    create:  vi.fn(),
+    update:  vi.fn(),
     destroy: vi.fn(),
   }
 }
 
-// --- テスト ---
+// ============================================================
+// テスト
+// ============================================================
 
-describe('Camera System', () => {
+describe('Camera Plugin System', () => {
   let manager: LayerManager
   let container: HTMLDivElement
 
@@ -113,132 +182,133 @@ describe('Camera System', () => {
     cameraLookAt.mockClear()
     rendererDispose.mockClear()
     composerDispose.mockClear()
+    mockCameraMount.mockClear()
+    mockCameraUpdate.mockClear()
+    mockCameraDispose.mockClear()
+    orbitControlsInstance = null
 
     manager = new LayerManager()
     container = document.createElement('div')
-    Object.defineProperty(container, 'clientWidth', { configurable: true, value: 640 })
+    Object.defineProperty(container, 'clientWidth',  { configurable: true, value: 640 })
     Object.defineProperty(container, 'clientHeight', { configurable: true, value: 360 })
     document.body.appendChild(container)
     manager.initialize(container)
   })
 
-  it('TC-1: 初期化時にカメラが DEFAULT_CAMERA_PRESET 位置にセットされる', () => {
-    const p = DEFAULT_CAMERA_PRESET.position
-    // initialize() 内で各レイヤーに position.set が呼ばれる
-    expect(positionSet).toHaveBeenCalledWith(p.x, p.y, p.z)
+  // --- TC-1: 初期化時の Camera Plugin ---
+
+  it('TC-1: 初期化時に static-camera が各レイヤーに mount される', () => {
+    // MAX_LAYERS=3 分の mount が呼ばれているはず
+    expect(mockCameraMount).toHaveBeenCalledTimes(3)
   })
 
-  it('TC-2: cameraPreset を持つ Plugin をセットするとそのプリセットが適用される', () => {
-    positionSet.mockClear()
-    cameraLookAt.mockClear()
+  // --- TC-2: Geometry Plugin の defaultCameraPluginId 連動 ---
 
-    const preset = { position: { x: 1, y: 2, z: 3 }, lookAt: { x: 0, y: 0, z: 0 } }
-    const plugin = makePlugin(preset)
+  it('TC-2: defaultCameraPluginId を持つ Plugin をセットすると対応 Camera が mount される', () => {
+    mockCameraMount.mockClear()
+    mockCameraDispose.mockClear()
 
+    const plugin = makeGeometryPlugin({ defaultCameraPluginId: 'orbit-camera' })
     manager.setPlugin('layer-1', plugin)
 
-    expect(positionSet).toHaveBeenCalledWith(1, 2, 3)
-    expect(cameraLookAt).toHaveBeenCalledWith(0, 0, 0)
+    // 旧 Camera.dispose → 新 Camera.mount の順
+    expect(mockCameraDispose).toHaveBeenCalledTimes(1)
+    expect(mockCameraMount).toHaveBeenCalledTimes(1)
+    const cam = manager.getCameraPlugin('layer-1')
+    expect(cam?.id).toBe('orbit-camera')
   })
 
-  it('TC-3: cameraPreset を持たない Plugin には DEFAULT_CAMERA_PRESET が適用される', () => {
-    positionSet.mockClear()
-    cameraLookAt.mockClear()
+  // --- TC-3: defaultCameraPluginId なし → static-camera がデフォルト ---
 
-    const plugin = makePlugin(undefined) // cameraPreset なし
+  it('TC-3: defaultCameraPluginId を持たない Plugin には static-camera が連動する', () => {
+    mockCameraMount.mockClear()
+    mockCameraDispose.mockClear()
+
+    const plugin = makeGeometryPlugin()
     manager.setPlugin('layer-1', plugin)
 
-    const p = DEFAULT_CAMERA_PRESET.position
-    const l = DEFAULT_CAMERA_PRESET.lookAt
-    expect(positionSet).toHaveBeenCalledWith(p.x, p.y, p.z)
-    expect(cameraLookAt).toHaveBeenCalledWith(l.x, l.y, l.z)
+    const cam = manager.getCameraPlugin('layer-1')
+    expect(cam?.id).toBe('static-camera')
   })
 
-  it('TC-4: null をセットしたときも DEFAULT_CAMERA_PRESET が適用される', () => {
-    positionSet.mockClear()
-    cameraLookAt.mockClear()
+  // --- TC-4: defaultCameraParams が Camera Plugin の params に反映される ---
 
-    manager.setPlugin('layer-1', null)
-
-    const p = DEFAULT_CAMERA_PRESET.position
-    const l = DEFAULT_CAMERA_PRESET.lookAt
-    expect(positionSet).toHaveBeenCalledWith(p.x, p.y, p.z)
-    expect(cameraLookAt).toHaveBeenCalledWith(l.x, l.y, l.z)
-  })
-
-  it('TC-5: grid-tunnel の cameraPreset は z=5 の正面視点', () => {
-    const preset = { position: { x: 0, y: 0, z: 5 }, lookAt: { x: 0, y: 0, z: 0 } }
-    const plugin = makePlugin(preset)
-    positionSet.mockClear()
-
+  it('TC-4: defaultCameraParams が Camera Plugin の params に上書きされる', () => {
+    const plugin = makeGeometryPlugin({
+      defaultCameraPluginId: 'static-camera',
+      defaultCameraParams: { posX: 0, posY: 10, posZ: 14 },
+    })
     manager.setPlugin('layer-1', plugin)
-    expect(positionSet).toHaveBeenCalledWith(0, 0, 5)
+
+    const cam = manager.getCameraPlugin('layer-1')
+    expect(cam?.params.posY.value).toBe(10)
+    expect(cam?.params.posZ.value).toBe(14)
   })
 
-  it('TC-6: orbit モードの Plugin をセットすると cameraMode が orbit になる', () => {
-    const preset = {
-      position: { x: 10, y: 3, z: 0 },
-      lookAt: { x: 0, y: 0, z: 0 },
-      mode: { type: 'orbit' as const, radius: 10, height: 3, speed: 0.5, autoRotate: true },
-    }
-    const plugin = makePlugin(preset)
-    manager.setPlugin('layer-1', plugin)
+  // --- TC-5: setCameraPlugin で userOverride=true が立つ ---
+
+  it('TC-5: setCameraPlugin() を呼ぶと isCameraUserOverridden が true になる', () => {
+    const orbitCam = makeOrbitCamera()
+    manager.setCameraPlugin('layer-1', orbitCam, undefined, true)
 
     const layer = manager.getLayers().find((l) => l.id === 'layer-1')
-    expect(layer?.cameraMode.type).toBe('orbit')
+    expect(layer?.isCameraUserOverridden).toBe(true)
   })
 
-  it('TC-7: orbit + autoRotate:true で update() を呼ぶとカメラ position が変化する', () => {
-    const preset = {
-      position: { x: 10, y: 3, z: 0 },
-      lookAt: { x: 0, y: 0, z: 0 },
-      mode: { type: 'orbit' as const, radius: 10, height: 3, speed: 1.0, autoRotate: true },
-    }
-    const plugin = makePlugin(preset)
-    manager.setPlugin('layer-1', plugin)
-    positionSet.mockClear()
+  // --- TC-6: isCameraUserOverridden=true のとき Geometry 切り替えで Camera が変わらない ---
 
-    manager.update(0.5, 0)
-    // angle = 0.5 * 1.0 = 0.5rad → position が変化しているはず
-    expect(positionSet).toHaveBeenCalled()
-    const [x, , z] = positionSet.mock.calls[0] as [number, number, number]
-    expect(x).toBeCloseTo(Math.cos(0.5) * 10, 3)
-    expect(z).toBeCloseTo(Math.sin(0.5) * 10, 3)
+  it('TC-6: isCameraUserOverridden=true のとき setPlugin() しても Camera が追従しない', () => {
+    // 最初に手動でカメラを設定
+    const orbitCam = makeOrbitCamera()
+    manager.setCameraPlugin('layer-1', orbitCam, undefined, true)
+
+    mockCameraDispose.mockClear()
+    mockCameraMount.mockClear()
+
+    // orbit-camera を defaultCameraPluginId に持たない Geometry を設定
+    const plugin = makeGeometryPlugin({ defaultCameraPluginId: 'static-camera' })
+    manager.setPlugin('layer-1', plugin)
+
+    // Camera Plugin が変わっていないこと（mount が呼ばれていない）
+    expect(mockCameraMount).not.toHaveBeenCalled()
+    const cam = manager.getCameraPlugin('layer-1')
+    expect(cam?.id).toBe('orbit-camera')
   })
 
-  it('TC-8: aerial モードは enableRotate=false が設定される', () => {
-    orbitControlsInstance = null
-    const preset = {
-      position: { x: 0, y: 20, z: 0 },
-      lookAt: { x: 0, y: 0, z: 0 },
-      mode: { type: 'aerial' as const, height: 20 },
-    }
-    const plugin = makePlugin(preset)
-    manager.setPlugin('layer-1', plugin)
+  // --- TC-7: update() で cameraPlugin.update(delta) が呼ばれる ---
 
-    expect(orbitControlsInstance).not.toBeNull()
-    expect(orbitControlsInstance?.enableRotate).toBe(false)
-    expect(orbitControlsInstance?.enableZoom).toBe(true)
+  it('TC-7: update() を呼ぶと cameraPlugin.update(delta) が呼ばれる', () => {
+    const plugin = makeGeometryPlugin()
+    manager.setPlugin('layer-1', plugin)
+    mockCameraUpdate.mockClear()
+
+    manager.update(0.016, 0)
+    expect(mockCameraUpdate).toHaveBeenCalledWith(0.016)
   })
 
-  it('TC-9: setAutoRotate(false) で autoRotate フラグが切り替わる', () => {
-    const preset = {
-      position: { x: 10, y: 3, z: 0 },
-      lookAt: { x: 0, y: 0, z: 0 },
-      mode: { type: 'orbit' as const, radius: 10, height: 3, speed: 0.5, autoRotate: true },
-    }
-    const plugin = makePlugin(preset)
-    manager.setPlugin('layer-1', plugin)
+  // --- TC-8: dispose() で cameraPlugin.dispose() が呼ばれる ---
 
-    manager.setAutoRotate('layer-1', false)
+  it('TC-8: dispose() を呼ぶと全レイヤーの cameraPlugin.dispose() が呼ばれる', () => {
+    mockCameraDispose.mockClear()
+    manager.dispose()
+    expect(mockCameraDispose).toHaveBeenCalledTimes(3)
+  })
 
-    const layer = manager.getLayers().find((l) => l.id === 'layer-1')
-    const mode = layer?.cameraMode
-    expect(mode?.type).toBe('orbit')
-    if (mode?.type === 'orbit') {
-      expect(mode.autoRotate).toBe(false)
+  // --- TC-9: Camera Plugin ごとに独立した params インスタンスを持つ ---
+
+  it('TC-9: 各レイヤーの Camera Plugin は独立した params を持つ', () => {
+    const layers = manager.getLayers()
+    const cam1 = layers[0]?.cameraPlugin
+    const cam2 = layers[1]?.cameraPlugin
+    // モックが毎回新インスタンスを返すため、cam1 と cam2 は別オブジェクト
+    expect(cam1).not.toBe(cam2)
+    // params の値を一方だけ書き換えてもう一方に影響しない
+    if (cam1 && cam2) {
+      const originalVal = cam2.params.posY?.value ?? 0
+      if (cam1.params.posY !== undefined) {
+        cam1.params.posY.value = 999
+      }
+      expect(cam2.params.posY?.value).toBe(originalVal)
     }
-    // OrbitControls が enabled になっているはず
-    expect(orbitControlsInstance?.enabled).toBe(true)
   })
 })

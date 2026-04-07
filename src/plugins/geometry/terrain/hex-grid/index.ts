@@ -12,11 +12,8 @@ const hexGridPlugin: GeometryPlugin = {
   renderer: 'threejs',
   enabled: true,
   params: structuredClone(defaultParams),
-  cameraPreset: {
-    position: { x: 0, y: 20, z: 0 },
-    lookAt:   { x: 0, y: 0,  z: 0 },
-    mode: { type: 'aerial', height: 20 },
-  },
+  defaultCameraPluginId: 'aerial-camera',
+  defaultCameraParams: { height: 20 },
 
   create(scene: THREE.Scene): void {
     const cols      = Math.round(this.params.cols.value)

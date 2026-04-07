@@ -12,11 +12,8 @@ const icospherePlugin: GeometryPlugin = {
   renderer: 'threejs',
   enabled: true,
   params: structuredClone(defaultParams),
-  cameraPreset: {
-    position: { x: 10, y: 3, z: 0 },
-    lookAt:   { x: 0,  y: 0, z: 0 },
-    mode: { type: 'orbit', radius: 10, height: 3, speed: 0.5, autoRotate: true },
-  },
+  defaultCameraPluginId: 'orbit-camera',
+  defaultCameraParams: { radius: 10, height: 3, speed: 0.5, autoRotate: 1 },
 
   create(scene: THREE.Scene): void {
     const detail = Math.round(this.params.detail.value)
