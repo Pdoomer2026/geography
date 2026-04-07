@@ -131,7 +131,7 @@ Step 2: move_file（現行 → アーカイブ・トークンゼロ）
   docs/spec/[name].spec.md
   → docs/archive/spec/YYYY-MM-DD_DayN_[name].spec.md
 
-Step 3: create_file（新内容で新規作成）← write_file ではない
+Step 3: write_file（新内容で新規作成）← move_file 後はファイルが存在しないので write_file が正しい
   docs/spec/[name].spec.md
 
 Step 4: NFC 正規化
@@ -139,7 +139,7 @@ Step 4: NFC 正規化
 ```
 
 - move_file = ファイルの中身を読まずに済む → トークンゼロ・一瞬で完了
-- move_file 後はファイルが存在しない → create_file が正しい（write_file ではない）
+- move_file 後はファイルが存在しない → write_file で新規作成（filesystem MCP に create_file は存在しない）
 - アーカイブファイル名に日付・Day番号を含める → 更新履歴が一目瞭然
 
 **⚠️ CLAUDE.md 更新時の必須手順（AI への命令の品質管理・Day39確立）**
