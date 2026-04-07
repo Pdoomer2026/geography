@@ -117,6 +117,30 @@ knob1:
 - Color は Hue / Alpha のみ管理（Saturation / Contrast / Brightness は ColorGrading FX に委譲）
 - `renderer: 'threejs'`・`enabled: true` を必ずデフォルト値として設定する
 
+## MUST: requiresRebuild フラグ（Day46 確立）
+
+メッシュの頂点数・形状が変わる param には必ず `requiresRebuild: true` を設定すること。
+設定しないと GeometrySimpleWindow のスライダーを動かしても見た目が変わらない。
+
+```typescript
+// config.ts の例
+export const defaultParams: Record<string, PluginParam> = {
+  speed:    { value: 0.5, min: 0.1, max: 2.0, label: 'Speed' },             // ← 不要
+  segments: { value: 60,  min: 10,  max: 100,  label: 'Segments', requiresRebuild: true }, // ← 必須
+  size:     { value: 80,  min: 1,   max: 500,  label: 'Size',     requiresRebuild: true }, // ← 必須
+}
+```
+
+**requiresRebuild: true が必要な param の例:**
+- `segments` / `rings` / `detail` — 頂点分割数
+- `radius` / `tube` / `size` / `length` — メッシュ全体のサイズ
+- `cols` / `rows` / `hexSize` — グリッド構造
+- `p` / `q` — Torus Knot の巻き数
+- `tubularSegs` / `radialSegs` — セグメント数全般
+
+**requiresRebuild: true が不要な param の例:**
+- `speed` / `hue` / `alpha` / `amplitude` / `frequency` — update() でリアルタイム更新できるもの
+
 ---
 
 ## v1 実装プラグイン
