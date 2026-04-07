@@ -1,0 +1,12 @@
+MIDI IPC 経路を廃止し App.tsx で Web MIDI API を直接受信する設計に確定。
+外部受信は MIDI 1.0 プロトコル・GeoGraphy 内部バスは MIDI 2.0 準拠という
+外部/内部の分離を macro-knob / cc-mapping / cc-standard の3 spec に明記。
+ccMapService.init() を engine.initialize() から呼ぶ接続を実装。
+App.tsx に Web MIDI API 受信 useEffect を追加し engine.handleMidiCC() を呼ぶ。
+Camera が Plugin でなく cameraPreset として Geometry に埋め込まれていた
+根本的な設計欠落を発見。camera-plugin.spec.md を新規作成し
+CameraPlugin インターフェース・isCameraUserOverridden フラグ・
+defaultCameraPluginId による自動連動ルールを設計確定。
+preferences-panel.spec.md に Camera セクション追加。
+simple-window.spec.md に Geometry/Camera Simple Window を追加。
+実装は Day45 に Claude Code で行う。

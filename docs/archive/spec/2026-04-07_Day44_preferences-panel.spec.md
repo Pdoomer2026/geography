@@ -2,7 +2,7 @@
 
 > SSoT: このファイル
 > 担当エージェント: Claude Code
-> 状態: ⬜ Day22 壁打ち完了・Day44 Setup タブを Camera 追加で再設計
+> 状態: ⬜ Day22 壁打ち完了・実装は今後
 
 ---
 
@@ -48,7 +48,7 @@ H キー（全UI非表示）のときも表示を維持する
 
 | タブ | v1 状態 | 内容 |
 |---|---|---|
-| Setup | ✅ 実装対象 | Geometry・Camera・FX の選択 |
+| Setup | ✅ 実装対象 | 使う Geometry・FX の選択 |
 | Project | ✅ 実装対象 | プロジェクトファイルの Save / Load |
 | Plugins | ⬜ Coming Soon | プラグインの追加・管理 |
 | Audio | ⬜ Coming Soon | オーディオ入力設定 |
@@ -57,65 +57,38 @@ H キー（全UI非表示）のときも表示を維持する
 
 ---
 
-## 4. Setup タブ（Day44 再設計）
+## 4. Setup タブ
 
 ### UI
 
 ```
 SETUP
 
-GEOMETRY（レイヤーごとに選択）
-  Layer 1:  [ icosphere      ▼ ]
-  Layer 2:  [ starfield      ▼ ]
-  Layer 3:  [ None           ▼ ]
+GEOMETRY
+  ☑ Grid Wave    ☑ Contour    ☐ Grid Tunnel
+  ☐ ...
 
-CAMERA（レイヤーごとに選択）
-  Layer 1:  [ orbit-camera   ▼ ]   ← Geometry 変更時に自動連動（手動変更後は固定）
-  Layer 2:  [ static-camera  ▼ ]
-  Layer 3:  [ static-camera  ▼ ]
+FX
+  ☑ AfterImage   ☑ Bloom      ☐ Feedback
+  ☐ Kaleidoscope ☐ Mirror     ☐ Zoom Blur
+  ☑ RGB Shift    ☐ CRT        ☐ Glitch
+  ☑ Color Grading
 
-FX（有効/無効のチェック）
-  ☑ AfterImage   ☑ Bloom      ☑ RGB Shift    ☑ Color Grading
-  ☐ Feedback     ☐ Kaleidoscope ☐ Mirror     ☐ Zoom Blur
-  ☐ CRT          ☐ Glitch
-
-                                          [APPLY]
+                                      [APPLY]
 ```
-
-### Geometry セクション
-
-- レイヤーごとにドロップダウンで Geometry Plugin を選択する
-- 選択肢: 登録済みの全 Geometry Plugin + `None`
-- `None` を選択したレイヤーは mute になる
-
-### Camera セクション（Day44 新設）
-
-- レイヤーごとにドロップダウンで Camera Plugin を選択する
-- 選択肢: 登録済みの全 Camera Plugin（`orbit-camera` / `aerial-camera` / `static-camera` 等）
-- **Geometry との自動連動ルール**（spec: camera-plugin.spec.md §6-C）:
-  - Geometry ドロップダウンを変更すると `defaultCameraPluginId` に基づいて Camera が自動更新される
-  - ユーザーが Camera ドロップダウンを手動で変更した場合は `isCameraUserOverridden = true` になり
-    以降 Geometry を変えても Camera は追従しない
-  - `isCameraUserOverridden` は APPLY ボタン押下後にリセット（次の Geometry 変更から再び自動連動）
-
-### FX セクション
-
-- チェックボックス方式（有効/無効）
-- 全レイヤー共通（レイヤーごとの個別設定は v2〜）
 
 ### APPLY の動作
 
-1. 選択された Geometry Plugin を各レイヤーにアサイン（`engine.applyGeometrySetup()`）
-2. 選択された Camera Plugin を各レイヤーにアサイン（`engine.applyCameraSetup()`）
-3. チェックされた FX だけを有効化（`engine.applyFxSetup()`）
+1. チェックされた Geometry・FX だけをインスタンス化
+2. チェックが外れたものは `destroy()` を呼んで VRAM を解放
+3. composer を再構築（チェック済みの FX だけ addPass）
 4. 描画が一瞬止まる（数十ms）→ 許容済み
 5. パネルを閉じる
 
 ### デフォルト選択状態
 
-- Geometry: 登録済み全 Plugin を Layer 1〜3 に順番にアサイン（3つを超える分は None）
-- Camera: 各 Geometry の `defaultCameraPluginId` に従って自動設定
-- FX:
+- Geometry: 全て ☑（全プラグインを使う）
+- FX: spec `fx-stack.spec.md` のデフォルト設定に準拠
   - ☑: AfterImage / Bloom / RGB Shift / Color Grading
   - ☐: Feedback / Kaleidoscope / Mirror / Zoom Blur / CRT / Glitch
 
@@ -180,25 +153,8 @@ COMING SOON
 
 ---
 
-## 9. engine.ts の新規 API（Day45 実装対象）
+## 9. References
 
-```typescript
-// Camera Plugin をレイヤーごとにアサインする（APPLY 時に呼ぶ）
-engine.applyCameraSetup(cameraPluginIds: string[]): void
-// cameraPluginIds[0] → layer-1、[1] → layer-2、[2] → layer-3
-
-// 個別にレイヤーの Camera Plugin を切り替える（Camera Simple Window から呼ぶ）
-engine.setCameraPlugin(layerId: string, pluginId: string): void
-
-// 現在の Camera Plugin 一覧を取得する（ドロップダウンの選択肢用）
-engine.getRegisteredCameraPlugins(): { id: string; name: string }[]
-```
-
----
-
-## 10. References
-
-- `docs/spec/camera-plugin.spec.md` — Camera Plugin 仕様（§6-B, §6-C, §6-D）
 - `docs/spec/electron.spec.md`
 - `docs/spec/project-file.spec.md`
 - `docs/spec/plugin-lifecycle.spec.md`

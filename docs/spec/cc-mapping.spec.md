@@ -8,9 +8,15 @@
 
 ## 1. 概要
 
-GeoGraphy の全 Plugin パラメーターと MIDI 2.0 CC 番号の対応を管理する3層構造。
-この仕組みが固まらないと MacroKnob・D&D アサイン・MIDI IPC・AI 自然言語インターフェース
+GeoGraphy の全 Plugin パラメーターと GeoGraphy CC番号（MIDI 2.0 AC 空間の独自体系）の対応を管理する3層構造。
+この仕組みが固まらないと MacroKnob・D&D アサイン・AI 自然言語インターフェース
 の全てが不安定になるため、最優先で設計を確定する。
+
+> **内部バスについて（Day44確定）**
+> GeoGraphy の内部バスは MIDI 2.0 フォーマット（MidiCCEvent・0.0〜1.0 float）で統一されている。
+> 外部コントローラーとの通信は Web MIDI API 経由のため MIDI 1.0 プロトコルだが、
+> GeoGraphy に入った瞬間から MidiCCEvent に変換され内部バスは常に MIDI 2.0 準拠。
+> CC番号体系は MIDI 2.0 AC 空間に統一した GeoGraphy 独自の体系であり、外部受信プロトコルとは別の話。
 
 ---
 

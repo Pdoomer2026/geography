@@ -11,6 +11,7 @@ import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
 import { macroKnobManager } from './macroKnob'
+import { ccMapService } from './ccMapService'
 import type {
   CSSBlendMode,
   FXPlugin,
@@ -57,6 +58,7 @@ export class Engine {
     layerManager.initialize(container)
 
     macroKnobManager.init(this.parameterStore)
+    await ccMapService.init()
 
     // Plugin 自動登録
     await registerGeometryPlugins()

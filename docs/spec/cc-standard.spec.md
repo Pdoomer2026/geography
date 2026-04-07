@@ -25,6 +25,13 @@ GeoGraphy CC Standard はこれらを解決する**共通言語**として設計
 MIDI 1.0 の CC は 0〜127 の 128個。うち多くが音楽用途で定義済みのため CG 用途には狭い。
 MIDI 2.0 の Assignable Controllers（AC）空間は **32,768個** あり、GeoGraphy 専用の体系を自由に設計できる。解像度も 7bit（128段階）から **32bit**（約43億段階）に拡張され、リアルタイム VJ 制御に十分な滑らかさが得られる。
 
+> **外部受信と内部バスの分離（Day44確定）**
+> GeoGraphy の CC番号体系は MIDI 2.0 AC 空間に統一した独自の体系（内部バス）。
+> 外部コントローラーとの通信は Web MIDI API 経由のため MIDI 1.0 プロトコルで受信するが、
+> GeoGraphy に入った瞬間に MidiCCEvent（0.0〜1.0 float）に変換され、内部バスは常に MIDI 2.0 準拠。
+> 「CC番号体系 = MIDI 2.0 AC」と「受信プロトコル」は別の話。
+> MIDI 2.0 ネイティブ受信（高精度 32bit で直接受け取る）は将来タスク（C++ addon 実装が前提）。
+
 ### デファクトスタンダードを狙う意図
 
 GeoGraphy CC Standard は GeoGraphy 内部の規約にとどまらず、将来的に：

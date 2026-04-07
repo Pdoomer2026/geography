@@ -3,7 +3,7 @@
 > SSoT: このファイル
 > 対応実装: `src/core/macroKnob.ts` / `engine.ts` / MacroKnobPanel UI
 > 担当エージェント: Claude Code
-> 状態: ✅ Day13実装済み・Day35壁打ちで大幅更新・Day37 CC Standard 統合・Day41 大幅更新（D&D アサイン・内部バス統一・永続化・CC Map・MIDI デバイス接続）
+> 状態: ✅ Day13実装済み・Day35壁打ちで大幅更新・Day37 CC Standard 統合・Day41 大幅更新（D&D アサイン・内部バス統一・永続化・CC Map・MIDI デバイス接続）・Day44 MIDI 受信設計を renderer 直接に修正
 
 ---
 
@@ -17,17 +17,22 @@ MIDIコントローラーのノブ・フェーダーに物理対応し、1ノブ
 **MacroKnobManager は「MIDI 2.0 を内部バスとする値のルーター」。コア固定・Plugin 化しない。**
 
 ```
-【入力層】                           【MacroKnob層・コア固定】        【出力層】
-外部 MIDI 2.0 Controller
-  → electron/main.js（正規化）
-  → IPC 'geo:midi-cc'           →   MacroKnobManager            →  ParameterStore
-外部 MIDI 1.0 Controller              handleMidiCC(event)               ↓
-  → Web MIDI API（main.js内）   →   handleMidiCC(event)          Plugin.params
-  → IPC 'geo:midi-cc'
-Sequencer（v2）                  →   receiveModulation(knobId, v)
-LFO / Modulator Driver（v2）    →   receiveModulation(knobId, v)
-AI（v3）                         →   handleMidiCC(event)
+【入力層】                                【MacroKnob層・コア固定】        【出力層】
+外部 MIDI Controller（1.0 / 2.0互換）
+  → Web MIDI API                    →   MacroKnobManager            →  ParameterStore
+  → renderer (App.tsx) で直接受信        handleMidiCC(event)               ↓
+  → value を 0.0〜1.0 に正規化      →   handleMidiCC(event)          Plugin.params
+Sequencer（v2）                     →   receiveModulation(knobId, v)
+LFO / Modulator Driver（v2）        →   receiveModulation(knobId, v)
+AI（v3）                            →   handleMidiCC(event)
 ```
+
+> **外部受信 と 内部バス の分離（Day44確定）**
+> - **外部コントローラー → GeoGraphy 入り口**: Web MIDI API 経由のため MIDI 1.0 プロトコルで受信。
+>   rawValue（0〜127）を 0.0〜1.0 に正規化して MidiCCEvent に変換する。
+> - **GeoGraphy 内部バス**: MidiCCEvent フォーマット（MIDI 2.0 準拠・0.0〜1.0 float）で統一。
+>   Sequencer / LFO / AI からの入力も同じフォーマットで流れる。
+> - **MIDI 2.0 ネイティブ受信**（CoreMIDI 等）は Electron から C++ addon なしでは呼び出せないため将来タスク。
 
 ### 内部バス統一ルール（Day41確立）
 
@@ -43,7 +48,8 @@ AI（v3）                         →   handleMidiCC(event)
   }
 ```
 
-外部 MIDI 1.0・2.0 は `electron/main.js` で正規化後に同フォーマットで IPC 送信する。
+外部 MIDI Controller は renderer (App.tsx) の Web MIDI API で受信し、0.0〜1.0 に正規化して
+`engine.handleMidiCC()` を直接呼ぶ。IPC 経由は不要。
 Sequencer / LFO / AI は最初から 0.0〜1.0 なので `protocol: 'midi2'` 固定で流す。
 
 ---
@@ -52,14 +58,15 @@ Sequencer / LFO / AI は最初から 0.0〜1.0 なので `protocol: 'midi2'` 固
 
 - MUST: ノブ数は32個固定（8ノブ × 4行）・config.ts の `MACRO_KNOB_COUNT = 32` を参照
 - MUST: 1ノブに最大3パラメーターまで割り当て可能
-- MUST: value は main.js 側で 0.0〜1.0 に正規化してから IPC 送信する
+- MUST: value は renderer (App.tsx) の Web MIDI API 受信時に 0.0〜1.0 に正規化する（rawValue / 127）
 - MUST: パラメーター変更は必ず Command 経由（直接代入禁止）
 - MUST: MacroKnobManager は Plugin 化しない・コア固定・コントリビューターが触れない
 - MUST: MIDI マッピングは `settings/mappings/midi/` に保存する
-- MUST: MIDI 2.0 受信は `electron/main.js` 経由（IPC）・Web MIDI API（MIDI 1.0）と分離
+- MUST: MIDI 受信は renderer (App.tsx) の Web MIDI API で行う・IPC 経路は使わない
+- NOTE: MIDI 2.0 ネイティブ受信は将来タスク（C++ addon が必要・現時点では MIDI 1.0 互換モードで動作）
 - MUST: Sequencer / LFO からの値は `receiveModulation(knobId, value)` 経由で受け取る（疎結合）
 - MUST: CC Standard の CC 番号を MacroAssign.ccNumber に対応させること
-- MUST: MIDI 1.0・MIDI 2.0 どちらも IPC チャンネル `'geo:midi-cc'` で受け取る
+- MUST: MIDI 1.0・MIDI 2.0 どちらも renderer (App.tsx) の Web MIDI API で受信する（IPC 経路は使わない）
 - MUST: MacroKnobPanel のファイルパスは `src/ui/panels/macro-knob/MacroKnobPanel.tsx`
 - MUST: アサイン情報は `GeoGraphyProject.macroKnobAssigns` に含めて永続化する
 - MUST: Sequencer にも同じ D&D アサイン構造を採用する（将来・疎結合を保つ）
@@ -431,6 +438,6 @@ expect(manager.getKnobs().find(k => k.id === 'macro-1')?.assigns).toHaveLength(0
 - `src/core/macroKnob.ts` — 実装
 - `src/core/engine.ts` — handleMidiCC / getMacroKnobs 公開 API
 - `src/ui/panels/macro-knob/MacroKnobPanel.tsx` — UI
-- `electron/main.js` — MIDI 受信・IPC 送信（未実装）
+- `electron/main.js` — MIDI 受信・IPC 送信（不要になった・Day44確定）
 - `settings/cc-map.json` — AI 参照用 CC Map（未実装）
 - `settings/mappings/midi/` — MIDI マッピング Preset 保存先

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { engine } from '../core/engine'
+import type { MidiCCEvent } from '../types'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
 import { FxSimpleWindow } from './FxSimpleWindow'
@@ -16,6 +17,57 @@ export default function App() {
 
   // Electron 自動保存（起動時復元 + 終了時保存）
   useAutosave()
+
+  // ── Web MIDI API（MIDI 1.0 受信）────────────────────────────────
+  useEffect(() => {
+    if (!navigator.requestMIDIAccess) return
+
+    let midiAccess: MIDIAccess | null = null
+
+    const onMidiMessage = (event: MIDIMessageEvent) => {
+      const data = event.data
+      if (!data || data.length < 3) return
+      // Status byte の上位4bit が 0xB = Control Change
+      const statusType = data[0] & 0xf0
+      if (statusType !== 0xb0) return
+
+      const cc = data[1]
+      const rawValue = data[2]
+      const midiEvent: MidiCCEvent = {
+        cc,
+        value: rawValue / 127,
+        protocol: 'midi1',
+        resolution: 128,
+      }
+      engine.handleMidiCC(midiEvent)
+    }
+
+    const setupMidi = (access: MIDIAccess) => {
+      midiAccess = access
+      access.inputs.forEach((input) => {
+        input.onmidimessage = onMidiMessage
+      })
+      access.onstatechange = () => {
+        access.inputs.forEach((input) => {
+          input.onmidimessage = onMidiMessage
+        })
+      }
+    }
+
+    navigator.requestMIDIAccess({ sysex: false })
+      .then(setupMidi)
+      .catch((err) => {
+        console.warn('[GeoGraphy] Web MIDI API アクセス失敗:', err)
+      })
+
+    return () => {
+      if (midiAccess) {
+        midiAccess.inputs.forEach((input) => {
+          input.onmidimessage = null
+        })
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!mountRef.current) return

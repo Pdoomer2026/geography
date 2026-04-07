@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day43（CC Mapping 3層構造 実装完了）｜2026-04-07
+# GeoGraphy 引き継ぎメモ｜Day44（MIDI IPC 廃止・Camera Plugin 設計確定）｜2026-04-07
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -15,117 +15,126 @@
 | ファイル | パス |
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md`（v11） |
-| CC Mapping SSoT | `docs/spec/cc-mapping.md`（v0.2） |
-| CC Mapping 設計仕様 | `docs/spec/cc-mapping.spec.md` |
-| CC Standard | `docs/spec/cc-standard.spec.md`（v0.3） |
-| CC Map 生成スクリプト | `scripts/generate-cc-map.ts`（Day43新設） |
-| CC Map JSON（自動生成物） | `settings/cc-map.json`（Day43新設・手動編集禁止） |
-| CC Map Service | `src/core/ccMapService.ts`（Day43新設） |
-| MacroKnob spec | `docs/spec/macro-knob.spec.md` |
-| MacroKnob コア | `src/core/macroKnob.ts` |
-| geoAPI 型定義 | `src/types/geoAPI.d.ts` |
-| エンジン本体 | `src/core/engine.ts` |
+| Camera Plugin spec（新規） | `docs/spec/camera-plugin.spec.md`（Day44新設） |
+| Preferences Panel spec | `docs/spec/preferences-panel.spec.md`（Day44更新） |
+| Simple Window spec | `docs/spec/simple-window.spec.md`（Day44更新） |
+| MacroKnob spec | `docs/spec/macro-knob.spec.md`（Day44更新） |
+| CC Mapping spec | `docs/spec/cc-mapping.spec.md`（Day44更新） |
+| CC Standard spec | `docs/spec/cc-standard.spec.md`（Day44更新） |
+| App.tsx（MIDI受信追加） | `src/ui/App.tsx` |
+| engine.ts（ccMapService接続） | `src/core/engine.ts` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day41`（Day42・Day43 はこのセッションでコミット予定）
+- **タグ**: `day43`
 - **テスト**: 112 tests グリーン・tsc エラーゼロ
 
 ---
 
-## Day43 で完了したこと
+## Day44 で完了したこと
 
-### A. 型定義更新（`src/types/index.ts`）
+### A. MIDI 受信設計の根本的な修正（spec 3ファイル更新）
 
-- `MacroAssign.ccNumber: number`（必須フィールド）を追加・旧 `defaultCC?: number` を削除
-- `MacroKnobManager` Interface に `addAssign()` / `removeAssign()` を追加
-- `GeoGraphyProject` に `macroKnobAssigns: MacroKnobConfig[]` を追加（永続化対応）
+Day44 の壁打ちで「MIDI IPC 経路は不要」と確定。
 
-### B. `src/core/macroKnob.ts` 更新
+- **外部コントローラー → GeoGraphy 入り口**: Web MIDI API（MIDI 1.0）で受信・renderer 直接
+- **GeoGraphy 内部バス**: MidiCCEvent フォーマット（MIDI 2.0 準拠・0.0〜1.0 float）で統一
+- 「CC番号体系 = MIDI 2.0 AC」と「受信プロトコル」は別の話として明確化
+- MIDI 2.0 ネイティブ受信は将来タスク（C++ addon 前提）
 
-- `addAssign(knobId, assign)` 実装（MAX_ASSIGNS 超過時は throw）
-- `removeAssign(knobId, paramId)` 実装
+更新した spec:
+- `macro-knob.spec.md` — §1 アーキテクチャ図・§2 MUST ルール修正
+- `cc-mapping.spec.md` — §1 概要の「MIDI IPC」削除・内部バス説明追加
+- `cc-standard.spec.md` — §1「MIDI 2.0 AC空間を選ぶ理由」に分離の注記追加
 
-### C. `scripts/generate-cc-map.ts` 新規作成
+### B. `ccMapService.init()` を `engine.initialize()` から呼ぶ（実装）
 
-- `docs/spec/cc-mapping.md` をパースして `settings/cc-map.json` を生成
-- 未マッピング paramId を警告出力する機能付き
-- `tsx` を devDependencies に追加
-- `package.json` に `"gen:cc-map": "tsx scripts/generate-cc-map.ts"` を追加
+- `src/core/engine.ts` に `ccMapService` を import
+- `engine.initialize()` 内で `await ccMapService.init()` を呼ぶように接続
 
-### D. `settings/cc-map.json` 生成
+### C. Web MIDI API 受信を App.tsx に実装
 
-- `pnpm gen:cc-map` を実行して 71 mappings を生成
-- Geometry 7本・Particle 1本・FX 12本 = 全 20 Plugin 対応
+- `src/ui/App.tsx` に MIDI 受信 useEffect を追加
+- `navigator.requestMIDIAccess()` → Control Change（0xB0）を受信
+- `rawValue / 127` で正規化 → `MidiCCEvent` に変換 → `engine.handleMidiCC()` を呼ぶ
+- cleanup: unmount 時に `input.onmidimessage = null`
 
-### E. `src/core/ccMapService.ts` 新規作成
+### D. Camera Plugin 設計確定（spec 新規作成）
 
-- `ParamMapping` / `CcMapService` Interface を定義
-- Layer 1（cc-map.json）と Layer 2（cc-overrides.json）をマージして lookup
-- `getCcNumber()` / `getMapping()` / `getAllMappings()` / `applyOverride()` / `resetOverride()` / `resetAllOverrides()` を実装
-- `window.geoAPI` が optional なことに対応（`?.` チェーン）
+`docs/spec/camera-plugin.spec.md` を新規作成。設計の核心：
 
-### F. `electron/main.js` + `electron/preload.js` 更新
+- **Camera は独立した Plugin** — `cameraPreset` 埋め込みは仮実装だったと確定
+- **`CameraPlugin extends ModulatablePlugin`** — params を持つ → MacroKnob / D&D 対象
+- **3種類**: OrbitCameraPlugin / AerialCameraPlugin / StaticCameraPlugin
+- **`defaultCameraPluginId + defaultCameraParams`** — Geometry Plugin はカメラ推奨を伝えるだけ
+- **`isCameraUserOverridden`** フラグ — ユーザーが手動変更後は Geometry 切り替えで追従しない
+- 「Geometry と Camera の相性」はマニュアルに記載・アプリ内で強制しない
 
-- `load-cc-map` IPC ハンドラー追加（settings/cc-map.json を返す）
-- `load-cc-overrides` IPC ハンドラー追加（~/Documents/GeoGraphy/cc-overrides.json を返す）
-- `save-cc-overrides` IPC ハンドラー追加
-- preload.js に `loadCcMap` / `loadCcOverrides` / `saveCcOverrides` を公開
+### E. Preferences Panel spec 更新
 
-### G. `src/types/geoAPI.d.ts` 更新
+Setup タブに **CAMERA セクション**を追加（レイヤーごとにドロップダウンで Camera Plugin を選択）。
 
-- `loadCcMap()` / `loadCcOverrides()` / `saveCcOverrides()` を型定義に追加
+```
+GEOMETRY（レイヤーごと）: [ icosphere ▼ ] [ starfield ▼ ] [ None ▼ ]
+CAMERA（レイヤーごと）:   [ orbit-camera ▼ ] [ static-camera ▼ ] [ static-camera ▼ ]
+FX（チェックボックス）:   ☑ Bloom ☑ AfterImage ...
+```
 
-### H. テスト更新（`tests/core/macroKnob.test.ts`）
+### F. Simple Window spec 更新
 
-- 既存テストの `assigns` に `ccNumber` フィールドを追加（型定義変更に追従）
-- TC-9: `addAssign()` → assigns に追加される
-- TC-10: `removeAssign()` → assigns から削除される
-- TC-11: `addAssign()` が MACRO_KNOB_MAX_ASSIGNS を超えると throw
+- Geometry Simple Window・Camera Simple Window を一覧に追加
+- View メニューに Cmd+4（Geometry）・Cmd+5（Camera）を追加
+- キーボードショートカット `4` / `5` を追加
 
 ---
 
-## 確立した新ルール（Day43）
+## 確立した新ルール（Day44）
 
-### write_file を使う場合の正しいフロー
-```
-move_file（既存 → .claude/ にバックアップ）
-  → write_file（新規作成）
-  → NFC 正規化
-```
-（`create_file` は Claude Desktop 専用・filesystem MCP では `write_file` を使う）
+### MIDI 受信は renderer 直接・IPC 不要
+- Web MIDI API は renderer（App.tsx）で直接使う
+- `electron/main.js` への MIDI IPC 経路は不要（将来も追加しない）
+- MIDI 2.0 ネイティブ受信は C++ addon が必要・将来タスク
 
-### pnpm gen:cc-map の実行タイミング
-- 新 Plugin 追加時: cc-mapping.md に追記 → pnpm gen:cc-map
-- CC 番号変更時: cc-mapping.md を編集 → pnpm gen:cc-map
-- cc-map.json は手動編集禁止・自動生成物
+### Camera Plugin 設計原則
+- Camera は独立した Plugin として設計する（Geometry に埋め込まない）
+- `cameraPreset` は仮実装・Day45 で廃止
+- `isCameraUserOverridden` フラグで自動連動とユーザー意図を両立
 
 ---
 
-## 次回やること（Day44）
+## 次回やること（Day45）
 
-### 優先度 ★★★
+### 優先度 ★★★（Camera Plugin 実装）
 | 作業 |
 |---|
-| MIDI IPC 経路実装（`electron/main.js` → `App.tsx` → `engine.handleMidiCC`） |
-| D&D アサイン UI（Simple Window の `[≡]` ハンドル → MacroKnob へのドロップ） |
-| `ccMapService.init()` を `engine.initialize()` から呼ぶ |
+| `CameraPlugin` インターフェースを `src/types/index.ts` に追加 |
+| `CameraMode` / `CameraPreset` を types から削除 |
+| `OrbitCameraPlugin` 実装（`src/plugins/cameras/orbit/`） |
+| `AerialCameraPlugin` 実装（`src/plugins/cameras/aerial/`） |
+| `StaticCameraPlugin` 実装（`src/plugins/cameras/static/`） |
+| Camera Plugin 自動登録（`src/plugins/cameras/index.ts`） |
+| `LayerManager` を Camera Plugin 機構に移行（`isCameraUserOverridden` フラグ含む） |
+| 各 Geometry Plugin から `cameraPreset` 削除・`defaultCameraPluginId` に置き換え |
+| `engine.ts` API 更新（`setCameraPlugin` / `applyCameraSetup` 等） |
+| `camera-system.spec.md` をアーカイブ（`camera-plugin.spec.md` に統合） |
+| テスト更新（`cameraSystem.test.ts`） |
 
-### 優先度 ★★
+### 優先度 ★★（UI）
 | 作業 |
 |---|
-| Preferences > CC Map タブ実装（`src/ui/panels/preferences/PreferencesPanel.tsx`） |
-| MIDI デバイス接続 Panel（Preferences > MIDI タブ） |
-| MacroKnob Preset Save/Load |
+| `GeometrySimpleWindow` 新設（全 Geometry の params スライダー + `[≡]` ハンドル） |
+| `CameraSimpleWindow` 新設（Camera Plugin 切り替え + params スライダー + `[≡]` ハンドル） |
+| Preferences Setup タブに Camera セクション追加 |
+| D&D アサイン UI（`[≡]` ハンドル → MacroKnob ドロップ） |
 
 ### 優先度 ★
 | 作業 |
 |---|
-| CLAUDE.md の spec 一覧に cc-mapping 関連を追記 |
-| Obsidian dev-log 作成（Day42・Day43 分） |
+| Day42・Day43・Day44 の Obsidian dev-log 作成 |
+| `CLAUDE.md` の spec 一覧に `camera-plugin.spec.md` を追記 |
 
 ---
 
@@ -146,6 +155,8 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 - **spec アーカイブ**（Day41確立）: `docs/archive/spec/YYYY-MM-DD_DayN_[name].spec.md`
 - **cc-mapping.md 更新後は pnpm gen:cc-map 必須**（Day42確立）
 - **tsx が必要**: `pnpm gen:cc-map` は tsx 経由で実行（devDependencies に追加済み）
+- **MIDI 受信は App.tsx で直接**（Day44確立）: IPC 経路不要
+- **Camera は独立 Plugin**（Day44確立）: `cameraPreset` は仮実装・Day45 で廃止
 - **Linus スタイルコミット**（Day39確立）: `git commit -m "タイトル" -m "ボディ（なぜ変えたか）"`
 - **Obsidian dev-log**（Day39確立）: 毎セッション終了時に `GeoGraphy Vault/dev-log/YYYY-MM-DD_DayN.md` を作成
 - **終業時の必須手順**: dev-log 作成 → NFC 正規化 → git commit → git tag dayN → git push origin main --tags
@@ -157,6 +168,6 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-Day44開始
+Day45開始
 引き継ぎスキル
 ```
