@@ -3,142 +3,354 @@
 > SSoT: このファイル
 > 対応実装: `src/core/macroKnob.ts` / `engine.ts` / MacroKnobPanel UI
 > 担当エージェント: Claude Code
-> 状態: ✅ Day13実装済み・Day35壁打ちで大幅更新・Day37 CC Standard 統合・MIDI 2.0 IPC 設計追加
+> 状態: ✅ Day13実装済み・Day35壁打ちで大幅更新・Day37 CC Standard 統合・Day41 大幅更新（D&D アサイン・内部バス統一・永続化・CC Map・MIDI デバイス接続）
 
 ---
 
 ## 1. Purpose（目的）
 
+**GeoGraphy の全パラメーター受け渡しを MIDI 2.0 プロトコルに統一する中枢。**
+
 32個のマクロノブで複数のパラメーターを同時に操作する。
 MIDIコントローラーのノブ・フェーダーに物理対応し、1ノブで最大3パラメーターを制御できる。
 
-**MacroKnob は全 Plugin が依存する「値の集約点」。全入力源（MIDI / Sequencer / LFO）のルーター。コア固定・Plugin 化しない。**
+**MacroKnobManager は「MIDI 2.0 を内部バスとする値のルーター」。コア固定・Plugin 化しない。**
 
 ```
-【入力層】                        【MacroKnob層・コア固定】              【出力層】
-MIDI 2.0 Controller
-  → electron/main.js
-  → IPC 'geo:midi-cc'        →  macroKnob.ts                       →  ParameterStore
-MIDI 1.0 Controller                handleMidiCC(event)                      ↓
-  → Web MIDI API（main.js内）→  handleMidiCC(event)               Plugin.params
+【入力層】                           【MacroKnob層・コア固定】        【出力層】
+外部 MIDI 2.0 Controller
+  → electron/main.js（正規化）
+  → IPC 'geo:midi-cc'           →   MacroKnobManager            →  ParameterStore
+外部 MIDI 1.0 Controller              handleMidiCC(event)               ↓
+  → Web MIDI API（main.js内）   →   handleMidiCC(event)          Plugin.params
   → IPC 'geo:midi-cc'
-Sequencer Plugin               →  receiveModulation(knobId, 0〜1)
-LFO（v2〜）                    →
-OSC（v2〜）                    →
+Sequencer（v2）                  →   receiveModulation(knobId, v)
+LFO / Modulator Driver（v2）    →   receiveModulation(knobId, v)
+AI（v3）                         →   handleMidiCC(event)
 ```
 
-> MIDI 1.0・MIDI 2.0 どちらも `electron/main.js` で受信し、
-> 統一フォーマット（`MidiCCEvent`・value は 0.0〜1.0 正規化済み）で IPC 送信する。
-> `macroKnob.ts` は protocol を意識しない。
+### 内部バス統一ルール（Day41確立）
+
+全ての入力源は `MidiCCEvent` フォーマットに統一して MacroKnobManager に渡す。
+
+```
+内部バス固定フォーマット：
+  MidiCCEvent {
+    cc: number,               // CC Standard の番号（例: CC101）
+    value: number,            // 0.0〜1.0（正規化済み）
+    protocol: 'midi2',        // 内部バスは常に midi2 固定
+    resolution: 4294967296    // 32bit 精度の宣言（処理コストに影響しない）
+  }
+```
+
+外部 MIDI 1.0・2.0 は `electron/main.js` で正規化後に同フォーマットで IPC 送信する。
+Sequencer / LFO / AI は最初から 0.0〜1.0 なので `protocol: 'midi2'` 固定で流す。
 
 ---
 
 ## 2. Constraints（不変条件・MUSTルール）
 
-- MUST: ノブ数は32個固定（8ノブ × 4行）・config.tsの `MACRO_KNOB_COUNT = 32` を参照
+- MUST: ノブ数は32個固定（8ノブ × 4行）・config.ts の `MACRO_KNOB_COUNT = 32` を参照
 - MUST: 1ノブに最大3パラメーターまで割り当て可能
 - MUST: value は main.js 側で 0.0〜1.0 に正規化してから IPC 送信する
-        （macroKnob.ts は 0.0〜1.0 を assign の min/max に rangeMap するだけ）
 - MUST: パラメーター変更は必ず Command 経由（直接代入禁止）
-- MUST: MacroKnob Panel は Plugin 化しない・コア固定・コントリビューターが触れない
-- MUST: MIDIマッピングは `settings/mappings/midi/` に保存する
+- MUST: MacroKnobManager は Plugin 化しない・コア固定・コントリビューターが触れない
+- MUST: MIDI マッピングは `settings/mappings/midi/` に保存する
 - MUST: MIDI 2.0 受信は `electron/main.js` 経由（IPC）・Web MIDI API（MIDI 1.0）と分離
-- MUST: Sequencer Plugin からの値は macroKnobId 経由で受け取る（疎結合）
-- MUST: CC Standard v0.1 の CC 番号を MacroAssign.defaultCC に対応させること
-        （CC101=Primary Amount・CC300=Temporal Speed 等・詳細は cc-standard.spec.md §3 参照）
+- MUST: Sequencer / LFO からの値は `receiveModulation(knobId, value)` 経由で受け取る（疎結合）
+- MUST: CC Standard の CC 番号を MacroAssign.ccNumber に対応させること
 - MUST: MIDI 1.0・MIDI 2.0 どちらも IPC チャンネル `'geo:midi-cc'` で受け取る
-        （main.js が protocol を判定して統一フォーマットで送信する）
-- MUST: MacroKnobPanel のファイルパスは `src/ui/panels/macro-knob/MacroKnobPanel.tsx`（Phase 13 以降）
+- MUST: MacroKnobPanel のファイルパスは `src/ui/panels/macro-knob/MacroKnobPanel.tsx`
+- MUST: アサイン情報は `GeoGraphyProject.macroKnobAssigns` に含めて永続化する
+- MUST: Sequencer にも同じ D&D アサイン構造を採用する（将来・疎結合を保つ）
 
 ---
 
 ## 3. Interface（型・APIシグネチャ）
 
 ```typescript
-type CurveType = 'linear'  // v1はlinearのみ / v2でexp・log・s-curve追加
+type CurveType = 'linear'  // v1は linear のみ / v2で exp・log・s-curve 追加
 
 interface MacroAssign {
-  paramId: string
-  min: number
-  max: number
+  paramId: string       // アサイン先のパラメーター ID
+  ccNumber: number      // CC Standard の CC 番号（例: 101）
+  min: number           // 初期値 = Simple Window スライダーの可動域 min
+  max: number           // 初期値 = Simple Window スライダーの可動域 max
   curve: CurveType
-  /**
-   * CC Standard v0.1 のデフォルト CC 番号（ユーザーが上書き可能）
-   * 詳細: docs/spec/cc-standard.spec.md §3
-   */
-  defaultCC?: number
 }
 
 interface MacroKnobConfig {
-  id: string          // 'macro-1' 〜 'macro-32'
-  name: string        // 表示名（例: 'CHAOS'）
-  midiCC: number      // 0〜127（MIDI 1.0）/ 0〜32767（MIDI 2.0 AC）/ -1=未割り当て
-  assigns: MacroAssign[]  // 最大3つ
+  id: string            // 'macro-1' 〜 'macro-32'
+  name: string          // 表示名（例: 'CHAOS'）
+  midiCC: number        // 0〜127（MIDI 1.0）/ 0〜32767（MIDI 2.0 AC）/ -1=未割り当て
+  assigns: MacroAssign[] // 最大3つ
 }
 
 /**
- * MIDI CC イベント（MIDI 1.0 / MIDI 2.0 共通フォーマット）
+ * MIDI CC イベント（MIDI 1.0 / MIDI 2.0 / 内部バス 共通フォーマット）
  * electron/main.js が変換して IPC 'geo:midi-cc' で送信する
+ * 内部バス（Sequencer / LFO / AI）は protocol: 'midi2' 固定で生成する
  */
 interface MidiCCEvent {
-  cc: number           // CC番号: MIDI 1.0 = 0〜127 / MIDI 2.0 = 0〜32767
-  value: number        // 正規化済み値: 0.0〜1.0（main.js 側で正規化する）
+  cc: number                      // CC Standard 番号
+  value: number                   // 正規化済み: 0.0〜1.0
   protocol: 'midi1' | 'midi2'
-  resolution: 128 | 4294967296  // MIDI 1.0 = 7bit / MIDI 2.0 = 32bit
+  resolution: 128 | 4294967296   // MIDI 1.0 = 7bit / MIDI 2.0 = 32bit
+}
+
+/**
+ * D&D ドラッグペイロード（パラメーター側・MacroKnob側 共通）
+ * 将来 Sequencer レーンへの D&D にも同フォーマットを使う
+ */
+interface DragPayload {
+  type: 'param' | 'macroKnob'   // 将来: | 'sequencerLane'
+  id: string                     // paramId or knobId
+  ccNumber: number               // CC Standard の番号
+  min: number                    // スライダー可動域 min
+  max: number                    // スライダー可動域 max
 }
 
 interface MacroKnobManager {
   getKnobs(): MacroKnobConfig[]
   setKnob(id: string, config: MacroKnobConfig): void
-  /** MidiCCEventを受け取る・value は main.js 側で 0.0〜1.0 正規化済み */
+  addAssign(knobId: string, assign: MacroAssign): void    // D&D アサイン追加
+  removeAssign(knobId: string, paramId: string): void     // アサイン解除
   handleMidiCC(event: MidiCCEvent): void
-  getValue(knobId: string): number  // 0.0〜1.0に正規化した現在値
-  /** Sequencer Plugin から値を受け取る（0.0〜1.0） */
-  receiveModulation(knobId: string, value: number): void
+  getValue(knobId: string): number                        // 0.0〜1.0
+  receiveModulation(knobId: string, value: number): void  // Sequencer / LFO 経由
 }
 ```
 
-### CC Standard 参照
+### GeoGraphyProject への追加（永続化）
 
-CC Standard v0.1 は `docs/spec/cc-standard.spec.md` に移管済み（Day36確立）。
-MacroAssign.defaultCC には CC Standard の CC番号を使用すること。
-
-よく使う対応（クイックリファレンス）：
-
-| CC番号 | Block | 抽象概念 | Geometry 例 | FX 例 |
-|---|---|---|---|---|
-| CC101 | EXISTENCE | Primary Amount | radius・size | strength・mix |
-| CC201 | FORM | Density / Detail | segments・detail | grain size |
-| CC300 | MOTION | Temporal Speed | speed | feedback rate |
-| CC302 | MOTION | Deformation | amplitude・twist | distortion |
-| CC400 | COLOR | Hue | hue | — |
-| CC600 | EDGE | Edge Strength | — | edgeStrength |
-| CC700 | BLEND | Blend Amount | — | dry/wet |
-| CC701 | BLEND | Feedback Amount | — | amount（Feedback）|
-
-全内容・全 Plugin 横断マッピング表: `docs/spec/cc-standard.spec.md §5`
+```typescript
+interface GeoGraphyProject {
+  version: string
+  savedAt: string
+  name: string
+  setup: { geometry: string[]; fx: string[] }
+  sceneState: SceneState
+  macroKnobAssigns: MacroKnobConfig[]  // Day41 追加
+  presetRefs: Record<string, string>
+}
+```
 
 ---
 
-## 4. Behavior（振る舞いの定義）
+## 4. UI 仕様（Day41確立）
 
-### MIDI値の正規化
+### 4-1. Simple Window パラメーター行のレイアウト
 
-**正規化は `electron/main.js` 側で行い、`macroKnob.ts` には 0.0〜1.0 の値が渡る。**
+```
+CC101  radius  [|━━━●━━━|━]  2.0  [≡]
+↑      ↑       ↑         ↑   ↑    ↑
+CC番号 paramId  可動域min  max 現在値 D&Dハンドル
+```
+
+- **CC番号**: CC Standard の番号を左端に常時表示（ユーザーが MIDI 機器設定時に参照）
+- **可動域**: スライダーレール上の `|` をドラッグして min/max を設定できる
+- **現在値**: 数値表示のみ（v2 でクリック → 数値直接入力 box を追加予定）
+- **`[≡]`**: D&D ハンドル（ドラッグ元になる）
+
+### 4-2. MacroKnob ビジュアル
+
+```
+      ╭━━━╮
+   ╭━━┫   ┣━━╮   ← 弧全体 = パラメーターの全可動域（270°）
+ 🟢██     ██🔵   ← アサイン1（緑）・アサイン2（青）の min〜max 範囲が弧上で点灯
+   ┃  macro  ┃
+   ╰━━━━━━━━━╯
+```
+
+- 弧上の光っている範囲 = MacroKnob にアサインされた min〜max
+- アサインが複数 = 弧上に色分けで並ぶ（最大3色）
+- 未アサイン = 弧全体が暗い
+
+### 4-3. D&D アサインフロー（双方向）
+
+```
+① パラメーター [≡] → MacroKnob にドロップ
+   または
+   MacroKnob [≡] → パラメーター [≡] にドロップ
+
+② min/max ダイアログが開く
+   ┌────────────────────────────┐
+   │ radius → macro-1           │
+   │ min  [━━●━━━━━━]  0.5      │ ← 初期値 = スライダー可動域
+   │ max  [━━━━━━●━━]  8.0      │
+   │         [Cancel] [Assign]  │
+   └────────────────────────────┘
+
+③ [Assign] → アサイン追加（最大3つ）
+   → 弧上に min〜max 範囲が点灯
+
+④ アサイン解除
+   パラメーター [≡] を右クリック：
+   ● macro-1 (CC101)  min:0.5 max:8.0
+   ● macro-3 (CC101)  min:0.2 max:4.0
+   ──────────────────────────
+   Remove assign: macro-1
+   Remove assign: macro-3
+   Remove all assigns
+```
+
+### 4-4. D&D ペイロードの拡張計画
+
+```
+Phase 1（現在）: param ↔ macroKnob
+Phase 2（Sequencer 実装時）: param / macroKnob ↔ sequencerLane
+  → DragPayload の type に 'sequencerLane' を追加するだけ
+```
+
+---
+
+## 5. 永続化・Preset（Day41確立）
+
+### 5-1. GeoGraphyProject への統合
+
+アサイン情報は `.geography` プロジェクトファイルに含めて保存・復元する。
+
+```json
+{
+  "version": "1.0.0",
+  "macroKnobAssigns": [
+    {
+      "id": "macro-1",
+      "name": "CHAOS",
+      "midiCC": 20,
+      "assigns": [
+        { "paramId": "radius", "ccNumber": 101, "min": 0.5, "max": 8.0, "curve": "linear" },
+        { "paramId": "speed",  "ccNumber": 300, "min": 0.1, "max": 2.0, "curve": "linear" }
+      ]
+    }
+  ]
+}
+```
+
+### 5-2. Preset Save/Load（未実装・要追加）
+
+- MacroKnob アサインのみを Preset として保存・読み込みできる仕組みが必要
+- File メニュー または 専用 Preset Panel から操作
+- 保存先: `settings/mappings/midi/[preset-name].json`
+
+---
+
+## 6. CC Map（Day41確立・自然言語対応の準備）
+
+GeoGraphy 最大の特徴である自然言語対応のために、CC 番号とセマンティック情報の対応表を3層構造で管理する。
+
+```
+Layer 1: docs/spec/cc-standard.spec.md
+  → 開発者・Claude Desktop が参照（既存・SSoT）
+
+Layer 2: settings/cc-map.json
+  → ランタイムで AI が参照できる機械可読フォーマット（未実装）
+  → cc-standard.spec.md から生成・同期する
+
+Layer 3: Preferences > CC Map タブ（UI）
+  → ユーザーがアプリ内で確認できる（未実装）
+  → cc-map.json を読んで表示するだけ
+```
+
+### settings/cc-map.json のスキーマ
+
+```json
+{
+  "version": "0.2",
+  "blocks": {
+    "1xx": {
+      "name": "EXISTENCE",
+      "description": "存在・量・透明度",
+      "ai_vocabulary": ["消えていく", "圧倒的な存在感", "浮かび上がる"],
+      "entries": {
+        "101": {
+          "name": "Primary Amount",
+          "type": "float",
+          "range": [0.0, 1.0],
+          "description": "主要な大きさ・強さの主軸",
+          "plugin_mappings": {
+            "icosphere": "radius",
+            "bloom": "strength",
+            "starfield": "size"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### AI 参照フロー（v3 実装対象）
+
+```
+ユーザー「ネオン廃墟の夜にして」
+  ↓
+AI が settings/cc-map.json を読む
+  ↓
+Block 9xx → Block 1xx〜7xx の値を決定
+  ↓
+MidiCCEvent として MacroKnobManager に流す（内部バス経由）
+  ↓
+ParameterStore 更新 → 映像が変わる
+```
+
+---
+
+## 7. MIDI デバイス接続（Day41確立・未実装）
+
+Preferences > MIDI タブ（現在 Coming Soon）に実装する。
+
+```
+┌─────────────────────────────────────┐
+│  MIDI                               │
+│                                     │
+│  MIDI IN                            │
+│  デバイス: [ BCR2000          ▼ ]   │
+│  チャンネル: [ All            ▼ ]   │
+│                                     │
+│  MIDI OUT                           │
+│  デバイス: [ BCR2000          ▼ ]   │
+│                                     │
+│  [接続テスト]  [MIDI Learn]          │
+└─────────────────────────────────────┘
+```
+
+- MIDI IN/OUT デバイス選択 → `electron/main.js` の Web MIDI API と連携
+- MIDI Learn: UI 上のパラメーターを右クリック → Learn モード → 物理ノブを動かす → CC番号を自動アサイン
+
+---
+
+## 8. 欠けている実装（Day41時点）
+
+| 優先度 | 内容 | 場所 |
+|---|---|---|
+| ★★★ | MIDI IPC 経路（main.js → App.tsx → engine） | `electron/main.js` / `App.tsx` |
+| ★★★ | アサイン永続化（GeoGraphyProject 拡張） | `src/types/index.ts` / `src/core/engine.ts` |
+| ★★★ | Preset Save/Load メニュー | `electron/main.js` / `settings/mappings/midi/` |
+| ★★ | D&D アサイン UI | `src/ui/panels/macro-knob/` / 各 Simple Window |
+| ★★ | MIDI デバイス接続 Panel | `electron/main.js` / Preferences > MIDI タブ |
+| ★★ | `settings/cc-map.json` 新設 | `settings/` |
+| ★★ | Simple Window の CC番号表示・可動域設定 | 各 Simple Window |
+| ★ | Command 経由への修正（現在直接代入） | `src/core/macroKnob.ts` |
+| ★ | Preferences > CC Map タブ | `src/ui/panels/preferences/` |
+
+---
+
+## 9. Behavior（振る舞いの定義）
+
+### MIDI 値の正規化
 
 ```typescript
 // main.js 内での正規化
-const normalizeForIpc = (raw: number, resolution: number): number => raw / (resolution - 1)
+const normalizeForIpc = (raw: number, resolution: number): number =>
+  raw / (resolution - 1)
 // MIDI 1.0: raw 0〜127  → 0.0〜1.0
 // MIDI 2.0: raw 0〜4294967295 → 0.0〜1.0
 
-// macroKnob.ts 内での range mapping（assign の min/max への変換）
+// macroKnob.ts 内での range mapping
 const rangeMap = (v: number, min: number, max: number): number =>
   min + v * (max - min)
 ```
-
-> 異記: 実装済みの `normalize(midi, min, max)` 関数は Phase 14 で `rangeMap` に統一する。
-> 現在のテストはそのまま有効（値の定義は同じ、引数の意味だけが変わる）。
 
 ### handleMidiCC の処理
 1. `event.cc` が一致する KnobConfig を検索
@@ -146,59 +358,21 @@ const rangeMap = (v: number, min: number, max: number): number =>
 3. 各 `assign` に対して `rangeMap(event.value, assign.min, assign.max)` で対応値を算出
 4. `paramId` の値を Command 経由で更新
 
-### receiveModulation の処理（Sequencer 経由）
-1. `knobId` に対応する KnobConfig を検索
-2. value（0.0〜1.0）を各 assign の min/max に `rangeMap` で変換
-3. 各 `paramId` の値を Command 経由で更新
-
-### MIDI 2.0 IPC フロー（Phase 14 実装対象）
-
-```
-electron/main.js 側：
-  1. MIDI 2.0 デバイスからのメッセージを受信
-  2. CC番号・value を抽出
-  3. value を 0.0〜1.0 に正規化（32bit → float）
-  4. MidiCCEvent { cc, value, protocol: 'midi2', resolution: 4294967296 } を構築
-  5. webContents.send('geo:midi-cc', event) で renderer に送信
-
-electron/preload.js 側：
-  geoAPI.onMidiCC = (callback) => ipcRenderer.on('geo:midi-cc', (_, event) => callback(event))
-
-App.tsx 側：
-  window.geoAPI.onMidiCC((event) => macroKnobManager.handleMidiCC(event))
-
-macroKnob.ts 側：
-  handleMidiCC(event) を呼ぶだけ（value は既に 0.0〜1.0）
-```
-
 ### MIDI 1.0 / MIDI 2.0 共存ルール
-
-- MIDI 1.0 も main.js → IPC 経由に統一（Web MIDI API は main.js 内で使う）
 - `macroKnob.ts` は protocol を意識しない（どちらも同じ `handleMidiCC` を呼ぶ）
-- 同一 CC 番号への同時受信: last-write-wins（後から来た値が勝つ）
+- 同一 CC 番号への同時受信: last-write-wins
 - MIDI 1.0 CC 0〜127 と MIDI 2.0 AC 0〜32767 は空間が異なる → 衝突なし
-- MIDI 1.0 互换ブリッジ（CC1→CC302 等）は MacroKnob が変換テーブルを持つ
-  （cc-standard.spec.md §4 参照）
-
-### MIDI Learn（Phase 14 実装対象）
-1. UI 上のパラメーターを右クリック → Learn モード
-2. MIDI コンのノブを動かす → CC番号を自動アサイン
-3. 既存アサインがある場合は上書き確認
-
-### デフォルト状態
-- 全32ノブは名前なし・assigns空・midiCC未割り当て
-- CC Standard の defaultCC は Phase 14 でデフォルトアサインする（CC101・CC300 等）
+- MIDI 1.0 互換ブリッジ（CC1→CC302 等）は MacroKnob が変換テーブルを持つ
 
 ---
 
-## 5. Test Cases（検証可能な条件）
+## 10. Test Cases（検証可能な条件）
 
 ```typescript
 // TC-1: getKnobs() は32個を返す
 expect(manager.getKnobs()).toHaveLength(32)
 
-// TC-2: MIDI値の正規化が正しい
-// CC=64（中間）→ min=0, max=2 → 約1.0
+// TC-2: normalize が正しい
 const val = normalize(64, 0, 2)
 expect(val).toBeCloseTo(1.0, 1)
 
@@ -211,31 +385,52 @@ expect(normalize(127, 0.5, 1.5)).toBe(1.5)
 // TC-5: assigns が3つを超えるとエラー
 expect(() => manager.setKnob('macro-1', { assigns: [{},{},{},{}] })).toThrow()
 
-// TC-6: receiveModulation() → assigns の min/max に rangeMap される
-// knob に assign { paramId: 'size', min: 0.5, max: 2.0 } がある状態で
-// receiveModulation('macro-1', 0.5) → size = 0.5 + 0.5*(2.0-0.5) = 1.25
+// TC-6: receiveModulation() → rangeMap される
 expect(store.get('size')).toBeCloseTo(1.25)
 
-// TC-7: handleMidiCC(event) — event.value は 0.0〜1.0 の範囲で渡る（main.js 正規化済み）
-// { cc: 20, value: 0.5, protocol: 'midi1', resolution: 128 }
-// assign { paramId: 'radius', min: 0.5, max: 2.0 } の場合
-// radius = 0.5 + 0.5*(2.0-0.5) = 1.25
+// TC-7: handleMidiCC(event) → rangeMap される
 expect(store.get('radius')).toBeCloseTo(1.25)
 
-// TC-8: MIDI 2.0 と MIDI 1.0 が同じ knob に届いた場合は後勝ち（last-write-wins）
-// 先に midi1 event (value=0.2)、次に midi2 event (value=0.8) → 最終値は 0.8 系
+// TC-8: last-write-wins
 expect(manager.getValue('macro-1')).toBeGreaterThan(0.5)
+
+// TC-9: addAssign() → assigns に追加される
+manager.addAssign('macro-1', { paramId: 'hue', ccNumber: 400, min: 0, max: 1, curve: 'linear' })
+expect(manager.getKnobs().find(k => k.id === 'macro-1')?.assigns).toHaveLength(1)
+
+// TC-10: removeAssign() → assigns から削除される
+manager.removeAssign('macro-1', 'hue')
+expect(manager.getKnobs().find(k => k.id === 'macro-1')?.assigns).toHaveLength(0)
 ```
 
 ---
 
-## 6. References
+## 11. CC Standard クイックリファレンス
 
-- 要件定義書 v2.0 §11「MacroKnob / MIDI システム」
-- 実装計画書 v3.2 §6「Phase 14：MacroKnob Panel 完成」
-- `src/core/config.ts` — MACRO_KNOB_COUNT 定数
-- `docs/spec/cc-standard.spec.md` — CC Standard v0.1（Day36確立・SSoT）
-- `docs/spec/sequencer.spec.md` — Sequencer → MacroKnob 接続（Day37〜新設予定）
-- `src/ui/panels/macro-knob/CLAUDE.md` — MacroKnobPanel 実装ルール（Phase 13〜）
-- `electron/main.js` — MIDI 2.0 受信・IPC 送信（Phase 14 実装対象）
-- Claude Code担当範囲: `docs/spec/agent-roles.md`
+| CC番号 | Block | 抽象概念 | Geometry 例 | FX 例 |
+|---|---|---|---|---|
+| CC101 | EXISTENCE | Primary Amount | radius・size | strength・mix |
+| CC201 | FORM | Density / Detail | segments・detail | grain size |
+| CC300 | MOTION | Temporal Speed | speed | feedback rate |
+| CC302 | MOTION | Deformation | amplitude・twist | distortion |
+| CC400 | COLOR | Hue | hue | — |
+| CC600 | EDGE | Edge Strength | — | edgeStrength |
+| CC700 | BLEND | Blend Amount | — | dry/wet |
+| CC701 | BLEND | Feedback Amount | — | amount（Feedback）|
+
+全内容: `docs/spec/cc-standard.spec.md`
+機械可読: `settings/cc-map.json`（未実装）
+
+---
+
+## 12. References
+
+- `docs/spec/cc-standard.spec.md` — CC Standard v0.2（SSoT）
+- `docs/spec/project-file.spec.md` — GeoGraphyProject 拡張
+- `docs/spec/sequencer.spec.md` — Sequencer → D&D 接続（将来）
+- `src/core/macroKnob.ts` — 実装
+- `src/core/engine.ts` — handleMidiCC / getMacroKnobs 公開 API
+- `src/ui/panels/macro-knob/MacroKnobPanel.tsx` — UI
+- `electron/main.js` — MIDI 受信・IPC 送信（未実装）
+- `settings/cc-map.json` — AI 参照用 CC Map（未実装）
+- `settings/mappings/midi/` — MIDI マッピング Preset 保存先

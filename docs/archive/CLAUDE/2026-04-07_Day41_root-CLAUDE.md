@@ -113,35 +113,6 @@ print('HANDOVER.md NFC 正規化完了')
 - MUST: `write_file` で新規作成した直後は NFC 正規化を実行する：`python3 /Users/shinbigan/nfc_normalize.py`
 - MUST: 更新後は `git diff HEAD [ファイル名] | cat` で差分を慎太郎さんと一緒に確認すること
 
-**⚠️ 大幅更新フロー（edit_file で対応できない時・Day41確立）**
-
-更新量が大きく `edit_file` での編集が困難な場合（spec の全書き直し等）は以下のフローを使う：
-
-```
-Step 0: edit_file で対応できるか判断
-  → 変更箇所が少ない・日本語 anchor が安定 → edit_file で通常編集
-  → 更新量が大きい・全体を書き直す場合    → 以下のフローへ
-
-Step 1: アーカイブフォルダ確認
-  → なければ create_directory で作成
-  → spec の場合: docs/archive/spec/
-  → CLAUDE.md の場合: docs/archive/CLAUDE/（archive スクリプトが自動作成）
-
-Step 2: move_file（現行 → アーカイブ・トークンゼロ）
-  docs/spec/[name].spec.md
-  → docs/archive/spec/YYYY-MM-DD_DayN_[name].spec.md
-
-Step 3: create_file（新内容で新規作成）← write_file ではない
-  docs/spec/[name].spec.md
-
-Step 4: NFC 正規化
-  python3 /Users/shinbigan/nfc_normalize.py
-```
-
-- move_file = ファイルの中身を読まずに済む → トークンゼロ・一瞬で完了
-- move_file 後はファイルが存在しない → create_file が正しい（write_file ではない）
-- アーカイブファイル名に日付・Day番号を含める → 更新履歴が一目瞭然
-
 **⚠️ CLAUDE.md 更新時の必須手順（AI への命令の品質管理・Day39確立）**
 
 CLAUDE.md は「AI への命令書」であり、その変遷を追うことで「ルールが機能したか」を dev-log / handover で検証できる。
