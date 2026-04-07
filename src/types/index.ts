@@ -37,6 +37,12 @@ export interface PluginParam {
   min: number
   max: number
   label: string
+  /**
+   * true のとき、この param を変更すると Geometry Plugin の destroy→create が発生する。
+   * mesh の頂点数や形状が変わる param（segments / size / radius 等）に設定する。
+   * spec: docs/spec/geometry-plugin.spec.md §9
+   */
+  requiresRebuild?: boolean
 }
 
 // ============================================================

@@ -166,3 +166,70 @@ describe('engine Camera Plugin API — layerManager への委譲検証', () => {
     spy.mockRestore()
   })
 })
+
+// ----------------------------------------------------------------
+// setGeometryParam + requiresRebuild 検証
+// spec: docs/spec/geometry-plugin.spec.md §9
+// ----------------------------------------------------------------
+
+describe('engine setGeometryParam — requiresRebuild ロジック検証', () => {
+  it('TC-geo-1: requiresRebuild=false の param 変更時は rebuildPlugin を呼ばない', async () => {
+    const { layerManager } = await import('../../src/core/layerManager')
+    const { engine } = await import('../../src/core/engine')
+
+    const mockPlugin = {
+      id: 'grid-wave',
+      name: 'Grid Wave',
+      renderer: 'threejs',
+      enabled: true,
+      params: {
+        speed: { value: 0.5, min: 0.1, max: 2.0, label: 'Speed' },
+      },
+      create: vi.fn(),
+      update: vi.fn(),
+      destroy: vi.fn(),
+    }
+
+    vi.spyOn(layerManager, 'getLayers').mockReturnValue([
+      { id: 'layer-1', plugin: mockPlugin } as never,
+    ])
+    const rebuildSpy = vi.spyOn(layerManager, 'rebuildPlugin')
+
+    engine.setGeometryParam('layer-1', 'speed', 1.0)
+
+    expect(mockPlugin.params.speed.value).toBe(1.0)
+    expect(rebuildSpy).not.toHaveBeenCalled()
+
+    vi.restoreAllMocks()
+  })
+
+  it('TC-geo-2: requiresRebuild=true の param 変更時は rebuildPlugin を呼ぶ', async () => {
+    const { layerManager } = await import('../../src/core/layerManager')
+    const { engine } = await import('../../src/core/engine')
+
+    const mockPlugin = {
+      id: 'grid-wave',
+      name: 'Grid Wave',
+      renderer: 'threejs',
+      enabled: true,
+      params: {
+        segments: { value: 60, min: 10, max: 100, label: 'Segments', requiresRebuild: true },
+      },
+      create: vi.fn(),
+      update: vi.fn(),
+      destroy: vi.fn(),
+    }
+
+    vi.spyOn(layerManager, 'getLayers').mockReturnValue([
+      { id: 'layer-1', plugin: mockPlugin } as never,
+    ])
+    const rebuildSpy = vi.spyOn(layerManager, 'rebuildPlugin').mockImplementation(() => {})
+
+    engine.setGeometryParam('layer-1', 'segments', 80)
+
+    expect(mockPlugin.params.segments.value).toBe(80)
+    expect(rebuildSpy).toHaveBeenCalledWith('layer-1')
+
+    vi.restoreAllMocks()
+  })
+})

@@ -500,12 +500,18 @@ export class Engine {
     return layer?.plugin ?? null
   }
 
-  /** Geometry Plugin の param をリアルタイム更新する。GeometrySimpleWindow 用。 */
+  /** Geometry Plugin の param をリアルタイム更新する。GeometrySimpleWindow 用。
+   * requiresRebuild=true の param が変わった場合は destroy→create で再構築する。
+   * spec: docs/spec/geometry-plugin.spec.md §9
+   */
   setGeometryParam(layerId: string, paramKey: string, value: number): void {
     const layer = layerManager.getLayers().find((l) => l.id === layerId)
     const plugin = layer?.plugin
     if (plugin && paramKey in plugin.params) {
       plugin.params[paramKey].value = value
+      if (plugin.params[paramKey].requiresRebuild) {
+        layerManager.rebuildPlugin(layerId)
+      }
     }
   }
 

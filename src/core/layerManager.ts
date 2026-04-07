@@ -261,6 +261,18 @@ export class LayerManager {
   }
 
   /**
+   * Geometry Plugin を destroy → create で再構築する。
+   * setGeometryParam() で requiresRebuild=true の param が変わった時に呼ばれる。
+   * spec: docs/spec/geometry-plugin.spec.md §9
+   */
+  rebuildPlugin(layerId: string): void {
+    const layer = this.layers.find((l) => l.id === layerId)
+    if (!layer || !layer.plugin) return
+    layer.plugin.destroy(layer.scene)
+    layer.plugin.create(layer.scene)
+  }
+
+  /**
    * Camera Plugin の新インスタンスを取得する。
    * getCameraPlugin() がファクトリを呼んで独立したクロージャを持つインスタンスを返す。
    * layerManager 内では直接 getCameraPlugin() を使い、clone は不要。
