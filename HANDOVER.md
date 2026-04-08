@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day49（MidiManager 設計確定・CC体系整理）｜2026-04-08
+# GeoGraphy 引き継ぎメモ｜Day50（MidiManager責務分離・ドキュメント整備）｜2026-04-08
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -16,93 +16,72 @@
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md`（v11） |
 | 実装計画書（最新） | `docs/実装計画書_v4.0.md` |
-| MidiManager 本体（リネーム前） | `src/core/macroKnob.ts` → 次回 `midiManager.ts` |
+| MidiManager | `src/core/midiManager.ts`（Day50新設） |
+| MacroKnobManager | `src/core/macroKnob.ts` |
 | CC Map Service | `src/core/ccMapService.ts` |
 | Engine | `src/core/engine.ts` |
 | 型定義 | `src/types/index.ts` |
-| MacroKnob spec | `docs/spec/macro-knob.spec.md` |
+| MacroKnob spec | `docs/spec/macro-knob.spec.md`（Day50更新） |
+| Simple Window spec | `docs/spec/simple-window.spec.md`（Day50更新） |
 | CC Standard | `docs/spec/cc-standard.spec.md` |
-| CC Mapping | `docs/spec/cc-mapping.md` |
+| CC Mapping | `docs/spec/cc-mapping.spec.md` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day47`（Day48・49 タグは未打）
+- **タグ**: `day50`
 - **テスト**: 114 tests グリーン・tsc エラーゼロ
-- **実装変更なし**: Day49 は設計の壁打ちのみ。コード変更ゼロ
-- **既知の未解決バグ**: `macroKnob.ts` の `handleMidiCC()` / `receiveModulation()` は `ParameterStore` に書くだけで `plugin.params` に反映されない
+- **Day50は設計壁打ち＋実装＋ドキュメント整備**
 
 ---
 
-## Day49 で完了したこと
+## Day50 で完了したこと
 
-### 1. MidiManager 設計確定
+### 1. 設計壁打ち：責務分離の確定
 
-- `MacroKnobManager` → `MidiManager` にリネーム確定
-- 全入力源（物理MIDI / SimpleWindow / Sequencer / LFO / AI）が `MidiCCEvent(MIDI 2.0)` に統一される設計を言語化
-- CC未定義 param → CC1000〜自動払い出し設計確定
-- Simple Window → `handleMidiCC()` 経由に統一（案A 完全 SSoT）確定
+- `macroKnob.ts` の責務を整理し、2つのクラスに分離することを確定
+  - `MacroKnobManager`（`macroKnob.ts`）= 32ノブのUI設定管理のみ
+  - `MidiManager`（`midiManager.ts`・新設）= CC入力の唯一の通路
+- 全 SimpleWindow と MacroKnobPanel が `engine.handleMidiCC()` 経由で統一される設計を確定
+- `MacroKnobPanel` が `macroKnobManager` を直接参照していた問題を発見・修正
 
-### 2. CC体系整理
+### 2. 実装
 
-- Camera Plugin 3種（static / orbit / aerial）のパラメーター全洗い出し
-- CC110（Auto Rotate）新設確定
-- CC510〜512（LookAt X/Y/Z）新設確定
-- grid-wave の `hue` → CC400 追記漏れ確認
-- Block内サブエリア方針確定（20個単位でPlugin カテゴリー専用エリアを予約）
-- コントリビューター帯 CC1000〜9999 確定
+- `src/core/midiManager.ts` 新規作成（`handleMidiCC` / `receiveModulation` を移管）
+- `src/core/macroKnob.ts` 責務削減（`handleMidiCC` / `receiveModulation` / `init` を削除・`setValue` を追加）
+- `src/core/engine.ts` 更新（`midiManager` に委譲・公開API追加: `getMacroKnobs` / `setMacroKnob` / `getMacroKnobValue` / `receiveMidiModulation`）
+- `src/ui/panels/macro-knob/MacroKnobPanel.tsx` engine経由に変更（`macroKnobManager` 直接参照を削除）
+- `src/types/index.ts` `MidiManager` interface 追加・`MacroKnobManager` から `handleMidiCC` / `receiveModulation` を削除・`setValue` 追加
 
-### 3. 環境設定
+### 3. ドキュメント整備
 
-- `~/.claude/settings.json` に `ENABLE_TOOL_SEARCH: true` 追加（Claude Code のコンテキスト削減）
-
----
-
-## 確立した新ルール（Day49）
-
-- **MidiManager = 全 CC の唯一の通路**: 全入力源が `MidiCCEvent(MIDI 2.0)` に統一
-- **CC未定義 param は存在してはいけない**: 定義漏れは CC1000〜自動払い出しでカバー
-- **5分以上アイドルでキャッシュ切れ**: コスト跳ね上がるため短いメッセージで繋ぐ
+- `docs/spec/macro-knob.spec.md` Day50アーキテクチャに全面更新（元内容を全保持・Day50変更を統合）
+- `docs/spec/simple-window.spec.md` engine経由MUSTルール追加・ファイルパス修正
+- 6つのCLAUDE.mdを新アーキテクチャに更新（MidiManager責務分離を反映）
+- ルートCLAUDE.mdに**差分保持ルール**追記（Day50確立）
 
 ---
 
-## 次回やること（Day50）
+## 確立した新ルール（Day50）
 
-### Step 1（最初にやること）
-`src/core/ccMapService.ts` の `getCcNumber()` を修正
-```typescript
-// -1 返す代わりに CC1000〜自動払い出し
-private autoAssignedCc: Map<string, number> = new Map()
-private nextAutoCc: number = 1000
-```
+- **差分保持ルール（最重要）**: CLAUDE.md / spec.md / 全ドキュメントを更新するときは `move_file` → `read_text_file` で元ファイルを読む → 差分を整理・承認 → `write_file`。「記憶で書ける」は理由にならない
+- **ルートCLAUDE.mdは `edit_file` のみ**: `move_file` + `write_file` は禁止
+- **MidiManager = 全CC入力の唯一の通路**: 全UI・物理MIDI・Sequencer（将来）が `engine.handleMidiCC()` 経由で統一
+- **MacroKnobPanel は engine 経由のみ**: `macroKnobManager` 直接参照は禁止
 
-### Step 2
-`src/core/macroKnob.ts` → `src/core/midiManager.ts` にリネーム
-- クラス名・export 変数名・interface 名を全て変更
-- `src/types/index.ts` の `MacroKnobManager` → `MidiManager`
+---
 
-### Step 3
-`MidiManager.handleMidiCC()` が `engine` 経由で `plugin.params` に書くように修正
-- `init()` に engine を追加
-- `handleMidiCC()` / `receiveModulation()` で `engine.setGeometryParam()` 等を呼ぶ
+## 次回やること（Day51）
 
-### Step 4
-Simple Window 3種のスライダーを `handleMidiCC()` 経由に変更
-```typescript
-const cc = ccMapService.getCcNumber(pluginId, paramKey)
-const normalized = (value - param.min) / (param.max - param.min)
-engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
-```
-ポーリングで `plugin.params[key].value` を読んで表示を追従させる
+### 未完了のDay49タスク（引き継ぎ）
+- `ccMapService.ts` の `getCcNumber()` を修正（CC1000〜自動払い出し）
+- cc-standard.spec.md / cc-mapping.spec.md の定義漏れ追記（CC110・CC510〜512・grid-wave hue）
 
-### Step 5
-cc-standard.spec.md / cc-mapping.md の定義漏れ追記
-- CC110（Auto Rotate）/ CC510〜512（LookAt X/Y/Z）/ grid-wave hue
-
-### Step 6
-CLAUDE.md / spec のリネーム反映
+### SimpleWindow の engine.handleMidiCC() 経由への統一
+現在 `GeometrySimpleWindow` / `CameraSimpleWindow` / `FxSimpleWindow` のスライダーは `engine.setGeometryParam()` 等を直接呼んでいる。
+Day50で設計確定した仕様（`engine.handleMidiCC()` 経由）への移行が残っている。
 
 ---
 
@@ -116,6 +95,7 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 
 ## 環境メモ（累積）
 
+- **差分保持ルール**（Day50確立）: write_file前に必ずread_text_fileで元ファイルを読む・差分を整理して承認を得てから実行。CLAUDE.md / spec.md / 全ドキュメントに適用
 - **ENABLE_TOOL_SEARCH: true**（Day49確立）: `~/.claude/settings.json` に設定済み（Claude Code のコンテキスト削減）
 - **5分アイドルでキャッシュ切れ**（Day49確認）: 混雑時間帯は1ステップずつ・短いメッセージで繋ぐ
 - **ブラウザ確認フロー**（Day47確立）: `pnpm dev` → `open http://localhost:5173` の2ステップ必須。HMR・hard reload では反映されない
@@ -123,7 +103,7 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 - **Camera 初期値バグ修正済み**（Day48）: PreferencesPanel は engine.getLayers() から cameraPlugin.id を直接読む
 - **requiresRebuild フラグ**（Day46確立）: メッシュ形状に影響する param に `requiresRebuild: true` を必ず設定
 - **Camera Plugin はファクトリ関数パターン**（Day45確立）: `getCameraPlugin()` が毎回新インスタンスを生成
-- **大幅更新フロー**（Day41確立）: `move_file → write_file → NFC 正規化`
+- **大幅更新フロー**（Day41確立）: `move_file → read_text_file → 差分確認 → 承認 → write_file → NFC 正規化`
 - **write_file は新規ファイルのみ**: 既存ファイルへの使用は禁止
 - **spec アーカイブ**（Day41確立）: `docs/archive/spec/YYYY-MM-DD_DayN_[name].spec.md`
 - **MIDI 受信は App.tsx で直接**（Day44確立）: IPC 経路不要
@@ -136,6 +116,6 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-Day50開始
-引き継ぎスキル
+Day51開始
+引き継ぎメモ読んで
 ```
