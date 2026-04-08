@@ -1,8 +1,8 @@
-# src/core - CLAUDE.md v5
+# src/core - CLAUDE.md v4
 
 ## 役割
 
-GeoGraphy のエンジンコア。レンダーループ・Plugin Registry・Parameter Store・Command パターン・LayerManager・Program/Preview バス・MacroKnobManager・MidiManager を管理する。
+GeoGraphy のエンジンコア。レンダーループ・Plugin Registry・Parameter Store・Command パターン・LayerManager・Program/Preview バス・MacroKnobManager を管理する。
 
 **engine.ts は App.tsx に依存してはいけない・単体で動作できること。**
 
@@ -27,9 +27,7 @@ src/core/
 ├── registry.ts        ← Plugin Registry（自動登録）
 ├── parameterStore.ts  ← パラメーター一元管理（Command 経由）
 ├── commandHistory.ts  ← Command パターン・アンドゥ履歴
-├── macroKnob.ts       ← MacroKnobManager（32ノブUI設定管理）
-├── midiManager.ts     ← MidiManager（CC入力の唯一の通路・Day50新設）
-├── ccMapService.ts    ← CC Map Service（CC番号 lookup）
+├── macroKnob.ts       ← MacroKnobManager（エンジン固定部分）
 ├── programBus.ts      ← Program バス（フルサイズ Three.js Scene）
 ├── previewBus.ts      ← Preview バス（SceneState + 小キャンバス）
 └── config.ts          ← 定数（MAX_LAYERS / MAX_UNDO_HISTORY など）
@@ -46,50 +44,30 @@ src/core/
 | Command パターン | アンドゥ・リドゥ | commandHistory.ts 経由 |
 | レンダリングループ | requestAnimationFrame・delta・beat の供給 | engine.ts 内部のみ |
 | BPM クロック | BPM・beat 値の管理 | Tempo Driver 経由のみ |
-| MacroKnobManager | 32ノブのUI設定管理（名前・CC番号・アサイン） | src/core/macroKnob.ts・直接改変禁止 |
-| MidiManager | CC入力の唯一の通路 | src/core/midiManager.ts・直接改変禁止 |
+| MacroKnobManager | MIDI CC とパラメーターの対応管理 | src/core/macroKnob.ts・直接改変禁止 |
 | メニューバー | GeoGraphy / File / View の定義 | Electron main.js に集約 |
 
 ---
 
-## MacroKnobManager と MidiManager の責務分離（Day50確定）
+## MacroKnobManager
 
 ```
-【UI層】（全部同列・engine 経由・MIDI 2.0 で統一）
-
-GeometrySimpleWindow  CameraSimpleWindow  FxSimpleWindow  MacroKnobPanel
-        ↓                     ↓                 ↓               ↓
-        engine.handleMidiCC(MidiCCEvent)  ← 全UIの唯一の入り口
-                              ↓
-                    MidiManager（midiManager.ts）
-                              ↓ MacroKnobManager のアサイン設定を参照（読み取りのみ）
-                              ↓ rangeMap(value, min, max)
-                        ParameterStore
-                              ↓
-                    ModulatablePlugin.params.value
-
-【物理MIDIコントローラー】
-App.tsx（Web MIDI API 受信）→ engine.handleMidiCC() ← SimpleWindow と同じ入り口
+MIDI 1.0 機器                    MIDI 2.0 機器
+  ↓ Web MIDI API                   ↓ ネイティブ API
+  ↓                                ↓
+electron/main.js （両方ともここで受信・0.0〜1.0 に正規化）
+  ↓ IPC 'geo:midi-cc'（MidiCCEvent）
+MacroKnobManager（src/core/macroKnob.ts）← コア固定
+  ↓ rangeMap(event.value, min, max)
+Parameter Store → Command 経由でパラメーター更新
+  ↓
+ModulatablePlugin.params.value
 ```
 
-### MacroKnobManager（macroKnob.ts）
-- 32ノブのUI設定管理（名前・MIDI CC番号・アサイン・現在値キャッシュ）
-- `getKnobs()` / `setKnob()` / `addAssign()` / `removeAssign()` / `getValue()` / `setValue()`
-- **handleMidiCC / receiveModulation は持たない（MidiManager に移管済み・Day50）**
-
-### MidiManager（midiManager.ts）
-- CC入力の唯一の通路
-- `init(store, knobManager)` / `handleMidiCC(event)` / `receiveModulation(knobId, value)`
-- MacroKnobManager のアサイン設定を読み取り専用で参照する
-
-### engine の公開 API（UI層が使う）
-```typescript
-engine.handleMidiCC(event)           // 全UIの唯一の入り口
-engine.getMacroKnobs()               // MacroKnobPanel 表示用
-engine.setMacroKnob(id, config)      // MacroKnobPanel 編集用
-engine.getMacroKnobValue(knobId)     // MacroKnobPanel 値取得用
-engine.receiveMidiModulation(knobId, value)  // Sequencer / LFO 用（将来）
-```
+- `handleMidiCC(event: MidiCCEvent)` — value は main.js 側で 0.0〜1.0 正規化済み
+- `receiveModulation(knobId, value)` — Sequencer Plugin からの値受取り（0.0〜1.0）
+- `rangeMap(v, min, max)` — 0.0〜1.0 を assign の min/max に変換（normalize は Phase 14 で統一）
+- IPC チャンネル: `'geo:midi-cc'`（MIDI 1.0/2.0 共通）
 
 詳細仕様: `docs/spec/macro-knob.spec.md`
 

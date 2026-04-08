@@ -67,47 +67,6 @@ engine.setMacroKnob(id, config)
 
 ---
 
-## MIDI 2.0 設計リファレンス
-
-### MidiCCEvent（MIDI 1.0 / 2.0 共通フォーマット）
-
-```typescript
-interface MidiCCEvent {
-  cc: number           // CC番号: MIDI 1.0 = 0〜127 / MIDI 2.0 = 0〜32767
-  value: number        // 正規化済み値: 0.0〜1.0
-  protocol: 'midi1' | 'midi2'
-  resolution: 128 | 4294967296
-}
-```
-
-### midiCC の3状態
-
-```typescript
-midiCC: number
-// 0〜127    = MIDI 1.0 CC 番号
-// 0〜32767  = MIDI 2.0 AC 番号
-// -1        = 未割り当て
-```
-
-### MIDI Learn（将来実装対象）
-
-1. ノブを右クリック → Learn モード（ノブがハイライト）
-2. MIDI コントローラーのノブを動かす → CC番号を自動取得
-3. 既存アサインがあれば上書き確認ダイアログ
-
-### CC Standard クイックリファレンス
-
-| CC 番号 | 抽象概念 | 例 |
-|---|---|---|
-| CC101 | Primary Amount | radius・size・strength |
-| CC110 | Auto Rotate | camera autoRotate |
-| CC300 | Temporal Speed | speed・rate |
-| CC302 | Deformation | amplitude・twist・distortion |
-| CC400 | Hue | hue |
-| CC510〜512 | LookAt X/Y/Z | camera lookAt |
-
----
-
 ## 変更履歴
 
 | Day | 変更内容 |

@@ -12,7 +12,7 @@
 /**
  * FXPlugin は ModulatablePlugin を継承する。
  * params は ModulatablePlugin が持つため FXPlugin 側に定義不要。
- * MidiManager → CC Standard 経由で外部制御される（Day50確定）。
+ * CC Standard 経由で MacroKnob から外部制御される。
  */
 interface FXPlugin extends ModulatablePlugin {
   create(composer: EffectComposer): void
@@ -28,13 +28,12 @@ interface FXPlugin extends ModulatablePlugin {
 
 ### Plugin 二分類（重要）
 
-| 分類 | Interface | params | MidiManager 制御 |
+| 分類 | Interface | params | MIDI 2.0 制御 |
 |---|---|---|---|
 | **ModulatablePlugin** | FXPlugin / GeometryPlugin 等 | ✅ あり | ✅ 可能 |
 | **PluginBase のみ** | TransitionPlugin / WindowPlugin 等 | ❌ なし | ❌ 不要 |
 
-FXPlugin は MidiManager → CC Standard 経由で外部制御される。
-制御経路: `engine.handleMidiCC()` → `MidiManager` → `ParameterStore` → `plugin.params.value`
+FXPlugin は ModulatablePlugin → CC Standard → MacroKnob 経由で外部制御される。
 
 ### enabled の挙動（MUST・plugin-lifecycle.spec.md 準拠）
 
@@ -106,6 +105,6 @@ Three.js レンダリング
 ## 注意事項
 
 - `destroy()` では `pass.dispose()` を必ず呼ぶ
-- `enabled = false` の FX は ON/OFF を create()/destroy() で制御すること（`pass.enabled = false` 禁止）
+- `enabled = false` の FX は `pass.enabled = false` でスキップ（composer から削除しない）
 - ColorGrading は Geometry の Color（Hue / Alpha）とは別物
 - `renderer: 'threejs'` を必ず設定すること

@@ -1,4 +1,4 @@
-# src/ui/panels - CLAUDE.md v2
+# src/ui/panels - CLAUDE.md v1
 
 ## 役割
 
@@ -44,7 +44,6 @@ src/ui/panels/
 - MUST: View メニュー / キーボードショートカットで開閉できること
 - MUST: `<form>` タグは使用しない（onClick / onChange で代替）
 - MUST: localStorage は使用しない（React state で管理）
-- MUST: `macroKnobManager` を直接 import しないこと・`engine` 経由のみ（Day50確定）
 
 ---
 

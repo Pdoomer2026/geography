@@ -12,15 +12,14 @@ GeoGraphy の主役。Three.js で幾何学パターンを描画する。
 /**
  * GeometryPlugin は ModulatablePlugin を継承する。
  * params は ModulatablePlugin が持つため GeometryPlugin 側に定義不要。
- * MidiManager → CC Standard 経由で外部制御される（Day50確定）。
+ * CC Standard 経由で MacroKnob から外部制御される。
  */
 interface GeometryPlugin extends ModulatablePlugin {
   create(scene: THREE.Scene): void
   update(delta: number, beat: number): void
   destroy(scene: THREE.Scene): void
   // params: Record<string, PluginParam> ← ModulatablePlugin から継承
-  defaultCameraPluginId?: string   // 推奨 Camera Plugin ID
-  defaultCameraParams?: Record<string, number>  // Camera params 初期値オーバーライド
+  cameraPreset?: CameraPreset  // 推奨カメラ位置（未定義時は DEFAULT_CAMERA_PRESET）
 }
 
 // ModulatablePlugin → PluginBase（必須フィールド）
@@ -34,13 +33,12 @@ interface GeometryPlugin extends ModulatablePlugin {
 
 ### Plugin 二分類（重要）
 
-| 分類 | Interface | params | MidiManager 制御 |
+| 分類 | Interface | params | MIDI 2.0 制御 |
 |---|---|---|---|
 | **ModulatablePlugin** | GeometryPlugin / FXPlugin 等 | ✅ あり | ✅ 可能 |
 | **PluginBase のみ** | TransitionPlugin / WindowPlugin 等 | ❌ なし | ❌ 不要 |
 
-GeometryPlugin は MidiManager → CC Standard 経由で外部制御される。
-制御経路: `engine.handleMidiCC()` → `MidiManager` → `ParameterStore` → `plugin.params.value`
+GeometryPlugin は ModulatablePlugin → CC Standard → MacroKnob 経由で外部制御される。
 
 ---
 
@@ -127,9 +125,9 @@ knob1:
 ```typescript
 // config.ts の例
 export const defaultParams: Record<string, PluginParam> = {
-  speed:    { value: 0.5, min: 0.1, max: 2.0, label: 'Speed' },
-  segments: { value: 60,  min: 10,  max: 100,  label: 'Segments', requiresRebuild: true },
-  size:     { value: 80,  min: 1,   max: 500,  label: 'Size',     requiresRebuild: true },
+  speed:    { value: 0.5, min: 0.1, max: 2.0, label: 'Speed' },             // ← 不要
+  segments: { value: 60,  min: 10,  max: 100,  label: 'Segments', requiresRebuild: true }, // ← 必須
+  size:     { value: 80,  min: 1,   max: 500,  label: 'Size',     requiresRebuild: true }, // ← 必須
 }
 ```
 

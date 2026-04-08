@@ -1,4 +1,4 @@
-# src/ui/panels/macro-knob - CLAUDE.md v2
+# src/ui/panels/macro-knob - CLAUDE.md v1
 
 ## 役割
 
@@ -30,51 +30,38 @@ MacroKnobPanel（メイン・export）
 
 ## MUST ルール
 
-- MUST: コンポーネント名は `MacroKnobPanel`
+- MUST: コンポーネント名は `MacroKnobPanel`（旧名 `MacroKnobSimpleWindow` から変更）
 - MUST: export は `export function MacroKnobPanel()`
 - MUST: `1` キー / `⌘1` / `onToggleMacroKnobWindow` IPC で表示/非表示（App.tsx が制御）
 - MUST: ノブ数は 32 固定（8列 × 4行）
 - MUST: ノブ値の polling は 200ms 間隔（`setInterval(sync, 200)`）
 - MUST: `useDraggable` でフローティング・ドラッグ可能
-- MUST: `macroKnobManager` を直接 import しない（Day50 確定）
-- MUST: ノブ値は `engine.getMacroKnobValue(id)` で取得（engine 経由）
-- MUST: ノブ設定変更は `engine.setMacroKnob(id, config)` で行う（engine 経由）
-- MUST: ノブ一覧は `engine.getMacroKnobs()` で取得（engine 経由）
+- MUST: ノブ値は `macroKnobManager.getValue(id)` で取得（0.0〜1.0）
+- MUST: ノブ設定変更は `macroKnobManager.setKnob(id, config)` で行う
 
 ---
 
-## import パス（このファイルからの相対パス）
+## MIDI 2.0 設計（Phase 14 実装対象）
 
-```typescript
-// Day50 以降: engine 経由のみ（macroKnobManager 直接参照禁止）
-import { engine } from '../../../core/engine'
-import { useDraggable } from '../../useDraggable'
-import type { MacroKnobConfig } from '../../../types'
-```
-
----
-
-## データフロー（Day50 確定）
+### 制御経路（疎結合・コア固定）
 
 ```
-MacroKnobPanel
-  ↓ 200ms ポーリング
-engine.getMacroKnobs()       → ノブ設定一覧
-engine.getMacroKnobValue(id) → 現在値（0.0〜1.0）
-  ↓ ノブ編集（EditDialog SAVE）
-engine.setMacroKnob(id, config)
+【入力層】                        【MacroKnob 層】            【出力層】
+MIDI 2.0 Controller
+  → electron/main.js
+  → IPC 'geo:midi-cc'        →  macroKnobManager            → ParameterStore
+MIDI 1.0 Controller                handleMidiCC(event)             ↓
+  → Web MIDI API（main.js内）→  handleMidiCC(event)        Plugin.params
+  → IPC 'geo:midi-cc'
+Sequencer Plugin               →  receiveModulation(knobId, 0〜1)
 ```
-
----
-
-## MIDI 2.0 設計リファレンス
 
 ### MidiCCEvent（MIDI 1.0 / 2.0 共通フォーマット）
 
 ```typescript
 interface MidiCCEvent {
   cc: number           // CC番号: MIDI 1.0 = 0〜127 / MIDI 2.0 = 0〜32767
-  value: number        // 正規化済み値: 0.0〜1.0
+  value: number        // 正規化済み値: 0.0〜1.0（main.js 側で正規化）
   protocol: 'midi1' | 'midi2'
   resolution: 128 | 4294967296
 }
@@ -89,22 +76,33 @@ midiCC: number
 // -1        = 未割り当て
 ```
 
-### MIDI Learn（将来実装対象）
+### MIDI Learn（Phase 14 実装対象）
 
 1. ノブを右クリック → Learn モード（ノブがハイライト）
 2. MIDI コントローラーのノブを動かす → CC番号を自動取得
 3. 既存アサインがあれば上書き確認ダイアログ
 
-### CC Standard クイックリファレンス
+### CC Standard v0.1 対応（Phase 14 実装対象）
+
+`MacroAssign.defaultCC` に CC Standard の CC 番号を設定する。
+詳細: `docs/spec/cc-standard.spec.md §3`
 
 | CC 番号 | 抽象概念 | 例 |
 |---|---|---|
 | CC101 | Primary Amount | radius・size・strength |
-| CC110 | Auto Rotate | camera autoRotate |
 | CC300 | Temporal Speed | speed・rate |
 | CC302 | Deformation | amplitude・twist・distortion |
 | CC400 | Hue | hue |
-| CC510〜512 | LookAt X/Y/Z | camera lookAt |
+
+---
+
+## import パス（このファイルからの相対パス）
+
+```typescript
+import { macroKnobManager } from '../../core/macroKnob'
+import { useDraggable } from '../useDraggable'
+import type { MacroKnobConfig } from '../../types'
+```
 
 ---
 
@@ -112,8 +110,7 @@ midiCC: number
 
 | Day | 変更内容 |
 |---|---|
-| Day13 | MacroKnob UI 初期実装 |
+| Day13 | MacroKnob UI 初期実装（MacroKnobPanel として） |
 | Day35 | Panel 化・Simple Window から分離・コア固定確定 |
 | Day37 | MIDI 2.0 設計・MidiCCEvent・CC Standard 統合 |
-| Day38 | `src/ui/MacroKnobSimpleWindow.tsx` → `src/ui/panels/macro-knob/MacroKnobPanel.tsx` へ移動 |
-| Day50 | macroKnobManager 直接参照 → engine 経由に変更（責務分離） |
+| Day38 | `src/ui/MacroKnobSimpleWindow.tsx` → `src/ui/panels/macro-knob/MacroKnobPanel.tsx` へ移動・リネーム（Phase 13） |

@@ -159,6 +159,28 @@ Step 4: NFC 正規化
 - move_file 後はファイルが存在しない → write_file で新規作成（filesystem MCP に create_file は存在しない）
 - アーカイブファイル名に日付・Day番号を含める → 更新履歴が一目瞭然
 
+**⚠️ CLAUDE.md 更新時の差分保持ルール（Day50確立）**
+
+既存 CLAUDE.md を更新するときは以下の手順を厳守すること。
+「記憶で書ける」と判断して元ファイルを読まずに進めることは禁止。
+
+```
+Step 0: edit_file で対応できるか判断する
+  → 追記・一部変更のみ          → edit_file で編集（ルート CLAUDE.md は必ず edit_file）
+  → 大幅更新・全体を書き直す場合 → 以下の Step 1〜5 へ
+
+Step 1: move_file でアーカイブ
+Step 2: アーカイブした元ファイルを read_text_file で必ず読む
+Step 3: 「継続すべき内容」と「変更・追加する内容」の差分を整理して慎太郎さんに提示する
+Step 4: 承認を得る
+Step 5: write_file で新規作成
+```
+
+- MUST: Step 2〜4 を省略しない・「記憶で書ける」は理由にならない
+- MUST: 「継続すべき内容」は全て保持する・削除は承認を得てから
+- MUST: ルート CLAUDE.md は edit_file のみ・move_file + write_file は禁止
+- MUST: 承認前に write_file を実行しない
+
 **⚠️ CLAUDE.md 更新時の必須手順（AI への命令の品質管理・Day39確立）**
 
 CLAUDE.md は「AI への命令書」であり、その変遷を追うことで「ルールが機能したか」を dev-log / handover で検証できる。

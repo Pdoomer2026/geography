@@ -1,4 +1,4 @@
-# src/ui - CLAUDE.md v3
+# src/ui - CLAUDE.md v2
 
 ## 役割
 
@@ -12,7 +12,7 @@ Three.js Canvas の上に React UI をオーバーレイする。
 | 名称 | 定義 | 例 |
 |---|---|---|
 | **Window** | Plugin エコシステムの UI・コントリビューターがデザインできる | Mixer Simple Window / FX Simple Window |
-| **Panel** | アプリ固定の小窓・コントリビューターが触れない | Preferences Panel / MacroKnob Panel |
+| **Panel** | アプリ固定の小窓・コントリビューターが触れない | Preferences Panel |
 | **Simple Window** | 各 Plugin のデフォルト最小 UI・カスタム Window Plugin がないときのフォールバック | Mixer Simple Window |
 
 すべての Window は **View メニュー**から表示/非表示を切り替えられる。
@@ -23,14 +23,12 @@ Three.js Canvas の上に React UI をオーバーレイする。
 
 Simple Window のファイル名は `[Name]SimpleWindow.tsx`。
 
-### Simple Window 一覧（v1・実装済み）
+### Simple Window 一覧（v1）
 
-| Simple Window 名 | 対応 Plugin | ファイル |
+| Simple Window 名 | 対応 Plugin / Manager | ファイル |
 |---|---|---|
 | Mixer Simple Window | MixerPlugin | `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx` |
 | FX Simple Window | FX Plugin | `src/ui/FxSimpleWindow.tsx` |
-| Geometry Simple Window | Geometry Plugin | `src/ui/GeometrySimpleWindow.tsx` |
-| Camera Simple Window | Camera Plugin | `src/ui/CameraSimpleWindow.tsx` |
 
 ---
 
@@ -38,7 +36,7 @@ Simple Window のファイル名は `[Name]SimpleWindow.tsx`。
 
 Panel のファイル名は `[Name]Panel.tsx`。`src/ui/panels/` に配置。各 Panel は固有の CLAUDE.md を持つ。
 
-### Panel 一覧（v1・実装済み）
+### Panel 一覧（v1）
 
 | Panel 名 | 内容 | ファイル |
 |---|---|---|
@@ -49,15 +47,13 @@ Panel のファイル名は `[Name]Panel.tsx`。`src/ui/panels/` に配置。各
 
 ## View メニューとの連携
 
-すべての Window・Panel は View メニューから表示/非表示を切り替えられる。
+すべての Window ・ Panel は View メニューから表示/非表示を切り替えられる。
 
 | キー / メニュー | 対象 |
 |---|---|
 | `1` / View > MacroKnob Panel（⌘1） | MacroKnobPanel |
 | `2` / View > FX Simple Window（⌘2） | FxSimpleWindow |
 | `3` / View > Mixer Simple Window（⌘3） | MixerSimpleWindow |
-| `4` / View > Camera Simple Window（⌘4） | CameraSimpleWindow |
-| `5` / View > Geometry Simple Window（⌘5） | GeometrySimpleWindow |
 | `H` / View > Hide All Windows | 全 Window / Panel 非表示 |
 | `S` / View > Show All Windows | 全 Window / Panel 表示 |
 | `F` | 全 Window / Panel 非表示 + フルスクリーン |
@@ -73,20 +69,19 @@ View メニューのイベントは `electron/main.js` → IPC → `electron/pre
 src/ui/
 ├── App.tsx                    ← Canvas + Window / Panel 群のルートレイアウト
 ├── FxSimpleWindow.tsx         ← FX Simple Window
-├── GeometrySimpleWindow.tsx   ← Geometry Simple Window（Day45新設）
-├── CameraSimpleWindow.tsx     ← Camera Simple Window（Day45新設）
 ├── useAutosave.ts             ← 終了時保存・起動時復元
 ├── useDraggable.ts            ← フローティングウィンドウのドラッグ
-└── panels/
-    ├── CLAUDE.md              ← Panel 共通ルール
+└── panels/                    ← Panel 専用ディレクトリ（Day35 確定）
+    ├── CLAUDE.md                ← Panel 共通ルール
     ├── preferences/
-    │   ├── CLAUDE.md          ← Preferences 固有
-    │   └── PreferencesPanel.tsx
+    │   ├── CLAUDE.md            ← Preferences 固有
+    │   └── PreferencesPanel.tsx ← 移動予定（現在 src/ui/ にあり）
     └── macro-knob/
-        ├── CLAUDE.md          ← MacroKnob + MIDI 2.0 固有（最重要）
-        └── MacroKnobPanel.tsx
+        ├── CLAUDE.md            ← MacroKnob + MIDI 2.0 固有（最重要）
+        └── MacroKnobPanel.tsx   ← リネーム予定（現在 MacroKnobSimpleWindow.tsx）
 
 ※ Mixer Simple Window は src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx
+※ panels/ の実装は Phase 13 以降
 ```
 
 ---
@@ -101,23 +96,11 @@ src/ui/
 │  Canvas エリア（Three.js 全レイヤー）│
 │  Mixer Simple Window（フローティング）│
 │  FX Simple Window（フローティング）  │
-│  Geometry Simple Window（フローティング）│
-│  Camera Simple Window（フローティング）│
-│  MacroKnob Panel（フローティング）   │
-│  Preferences Panel（フローティング） │
+│  MacroKnob Panel（フローティング）          │  ← Phase 13 以降（現在は MacroKnobSimpleWindow）
+│  Preferences Panel（フローティング）         │
 │                                     │
 └─────────────────────────────────────┘
 ```
-
----
-
-## MUST ルール（Day50 追加）
-
-- MUST: パラメーター変更は `engine.handleMidiCC(MidiCCEvent)` 経由で行うこと
-- MUST: `macroKnobManager` を直接 import しないこと・`engine` 経由のみ許可
-- MUST: `<form>` タグは使用しない（onClick / onChange で代替）
-- MUST: localStorage は使用しない（React state で管理）
-- MUST: Preferences Panel は Panel（アプリ固定）であり Window ではない
 
 ---
 
@@ -126,3 +109,12 @@ src/ui/
 - **カラーパレット**: 暗背景（`#0a0a14`）+ 発光ライン（`#a0c4ff`）
 - **フォント**: monospace 系（UI）
 - **ドラッグ**: `useDraggable.ts` で統一
+
+---
+
+## 注意事項
+
+- `<form>` タグは使用しない（onClick / onChange で代替）
+- localStorage は使用しない（Claude.ai 環境では動作しない）
+- React state（useState / useReducer）でセッション内状態を管理
+- Preferences Panel は Panel（アプリ固定）であり Window ではない

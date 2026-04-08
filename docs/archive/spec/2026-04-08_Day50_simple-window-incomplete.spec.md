@@ -58,7 +58,7 @@ v1 ではカスタム Window Plugin の実装は行わないため、常に Simp
 
 ---
 
-## 5. View メニューとの連携（Day44 更新）
+## 5. View メニューとの連携
 
 すべての Simple Window は View メニューから表示/非表示を切り替えられる。
 
@@ -114,9 +114,7 @@ View
 
 Simple Window は Window の一種。Panel ではない。
 MacroKnob Panel は Day35 壁打ちで Panel に確定（旧名: Macro Knob Simple Window）。
-
 Camera Simple Window は Panel ではなく Simple Window として分類する。
-（Camera Plugin はコントリビューターが追加できる Plugin エコシステムの一部であるため）
 
 ---
 
@@ -148,8 +146,6 @@ function handleParam(pluginId: string, paramKey: string, value: number, param: P
 
 ## 9. References
 
-- 要件定義書 v2.0 §5「Window / Panel 設計」
-- 実装計画書 v3.2 §5「Phase 13：Panel 体系整備」
 - `docs/spec/macro-knob.spec.md`（MidiManager / MacroKnob 設計・Day50 更新）
 - `docs/spec/camera-plugin.spec.md`（Camera Simple Window の UI 詳細）
 - `docs/spec/mixer-plugin.spec.md`

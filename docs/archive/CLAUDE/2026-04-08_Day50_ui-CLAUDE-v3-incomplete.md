@@ -19,11 +19,7 @@ Three.js Canvas の上に React UI をオーバーレイする。
 
 ---
 
-## Simple Window 命名原則
-
-Simple Window のファイル名は `[Name]SimpleWindow.tsx`。
-
-### Simple Window 一覧（v1・実装済み）
+## Simple Window 一覧（v1・実装済み）
 
 | Simple Window 名 | 対応 Plugin | ファイル |
 |---|---|---|
@@ -34,11 +30,9 @@ Simple Window のファイル名は `[Name]SimpleWindow.tsx`。
 
 ---
 
-## Panel 命名原則（Day35 確定）
+## Panel 一覧（v1・実装済み）
 
 Panel のファイル名は `[Name]Panel.tsx`。`src/ui/panels/` に配置。各 Panel は固有の CLAUDE.md を持つ。
-
-### Panel 一覧（v1・実装済み）
 
 | Panel 名 | 内容 | ファイル |
 |---|---|---|
@@ -48,8 +42,6 @@ Panel のファイル名は `[Name]Panel.tsx`。`src/ui/panels/` に配置。各
 ---
 
 ## View メニューとの連携
-
-すべての Window・Panel は View メニューから表示/非表示を切り替えられる。
 
 | キー / メニュー | 対象 |
 |---|---|
@@ -63,7 +55,14 @@ Panel のファイル名は `[Name]Panel.tsx`。`src/ui/panels/` に配置。各
 | `F` | 全 Window / Panel 非表示 + フルスクリーン |
 | `P` | Preferences Panel 開閉 |
 
-View メニューのイベントは `electron/main.js` → IPC → `electron/preload.js` → `geoAPI.onMenuEvents` → `App.tsx` の流れで受け取る。
+---
+
+## MUST ルール（Day50 追加）
+
+- MUST: パラメーター変更は `engine.handleMidiCC(MidiCCEvent)` 経由で行うこと
+- MUST: `macroKnobManager` を直接 import しないこと・`engine` 経由のみ許可
+- MUST: `<form>` タグは使用しない（onClick / onChange で代替）
+- MUST: localStorage は使用しない（React state で管理）
 
 ---
 
@@ -73,51 +72,19 @@ View メニューのイベントは `electron/main.js` → IPC → `electron/pre
 src/ui/
 ├── App.tsx                    ← Canvas + Window / Panel 群のルートレイアウト
 ├── FxSimpleWindow.tsx         ← FX Simple Window
-├── GeometrySimpleWindow.tsx   ← Geometry Simple Window（Day45新設）
-├── CameraSimpleWindow.tsx     ← Camera Simple Window（Day45新設）
+├── GeometrySimpleWindow.tsx   ← Geometry Simple Window
+├── CameraSimpleWindow.tsx     ← Camera Simple Window
 ├── useAutosave.ts             ← 終了時保存・起動時復元
 ├── useDraggable.ts            ← フローティングウィンドウのドラッグ
 └── panels/
-    ├── CLAUDE.md              ← Panel 共通ルール
+    ├── CLAUDE.md
     ├── preferences/
-    │   ├── CLAUDE.md          ← Preferences 固有
+    │   ├── CLAUDE.md
     │   └── PreferencesPanel.tsx
     └── macro-knob/
-        ├── CLAUDE.md          ← MacroKnob + MIDI 2.0 固有（最重要）
+        ├── CLAUDE.md
         └── MacroKnobPanel.tsx
-
-※ Mixer Simple Window は src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx
 ```
-
----
-
-## レイアウト構造
-
-```
-┌─────────────────────────────────────┐
-│ Electron titleBar（hiddenInset）     │
-├─────────────────────────────────────┤
-│                                     │
-│  Canvas エリア（Three.js 全レイヤー）│
-│  Mixer Simple Window（フローティング）│
-│  FX Simple Window（フローティング）  │
-│  Geometry Simple Window（フローティング）│
-│  Camera Simple Window（フローティング）│
-│  MacroKnob Panel（フローティング）   │
-│  Preferences Panel（フローティング） │
-│                                     │
-└─────────────────────────────────────┘
-```
-
----
-
-## MUST ルール（Day50 追加）
-
-- MUST: パラメーター変更は `engine.handleMidiCC(MidiCCEvent)` 経由で行うこと
-- MUST: `macroKnobManager` を直接 import しないこと・`engine` 経由のみ許可
-- MUST: `<form>` タグは使用しない（onClick / onChange で代替）
-- MUST: localStorage は使用しない（React state で管理）
-- MUST: Preferences Panel は Panel（アプリ固定）であり Window ではない
 
 ---
 
