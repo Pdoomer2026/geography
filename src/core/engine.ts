@@ -456,6 +456,26 @@ export class Engine {
   }
 
   /**
+   * Setup APPLY 用：選択された Camera Plugin を各レイヤーに割り当てる。
+   * spec: docs/spec/preferences-panel.spec.md §4 / camera-plugin.spec.md §9
+   *
+   * - cameraPluginIds[0] → layer-1、[1] → layer-2、[2] → layer-3
+   * - 配列の長さを超えるレイヤーは 'static-camera' を適用
+   * - isCameraUserOverridden=false（APPLY からの一括設定のためリセット）
+   */
+  applyCameraSetup(cameraPluginIds: string[]): void {
+    const layers = layerManager.getLayers()
+    layers.forEach((layer, index) => {
+      const pluginId = cameraPluginIds[index] ?? 'static-camera'
+      const base = getCameraPlugin(pluginId)
+      if (!base) return
+      const plugin = { ...base, params: structuredClone(base.params) }
+      // isCameraUserOverridden=false → Geometry 切り替え時の自動連動を維持
+      layerManager.setCameraPlugin(layer.id, plugin, undefined, false)
+    })
+  }
+
+  /**
    * Camera Plugin をレイヤーにアサインする（UI からの明示的な変更）。
    * isCameraUserOverridden=true を立てるため Geometry 切り替えで追従しなくなる。
    * spec: docs/spec/camera-plugin.spec.md §9
