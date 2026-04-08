@@ -1,6 +1,6 @@
 # GeoGraphy CC Mapping（SSoT）
 
-> バージョン: v0.2（Day42・2026-04-07）
+> バージョン: v0.3（Day51・2026-04-08）
 > 設計仕様: docs/spec/cc-mapping.spec.md
 > CC Standard: docs/spec/cc-standard.spec.md
 >
@@ -116,6 +116,39 @@
 | speed     | CC300 | MOTION    | Temporal Speed | 0.1       | 2.0       | 0.0   | 1.0   |      |
 | amplitude | CC302 | MOTION    | Deformation    | 0.1       | 2.0       | 0.0   | 1.0   |      |
 | frequency | CC303 | MOTION    | Frequency      | 0.1       | 1.0       | 0.0   | 1.0   |      |
+| hue       | CC400 | COLOR     | Hue            | 0         | 360       | 0.0   | 1.0   | 度数→CC変換 |
+
+---
+
+## Camera: static-camera
+
+| paramId | CC#   | Block     | blockName      | pluginMin | pluginMax | ccMin | ccMax | 備考 |
+|---------|-------|-----------|----------------|-----------|-----------|-------|-------|------|
+| posX    | CC500 | SPACE     | Position X     | -50       | 50        | 0.0   | 1.0   | 中心=0.5 |
+| posY    | CC501 | SPACE     | Position Y     | -50       | 50        | 0.0   | 1.0   | 中心=0.5 |
+| posZ    | CC502 | SPACE     | Position Z     | -50       | 50        | 0.0   | 1.0   | 中心=0.5 |
+| lookAtX | CC510 | SPACE     | LookAt X       | -50       | 50        | 0.0   | 1.0   | 注視点・中心=0.5 |
+| lookAtY | CC511 | SPACE     | LookAt Y       | -50       | 50        | 0.0   | 1.0   | 注視点・中心=0.5 |
+| lookAtZ | CC512 | SPACE     | LookAt Z       | -50       | 50        | 0.0   | 1.0   | 注視点・中心=0.5 |
+
+---
+
+## Camera: orbit-camera
+
+| paramId    | CC#   | Block     | blockName      | pluginMin | pluginMax | ccMin | ccMax | 備考 |
+|------------|-------|-----------|----------------|-----------|-----------|-------|-------|------|
+| radius     | CC101 | EXISTENCE | Primary Amount | 1         | 50        | 0.0   | 1.0   |      |
+| height     | CC501 | SPACE     | Position Y     | -20       | 30        | 0.0   | 1.0   |      |
+| speed      | CC300 | MOTION    | Temporal Speed | 0.0       | 3.0       | 0.0   | 1.0   |      |
+| autoRotate | CC110 | EXISTENCE | Auto Rotate    | 0         | 1         | 0.0   | 1.0   | bool型 |
+
+---
+
+## Camera: aerial-camera
+
+| paramId | CC#   | Block     | blockName      | pluginMin | pluginMax | ccMin | ccMax | 備考 |
+|---------|-------|-----------|----------------|-----------|-----------|-------|-------|------|
+| height  | CC501 | SPACE     | Position Y     | 1         | 100       | 0.0   | 1.0   | 俯瞰視点の高さ |
 
 ---
 
@@ -256,3 +289,4 @@
 |-----------|------|------|
 | v0.1 | 2026-04-07 | 初版作成・全 Plugin 分のマッピングを記載 |
 | v0.2 | 2026-04-07 | 「意味・AI語彙」列を削除・blockName 列に整理。cc-standard.spec.md との役割分担を明確化 |
+| v0.3 | 2026-04-08 | Camera Plugin 3種（static/orbit/aerial）のマッピング追加。grid-wave hue 欠落修正。CC110/CC510〜512 新設に伴う更新 |

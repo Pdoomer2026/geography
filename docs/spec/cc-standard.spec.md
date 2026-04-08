@@ -106,6 +106,8 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 | CC102 | Secondary Amount | float | 0.0〜1.0 | 大きさ・強さの副軸。`tube`, `inner radius` 等に対応 |
 | CC103 | Opacity | float | 0.0〜1.0 | 透明度・不透明度。`opacity`, `damp`（残像系）に対応 |
 
+| CC110 | Auto Rotate | bool | 0/1 | カメラ自動回転 ON/OFF。orbit-camera の `autoRotate` に対応。CC100（Enabled）と同じ bool 系 |
+
 **将来追加候補：**
 - CC104: Threshold（しきい値。Bloom の `threshold` 等）
 
@@ -171,6 +173,9 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 | CC505 | Focus / Center X | float | 0.0〜1.0 | フォーカス・ブラー等の中心点 X |
 | CC506 | Focus / Center Y | float | 0.0〜1.0 | フォーカス・ブラー等の中心点 Y |
 | CC507 | Depth | float | 0.0〜1.0 | 奥行き範囲。`depth`（Starfield）, `length`（Grid Tunnel）に対応 |
+| CC510 | LookAt X | float | -1.0〜1.0 | カメラ注視点 X。static-camera の `lookAtX` に対応 |
+| CC511 | LookAt Y | float | -1.0〜1.0 | カメラ注視点 Y。static-camera の `lookAtY` に対応 |
+| CC512 | LookAt Z | float | -1.0〜1.0 | カメラ注視点 Z。static-camera の `lookAtZ` に対応 |
 
 **将来追加候補：**
 - CC508: Field of View（カメラの視野角）
@@ -468,12 +473,13 @@ const radius = 0.5 + ccValue * (10.0 - 0.5)
 ## 付録：CC番号クイックリファレンス
 
 ```
-1xx EXISTENCE  100=ON/OFF  101=Amount   102=Amount2   103=Opacity
+1xx EXISTENCE  100=ON/OFF  101=Amount   102=Amount2   103=Opacity   110=AutoRotate
 2xx FORM       200=Shape   201=Density  202=Inner     203=Symmetry  204=TopoA  205=TopoB
 3xx MOTION     300=Speed   301=Phase    302=Deform    303=Freq      304=Random
 4xx COLOR      400=Hue     401=Sat      402=Bright    403=Contrast  404=Tint
 5xx SPACE      500=PosX    501=PosY     502=PosZ      503=Rot       504=Zoom
                505=FocusX  506=FocusY   507=Depth
+               510=LookAtX 511=LookAtY  512=LookAtZ
 6xx EDGE       600=Strength 601=Thick   602=Glow      603=Sharp     604=Vignette
 7xx BLEND      700=Blend   701=Feedback 702=Mode      703=FbScale   704=FbRot
 8xx SHADER     800=EffectType 801=Progress 802=LineWidth 803=SprayR 804=Noise  805=Color
