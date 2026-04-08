@@ -11,6 +11,7 @@ import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
 import { macroKnobManager } from './macroKnob'
+import { midiManager } from './midiManager'
 import { ccMapService } from './ccMapService'
 import { getCameraPlugin, listCameraPlugins } from '../plugins/cameras'
 import type {
@@ -59,7 +60,8 @@ export class Engine {
     this.container = container
     layerManager.initialize(container)
 
-    macroKnobManager.init(this.parameterStore)
+    // MidiManager を初期化（Day50: macroKnobManager.init → midiManager.init に変更）
+    midiManager.init(this.parameterStore, macroKnobManager)
     await ccMapService.init()
 
     // Plugin 自動登録
@@ -134,14 +136,38 @@ export class Engine {
     this.activeTransitionId = id
   }
 
-  // --- MacroKnob ---
+  // --- MacroKnob 公開 API（MacroKnobPanel 用・Day50 整備）---
 
+  /** MacroKnob の設定一覧を返す（MacroKnobPanel 表示用） */
   getMacroKnobs(): MacroKnobConfig[] {
     return macroKnobManager.getKnobs()
   }
 
+  /** MacroKnob の設定を更新する（MacroKnobPanel 編集用） */
+  setMacroKnob(id: string, config: MacroKnobConfig): void {
+    macroKnobManager.setKnob(id, config)
+  }
+
+  /** MacroKnob の現在値を返す（MacroKnobPanel 表示用・0.0〜1.0） */
+  getMacroKnobValue(knobId: string): number {
+    return macroKnobManager.getValue(knobId)
+  }
+
+  /**
+   * CC入力の唯一の入り口（Day50 確定）。
+   * 全UI（SimpleWindow / MacroKnobPanel）・物理MIDIコントローラーが呼ぶ。
+   * MidiManager に委譲する。
+   */
   handleMidiCC(event: MidiCCEvent): void {
-    macroKnobManager.handleMidiCC(event)
+    midiManager.handleMidiCC(event)
+  }
+
+  /**
+   * Sequencer / LFO からの変調値受け取り（将来実装）。
+   * MidiManager に委譲する。
+   */
+  receiveMidiModulation(knobId: string, value: number): void {
+    midiManager.receiveModulation(knobId, value)
   }
 
   // --- FX コントロール API（layerId 対応）---
@@ -164,23 +190,10 @@ export class Engine {
     }
   }
 
-  /**
-   * Setup APPLY 用：Plugin Lifecycle spec §6
-   * enabledIds に含まれる FX だけ create()、それ以外は destroy() して composer を再構築。
-   * 全レイヤーに対して適用する。
-   */
   applyFxSetup(enabledIds: string[]): void {
     layerManager.applyFxSetup(enabledIds)
   }
 
-  /**
-   * Setup APPLY 用：選択された Geometry Plugin を各レイヤーに割り当てる。
-   * spec: project-file.spec.md §5 Step 1
-   *
-   * - selectedIds[0] → layer-1、selectedIds[1] → layer-2、selectedIds[2] → layer-3
-   * - selectedIds の長さを超えるレイヤーは plugin=null・mute=true
-   * - selectedIds が空のとき全レイヤー mute
-   */
   applyGeometrySetup(selectedIds: string[]): void {
     const layers = layerManager.getLayers()
     layers.forEach((layer, index) => {
@@ -191,10 +204,6 @@ export class Engine {
 
   // --- SceneState serialize / deserialize ---
 
-  /**
-   * 現在の描画状態を SceneState として取得する。
-   * spec: project-file.spec.md §3
-   */
   getSceneState(): SceneState {
     const layers = layerManager.getLayers()
     return {
@@ -222,19 +231,11 @@ export class Engine {
     }
   }
 
-  /**
-   * SceneState を Program バスに適用する。
-   * spec: project-file.spec.md §5 Step 2
-   */
   loadSceneState(state: SceneState): void {
     programBus.load(state)
     previewBus.update(state)
   }
 
-  /**
-   * 現在の状態から GeoGraphyProject オブジェクトを構築する。
-   * spec: project-file.spec.md §3
-   */
   buildProject(name: string): GeoGraphyProject {
     const layers = layerManager.getLayers()
     const selectedGeometryIds = layers
@@ -259,12 +260,6 @@ export class Engine {
     }
   }
 
-  /**
-   * GeoGraphyProject を読み込んで状態を復元する。
-   * spec: project-file.spec.md §5
-   * - setup.geometry → applyGeometrySetup() でレイヤーを復元
-   * - sceneState → loadSceneState() で Program バスに適用
-   */
   restoreProject(project: GeoGraphyProject): void {
     this.applyGeometrySetup(project.setup.geometry)
     this.loadSceneState(project.sceneState)
@@ -341,13 +336,10 @@ export class Engine {
     routing.outputOpacity = outputOpacity
     routing.editOpacity = editOpacity
 
-    // Large screen のアサインに応じて canvas の opacity を反映する
     const viewOpacity =
       this.screenAssign.large === 'output' ? outputOpacity : editOpacity
     layerManager.setOpacity(layerId, viewOpacity)
 
-    // opacity > 0 なら mute を解除・opacity = 0 なら mute にする
-    // （mute=true のとき display:none になるため opacity だけでは映像が出ない）
     const shouldMute = viewOpacity === 0
     const layer = layerManager.getLayers().find((l) => l.id === layerId)
     if (layer && layer.plugin !== null) {
@@ -364,7 +356,6 @@ export class Engine {
     this.screenAssign.large = this.screenAssign.small as ScreenAssign
     this.screenAssign.small = prev as ScreenAssign
 
-    // SWAP後に全レイヤーの canvas opacity と mute を新しいアサインに合わせて更新
     for (const routing of this.layerRoutings) {
       const viewOpacity =
         this.screenAssign.large === 'output'
@@ -394,7 +385,6 @@ export class Engine {
     layerManager.setBlendMode(layerId, blendMode)
   }
 
-  /** Registry に登録されている全 Plugin 一覧（プルダウン選択肢用） */
   getRegisteredPlugins(): { id: string; name: string }[] {
     return registry.list().map((p) => ({ id: p.id, name: p.name }))
   }
@@ -405,14 +395,9 @@ export class Engine {
   private recordingChunks: Blob[] = []
   isRecording: boolean = false
 
-  /**
-   * Program canvas から captureStream して MediaRecorder を開始する。
-   * spec: 要件定義書 §27
-   */
   startRecording(): void {
     if (this.isRecording) return
 
-    // layer-1 の canvas（Program の主レイヤー）から stream を取得
     const layers = layerManager.getLayers()
     const programLayer = layers.find((l) => !l.mute) ?? layers[0]
     if (!programLayer) return
@@ -429,14 +414,10 @@ export class Engine {
       if (e.data.size > 0) this.recordingChunks.push(e.data)
     }
 
-    this.mediaRecorder.start(100) // 100ms ごとにチャンクを生成
+    this.mediaRecorder.start(100)
     this.isRecording = true
   }
 
-  /**
-   * 録画を停止して WebM Blob を返す。
-   * 呼び出し元が IPC 経由でファイル保存を行う。
-   */
   stopRecording(): Promise<Blob | null> {
     return new Promise((resolve) => {
       if (!this.mediaRecorder || !this.isRecording) {
@@ -455,14 +436,6 @@ export class Engine {
     })
   }
 
-  /**
-   * Setup APPLY 用：選択された Camera Plugin を各レイヤーに割り当てる。
-   * spec: docs/spec/preferences-panel.spec.md §4 / camera-plugin.spec.md §9
-   *
-   * - cameraPluginIds[0] → layer-1、[1] → layer-2、[2] → layer-3
-   * - 配列の長さを超えるレイヤーは 'static-camera' を適用
-   * - isCameraUserOverridden=false（APPLY からの一括設定のためリセット）
-   */
   applyCameraSetup(cameraPluginIds: string[]): void {
     const layers = layerManager.getLayers()
     layers.forEach((layer, index) => {
@@ -470,16 +443,10 @@ export class Engine {
       const base = getCameraPlugin(pluginId)
       if (!base) return
       const plugin = { ...base, params: structuredClone(base.params) }
-      // isCameraUserOverridden=false → Geometry 切り替え時の自動連動を維持
       layerManager.setCameraPlugin(layer.id, plugin, undefined, false)
     })
   }
 
-  /**
-   * Camera Plugin をレイヤーにアサインする（UI からの明示的な変更）。
-   * isCameraUserOverridden=true を立てるため Geometry 切り替えで追従しなくなる。
-   * spec: docs/spec/camera-plugin.spec.md §9
-   */
   setCameraPlugin(layerId: string, pluginId: string): void {
     const base = getCameraPlugin(pluginId)
     if (!base) return
@@ -487,18 +454,10 @@ export class Engine {
     layerManager.setCameraPlugin(layerId, plugin, undefined, true)
   }
 
-  /**
-   * レイヤーの現在の Camera Plugin を取得する。
-   * spec: docs/spec/camera-plugin.spec.md §9
-   */
   getCameraPlugin(layerId: string): CameraPlugin | null {
     return layerManager.getCameraPlugin(layerId)
   }
 
-  /**
-   * Camera Plugin の param を更新する。
-   * spec: docs/spec/camera-plugin.spec.md §9
-   */
   setCameraParam(layerId: string, paramKey: string, value: number): void {
     const plugin = layerManager.getCameraPlugin(layerId)
     if (plugin && paramKey in plugin.params) {
@@ -506,24 +465,15 @@ export class Engine {
     }
   }
 
-  /**
-   * 登録されている全 Camera Plugin の一覧を返す。
-   * UI（Preferences / Camera Simple Window）のドロップダウン用。
-   */
   listCameraPlugins(): CameraPlugin[] {
     return listCameraPlugins()
   }
 
-  /** レイヤーの現在の Geometry Plugin を取得する。GeometrySimpleWindow 用。 */
   getGeometryPlugin(layerId: string): GeometryPlugin | null {
     const layer = layerManager.getLayers().find((l) => l.id === layerId)
     return layer?.plugin ?? null
   }
 
-  /** Geometry Plugin の param をリアルタイム更新する。GeometrySimpleWindow 用。
-   * requiresRebuild=true の param が変わった場合は destroy→create で再構築する。
-   * spec: docs/spec/geometry-plugin.spec.md §9
-   */
   setGeometryParam(layerId: string, paramKey: string, value: number): void {
     const layer = layerManager.getLayers().find((l) => l.id === layerId)
     const plugin = layer?.plugin
@@ -535,7 +485,6 @@ export class Engine {
     }
   }
 
-  /** レイヤーに Plugin をセット。pluginId が null なら None（plugin=null・mute=true） */
   setLayerPlugin(layerId: string, pluginId: string | null): void {
     if (pluginId === null) {
       layerManager.setPlugin(layerId, null)

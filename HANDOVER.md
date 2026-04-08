@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day48（housekeeping・Camera バグ修正・実装計画書 v4.0）｜2026-04-08
+# GeoGraphy 引き継ぎメモ｜Day49（MidiManager 設計確定・CC体系整理）｜2026-04-08
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -16,71 +16,93 @@
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md`（v11） |
 | 実装計画書（最新） | `docs/実装計画書_v4.0.md` |
-| Preferences Panel | `src/ui/panels/preferences/PreferencesPanel.tsx` |
+| MidiManager 本体（リネーム前） | `src/core/macroKnob.ts` → 次回 `midiManager.ts` |
+| CC Map Service | `src/core/ccMapService.ts` |
+| Engine | `src/core/engine.ts` |
+| 型定義 | `src/types/index.ts` |
 | MacroKnob spec | `docs/spec/macro-knob.spec.md` |
-| Camera Plugin spec | `docs/spec/camera-plugin.spec.md` |
+| CC Standard | `docs/spec/cc-standard.spec.md` |
+| CC Mapping | `docs/spec/cc-mapping.md` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day47`（Day48 タグはセッション終了時に打つ）
+- **タグ**: `day47`（Day48・49 タグは未打）
 - **テスト**: 114 tests グリーン・tsc エラーゼロ
+- **実装変更なし**: Day49 は設計の壁打ちのみ。コード変更ゼロ
+- **既知の未解決バグ**: `macroKnob.ts` の `handleMidiCC()` / `receiveModulation()` は `ParameterStore` に書くだけで `plugin.params` に反映されない
 
 ---
 
-## Day48 で完了したこと
+## Day49 で完了したこと
 
-### 1. handover/_archive/ 廃止
+### 1. MidiManager 設計確定
 
-旧形式の handover ファイル群（hikitsugi-* / HANDOVER-day* 等）を格納していた `_archive/` ディレクトリを削除。`docs/handover/` にフラット統合済みのため不要と判断。git 履歴に残るので復元可能。
+- `MacroKnobManager` → `MidiManager` にリネーム確定
+- 全入力源（物理MIDI / SimpleWindow / Sequencer / LFO / AI）が `MidiCCEvent(MIDI 2.0)` に統一される設計を言語化
+- CC未定義 param → CC1000〜自動払い出し設計確定
+- Simple Window → `handleMidiCC()` 経由に統一（案A 完全 SSoT）確定
 
-### 2. Preferences Panel Camera 初期値バグ修正
+### 2. CC体系整理
 
-**症状**: Preferences パネルを開くと Camera セクションが常に Static 表示になる。
+- Camera Plugin 3種（static / orbit / aerial）のパラメーター全洗い出し
+- CC110（Auto Rotate）新設確定
+- CC510〜512（LookAt X/Y/Z）新設確定
+- grid-wave の `hue` → CC400 追記漏れ確認
+- Block内サブエリア方針確定（20個単位でPlugin カテゴリー専用エリアを予約）
+- コントリビューター帯 CC1000〜9999 確定
 
-**根本原因**: `useEffect`（初回補正）で `resolveCamId(geoId)` を参照していたが、これは registry の `defaultCameraPluginId`（デフォルト値）であり、engine が実際に管理している Camera Plugin の状態ではなかった。さらに `if (resolved !== 'static-camera')` という条件が Static を上書きしない設計になっていた。
+### 3. 環境設定
 
-**修正内容**: `engine.getLayers()` から `cameraPlugin.id` を直接読むように変更。パネルを開いた瞬間に engine の実際のカメラ状態を正確に反映するようになった。
-
-| ファイル | 変更内容 |
-|---|---|
-| `src/ui/panels/preferences/PreferencesPanel.tsx` | useEffect の初回補正を `engine.getLayers()` 参照に変更 |
-
-### 3. 実装計画書 v4.0 作成
-
-v3.1 をアーカイブし v4.0 を新規作成。
-
-- Day32〜Day48 の実績を追記
-- フェーズ定義を現実に合わせて全面更新（Phase 15〜19 を新定義）
-- 現在地を Phase 15（MacroKnob D&D アサイン UI）と明確化
-- 実装順序: Phase 15 → 16（Sequencer）→ 17（Shader）を明記
-- 確立済みアーキテクチャ原則を最新化（Camera Plugin・Preset・requiresRebuild 等）
+- `~/.claude/settings.json` に `ENABLE_TOOL_SEARCH: true` 追加（Claude Code のコンテキスト削減）
 
 ---
 
-## 確立した新ルール（Day48）
+## 確立した新ルール（Day49）
 
-特になし（既存ルールの適用・整理のみ）
+- **MidiManager = 全 CC の唯一の通路**: 全入力源が `MidiCCEvent(MIDI 2.0)` に統一
+- **CC未定義 param は存在してはいけない**: 定義漏れは CC1000〜自動払い出しでカバー
+- **5分以上アイドルでキャッシュ切れ**: コスト跳ね上がるため短いメッセージで繋ぐ
 
 ---
 
-## 次回やること（Day49）
+## 次回やること（Day50）
 
-### 優先度 ★★★（Phase 15 開始）
-| 作業 |
-|---|
-| `docs/spec/macro-knob.spec.md` §4 を読んで D&D アサイン UI 実装プランを立てる |
-| GeometrySimpleWindow・FxSimpleWindow の param 行に `[≡]` D&D ハンドルを追加 |
-| MacroKnobPanel のドロップゾーン実装（min/max ダイアログ含む） |
-| 右クリックでアサイン解除（個別・全解除） |
+### Step 1（最初にやること）
+`src/core/ccMapService.ts` の `getCcNumber()` を修正
+```typescript
+// -1 返す代わりに CC1000〜自動払い出し
+private autoAssignedCc: Map<string, number> = new Map()
+private nextAutoCc: number = 1000
+```
 
-### 優先度 ★★
-| 作業 |
-|---|
-| MacroKnob 弧インジケーターの min/max 範囲表示 |
-| アサイン永続化（GeoGraphyProject に macroKnobAssigns を保存） |
+### Step 2
+`src/core/macroKnob.ts` → `src/core/midiManager.ts` にリネーム
+- クラス名・export 変数名・interface 名を全て変更
+- `src/types/index.ts` の `MacroKnobManager` → `MidiManager`
+
+### Step 3
+`MidiManager.handleMidiCC()` が `engine` 経由で `plugin.params` に書くように修正
+- `init()` に engine を追加
+- `handleMidiCC()` / `receiveModulation()` で `engine.setGeometryParam()` 等を呼ぶ
+
+### Step 4
+Simple Window 3種のスライダーを `handleMidiCC()` 経由に変更
+```typescript
+const cc = ccMapService.getCcNumber(pluginId, paramKey)
+const normalized = (value - param.min) / (param.max - param.min)
+engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
+```
+ポーリングで `plugin.params[key].value` を読んで表示を追従させる
+
+### Step 5
+cc-standard.spec.md / cc-mapping.md の定義漏れ追記
+- CC110（Auto Rotate）/ CC510〜512（LookAt X/Y/Z）/ grid-wave hue
+
+### Step 6
+CLAUDE.md / spec のリネーム反映
 
 ---
 
@@ -94,6 +116,8 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 
 ## 環境メモ（累積）
 
+- **ENABLE_TOOL_SEARCH: true**（Day49確立）: `~/.claude/settings.json` に設定済み（Claude Code のコンテキスト削減）
+- **5分アイドルでキャッシュ切れ**（Day49確認）: 混雑時間帯は1ステップずつ・短いメッセージで繋ぐ
 - **ブラウザ確認フロー**（Day47確立）: `pnpm dev` → `open http://localhost:5173` の2ステップ必須。HMR・hard reload では反映されない
 - **Preset は GeoGraphyProject をそのまま保存**（Day47確立）: localStorage キー `geography:presets-v1`
 - **Camera 初期値バグ修正済み**（Day48）: PreferencesPanel は engine.getLayers() から cameraPlugin.id を直接読む
@@ -112,6 +136,6 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-Day49開始
+Day50開始
 引き継ぎスキル
 ```

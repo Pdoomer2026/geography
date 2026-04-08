@@ -94,6 +94,9 @@ interface RawOverrides {
 class CcMapServiceImpl implements CcMapService {
   private mappings: ParamMapping[] = []
   private overrides: OverrideEntry[] = []
+  /** cc-mapping.md 未定義 param への自動払い出し（CC1000〜）*/
+  private autoAssignedCc: Map<string, number> = new Map()
+  private nextAutoCc: number = 1000
 
   // ----------------------------------------------------------------
   // init（起動時に engine.initialize() から呼ぶ）
@@ -181,9 +184,25 @@ class CcMapServiceImpl implements CcMapService {
   // 公開 API
   // ----------------------------------------------------------------
 
-  /** CC 番号を返す。未登録または Electron 環境外の場合は -1 */
+  /**
+   * CC 番号を返す。
+   * cc-mapping.md に定義済み → その CC 番号を返す
+   * cc-mapping.md に未定義   → CC1000〜から自動払い出し（コントリビューター帯）
+   * Electron 環境外では自動払い出しのみ動作する
+   */
   getCcNumber(pluginId: string, paramId: string): number {
-    return this.getMapping(pluginId, paramId)?.ccNumber ?? -1
+    const mapping = this.getMapping(pluginId, paramId)
+    if (mapping) return mapping.ccNumber
+
+    // cc-mapping.md 未定義 → コントリビューター帯（CC1000〜）から自動払い出し
+    const key = `${pluginId}:${paramId}`
+    if (!this.autoAssignedCc.has(key)) {
+      console.warn(
+        `[CcMapService] 未定義 param: ${pluginId}.${paramId} → CC${this.nextAutoCc} を自動割り当て。cc-mapping.md への追記を検討してください。`
+      )
+      this.autoAssignedCc.set(key, this.nextAutoCc++)
+    }
+    return this.autoAssignedCc.get(key)!
   }
 
   getMapping(pluginId: string, paramId: string): ParamMapping | null {

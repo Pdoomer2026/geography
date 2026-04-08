@@ -17,14 +17,14 @@ export interface PluginBase {
 /**
  * ModulatablePlugin（MIDI 2.0 / MacroKnob 制御可能な Plugin の中間層）
  *
- * params を持ち、CC Standard 経由で MacroKnob から外部制御される Plugin はここを継承する。
+ * params を持ち、CC Standard 経由で MidiManager から外部制御される Plugin はここを継承する。
  * 対象: Geometry / FX / Particle / Light / Camera / Sequencer（新設予定）
  * 非対象: Transition / Window / Mixer（params を持たない・外部制御不要）
  *
- * spec: docs/spec/macro-knob.spec.md §2
+ * spec: docs/spec/macro-knob.spec.md §3
  */
 export interface ModulatablePlugin extends PluginBase {
-  /** CC Standard 経由で MacroKnob から制御可能なパラメーター群 */
+  /** CC Standard 経由で MidiManager から制御可能なパラメーター群 */
   params: Record<string, PluginParam>
 }
 
@@ -49,32 +49,9 @@ export interface PluginParam {
 // Camera Plugin（spec: docs/spec/camera-plugin.spec.md）
 // ============================================================
 
-/**
- * CameraPlugin
- *
- * ModulatablePlugin を継承し params を持つ。
- * MacroKnob / D&D アサイン / CC Standard の制御対象になる。
- * レイヤーごとに 1 つアサインされ、LayerManager が管理する。
- *
- * spec: docs/spec/camera-plugin.spec.md §2
- */
 export interface CameraPlugin extends ModulatablePlugin {
-  /**
-   * カメラの初期配置と OrbitControls の生成を行う。
-   * LayerManager.setCameraPlugin() から呼ばれる。
-   */
   mount(camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer): void
-
-  /**
-   * フレームごとのカメラ更新。
-   * LayerManager.update() 内で呼ばれる。
-   */
   update(delta: number): void
-
-  /**
-   * OrbitControls の dispose など後処理。
-   * LayerManager.setCameraPlugin() で旧 Plugin を差し替える際に呼ばれる。
-   */
   dispose(): void
 }
 
@@ -86,17 +63,7 @@ export interface GeometryPlugin extends ModulatablePlugin {
   create(scene: THREE.Scene): void
   update(delta: number, beat: number): void
   destroy(scene: THREE.Scene): void
-  /**
-   * Geometry をアサインしたときに自動適用する Camera Plugin の ID。
-   * 省略時は DEFAULT_CAMERA_PLUGIN_ID ('static-camera') が使われる。
-   * ユーザーが後から Camera Plugin を変更した場合はこの値は無視される。
-   * spec: docs/spec/camera-plugin.spec.md §6-A
-   */
   defaultCameraPluginId?: string
-  /**
-   * defaultCameraPluginId の Camera Plugin に適用する params 初期値のオーバーライド。
-   * spec: docs/spec/camera-plugin.spec.md §6-D
-   */
   defaultCameraParams?: Record<string, number>
 }
 
@@ -111,7 +78,7 @@ export interface LightPlugin extends GeometryPlugin {}
 // ============================================================
 
 export interface FXPlugin extends ModulatablePlugin {
-  create(composer: unknown): void // EffectComposer は後で型付け
+  create(composer: unknown): void
   update(delta: number, beat: number): void
   destroy(): void
 }
@@ -125,7 +92,6 @@ export type CSSBlendMode =
 
 /**
  * FxStack の公開インターフェース（循環参照回避のため types/ 内に定義）
- * 実装は src/core/fxStack.ts。
  */
 export interface IFxStack {
   register(plugin: FXPlugin): void
@@ -135,11 +101,6 @@ export interface IFxStack {
   dispose(): void
   setEnabled(fxId: string, enabled: boolean): void
   getPlugin(fxId: string): FXPlugin | undefined
-  /**
-   * Setup APPLY 用：enabledIds に含まれるものだけ create()、
-   * それ以外は destroy() してから composer を再構築する。
-   * spec: docs/spec/plugin-lifecycle.spec.md §6
-   */
   applySetup(enabledIds: string[], composer: unknown): void
 }
 
@@ -152,16 +113,9 @@ export interface Layer {
   plugin: GeometryPlugin | null
   opacity: number
   blendMode: CSSBlendMode
-  /** FX ポストプロセッシングスタック */
   fxStack: IFxStack
   mute: boolean
-  /** 現在アサインされている Camera Plugin（spec: camera-plugin.spec.md §5-A） */
   cameraPlugin: CameraPlugin
-  /**
-   * true = ユーザーが手動で Camera Plugin を選んだ状態。
-   * Geometry 切り替えで Camera を自動連動しない。
-   * spec: docs/spec/camera-plugin.spec.md §6-C
-   */
   isCameraUserOverridden: boolean
 }
 
@@ -203,7 +157,6 @@ export interface TransitionPlugin extends PluginBase {
   duration: number
   category: 'pixel' | 'parameter' | 'bpm'
   execute(from: SceneState, to: SceneState, progress: number): SceneState
-  /** プルダウン表示用のプレビュー説明文 */
   preview: string
 }
 
@@ -216,7 +169,6 @@ export interface MixerPlugin {
   name: string
   renderer: string
   enabled: boolean
-  /** 閉じることができない Window Plugin として機能する React FC */
   component: FC
 }
 
@@ -242,7 +194,6 @@ export interface MacroAssign {
   /**
    * CC Standard の CC 番号（ccMapService が提供する実効値）
    * spec: docs/spec/cc-mapping.spec.md §9
-   * 例: radius → 101, speed → 300, hue → 400
    */
   ccNumber: number
   min: number
@@ -252,54 +203,51 @@ export interface MacroAssign {
 
 /**
  * MIDI CC イベント（MIDI 1.0 / MIDI 2.0 共通フォーマット）
- * electron/main.js が変換して IPC 'geo:midi-cc' で送信する。
- * value は main.js 側で 0.0〜1.0 に正規化済み。
  * spec: docs/spec/macro-knob.spec.md §3
  */
 export interface MidiCCEvent {
-  /** CC番号: MIDI 1.0 = 0〜127 / MIDI 2.0 AC = 0〜32767 */
   cc: number
-  /** 正規化済み値: 0.0〜1.0（main.js 側で正規化する） */
   value: number
   protocol: 'midi1' | 'midi2'
-  /** MIDI 1.0 = 7bit(128) / MIDI 2.0 = 32bit(4294967296) */
   resolution: 128 | 4294967296
 }
 
 export interface MacroKnobConfig {
-  /** 'macro-1' 〜 'macro-32' */
   id: string
-  /** 表示名（例: 'CHAOS'） */
   name: string
-  /** MIDI CC番号: 0〜127（MIDI 1.0）/ 0〜32767（MIDI 2.0 AC）/ -1=未割り当て */
   midiCC: number
-  /** 最大 MACRO_KNOB_MAX_ASSIGNS 個 */
   assigns: MacroAssign[]
 }
 
+/**
+ * MacroKnobManager — 32ノブのUI設定管理
+ * spec: docs/spec/macro-knob.spec.md §3
+ *
+ * ノブの名前・MIDI CC番号・アサイン設定・現在値キャッシュを管理する。
+ * CC入力の処理は MidiManager が担当する（Day50 責務分離）。
+ */
 export interface MacroKnobManager {
   getKnobs(): MacroKnobConfig[]
   setKnob(id: string, config: MacroKnobConfig): void
-  /**
-   * D&D アサイン追加（spec: docs/spec/macro-knob.spec.md §4-3）
-   * assigns が MACRO_KNOB_MAX_ASSIGNS を超える場合はエラー
-   */
   addAssign(knobId: string, assign: MacroAssign): void
-  /**
-   * アサイン解除（spec: docs/spec/macro-knob.spec.md §4-3）
-   */
   removeAssign(knobId: string, paramId: string): void
-  /**
-   * MidiCCEvent を受け取り各 assign の paramId を Command 経由で更新する。
-   * event.value は main.js 側で 0.0〜1.0 正規化済み。
-   */
-  handleMidiCC(event: MidiCCEvent): void
-  /** 0.0〜1.0 に正規化した現在値を返す */
+  /** 0.0〜1.0 に正規化した現在値を返す（表示用キャッシュ） */
   getValue(knobId: string): number
-  /**
-   * Sequencer Plugin から値を受け取る（0.0〜1.0）。
-   * knobId に対応する assigns の min/max に rangeMap して paramId を更新する。
-   */
+  /** MidiManager から書かれる現在値キャッシュの更新 */
+  setValue(knobId: string, value: number): void
+}
+
+/**
+ * MidiManager — CC入力の唯一の通路
+ * spec: docs/spec/macro-knob.spec.md §3
+ *
+ * 全入力源（物理MIDI / SimpleWindow / Sequencer / LFO / AI）が
+ * engine.handleMidiCC(MidiCCEvent) 経由でここに流れ込む。
+ * Day50 新設・MacroKnobManager から handleMidiCC / receiveModulation を移管。
+ */
+export interface MidiManager {
+  init(store: { set(paramId: string, value: number): void }, knobManager: MacroKnobManager): void
+  handleMidiCC(event: MidiCCEvent): void
   receiveModulation(knobId: string, value: number): void
 }
 
@@ -309,42 +257,31 @@ export interface MacroKnobManager {
 
 export interface LayerRouting {
   layerId: string
-  outputOpacity: number   // 0.0〜1.0  Output view へのブレンド量
-  editOpacity: number     // 0.0〜1.0  Edit view へのブレンド量
+  outputOpacity: number
+  editOpacity: number
 }
 
 export type ScreenAssign = 'output' | 'edit'
 
 export interface ScreenAssignState {
-  large: ScreenAssign   // デフォルト: 'output'
-  small: ScreenAssign   // デフォルト: 'edit'
+  large: ScreenAssign
+  small: ScreenAssign
 }
 
 // ============================================================
 // Project File（spec: docs/spec/project-file.spec.md §3）
 // ============================================================
 
-/**
- * GeoGraphy プロジェクトファイル（.geography）の型定義。
- * ファイルフォーマットバージョンは version フィールドで管理する。
- */
 export interface GeoGraphyProject {
-  /** フォーマットバージョン（例: "1.0.0"） */
   version: string
-  /** 保存日時（ISO 8601） */
   savedAt: string
-  /** プロジェクト名 */
   name: string
-  /** Setup: 使うプラグインの選択状態 */
   setup: {
     geometry: string[]
     fx: string[]
   }
-  /** 現在の描画状態（SceneState 型と同一） */
   sceneState: SceneState
-  /** MacroKnob アサイン設定（spec: docs/spec/macro-knob.spec.md §5-1）*/
   macroKnobAssigns: MacroKnobConfig[]
-  /** 各プラグインのプリセットファイル参照（任意） */
   presetRefs: Record<string, string>
 }
 

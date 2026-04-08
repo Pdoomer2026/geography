@@ -1,7 +1,6 @@
 /**
  * MacroKnobPanel — Macro Knob Manager のデフォルト UI
  *
- * 旧名称: MacroKnobSimpleWindow（src/ui/MacroKnobSimpleWindow.tsx）
  * spec: docs/spec/macro-knob.spec.md
  *
  * View メニュー（⌘1）またはキーボード「1」で表示/非表示を切り替えられる。
@@ -10,10 +9,12 @@
  * 32ノブ（8×4）固定パネル。
  * MIDI CC番号・現在値（0.0〜1.0）・名前を表示。
  * ノブをクリックすると名前・MIDI CC編集ダイアログを開く（v1簡易版）。
+ *
+ * Day50: macroKnobManager 直接参照 → engine 経由に変更。
  */
 
 import { useEffect, useState, useCallback } from 'react'
-import { macroKnobManager } from '../../../core/macroKnob'
+import { engine } from '../../../core/engine'
 import { useDraggable } from '../../useDraggable'
 import type { MacroKnobConfig } from '../../../types'
 
@@ -204,9 +205,10 @@ export function MacroKnobPanel() {
 
   useEffect(() => {
     const sync = () => {
-      const configs = macroKnobManager.getKnobs()
+      // Day50: macroKnobManager 直接参照 → engine 経由に変更
+      const configs = engine.getMacroKnobs()
       setKnobs([...configs])
-      setValues(configs.map((k) => macroKnobManager.getValue(k.id)))
+      setValues(configs.map((k) => engine.getMacroKnobValue(k.id)))
     }
     sync()
     const timer = window.setInterval(sync, 200)
@@ -219,9 +221,10 @@ export function MacroKnobPanel() {
 
   const handleSave = useCallback((name: string, midiCC: number) => {
     if (!editingId) return
-    const current = macroKnobManager.getKnobs().find((k) => k.id === editingId)
+    const current = engine.getMacroKnobs().find((k) => k.id === editingId)
     if (!current) return
-    macroKnobManager.setKnob(editingId, { ...current, name, midiCC })
+    // Day50: macroKnobManager 直接参照 → engine 経由に変更
+    engine.setMacroKnob(editingId, { ...current, name, midiCC })
     setEditingId(null)
   }, [editingId])
 
