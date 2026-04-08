@@ -304,16 +304,14 @@ function SetupTab({ onClose }: { onClose: () => void }) {
     setTimeout(() => setStatusMsg(null), 2500)
   }
 
-  // ── 初回補正：defaultCameraPluginId を反映 ────────────────────
+  // ── 初回補正：パネルを開いた瞬間に engine の実際のカメラ状態を反映 ──
   useEffect(() => {
-    setCamIds((prev) => {
-      const next = [...prev] as [string, string, string]
-      LAYER_IDS.forEach((_, i) => {
-        const resolved = resolveCamId(geoIds[i])
-        if (resolved !== 'static-camera') next[i] = resolved
-      })
-      return next
-    })
+    const layers = engine.getLayers()
+    setCamIds([
+      layers[0]?.cameraPlugin?.id ?? 'static-camera',
+      layers[1]?.cameraPlugin?.id ?? 'static-camera',
+      layers[2]?.cameraPlugin?.id ?? 'static-camera',
+    ])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
