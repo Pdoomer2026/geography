@@ -159,10 +159,11 @@ Step 4: NFC 正規化
 - move_file 後はファイルが存在しない → write_file で新規作成（filesystem MCP に create_file は存在しない）
 - アーカイブファイル名に日付・Day番号を含める → 更新履歴が一目瞭然
 
-**⚠️ CLAUDE.md 更新時の差分保持ルール（Day50確立）**
+**⚠️ CLAUDE.md / spec.md 更新時の差分保持ルール（Day50確立）**
 
-既存 CLAUDE.md を更新するときは以下の手順を厳守すること。
+既存の CLAUDE.md・spec.md・その他ドキュメントを更新するときは以下の手順を厳守すること。
 「記憶で書ける」と判断して元ファイルを読まずに進めることは禁止。
+このルールは CLAUDE.md・spec.md・HANDOVER.md・すべてのドキュメントファイルに適用される。
 
 ```
 Step 0: edit_file で対応できるか判断する
