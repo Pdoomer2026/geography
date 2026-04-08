@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { engine } from '../core/engine'
+import { ccMapService } from '../core/ccMapService'
 import { useDraggable } from './useDraggable'
 import type { PluginParam } from '../types'
 
@@ -61,8 +62,11 @@ export function GeometrySimpleWindow() {
     return () => window.clearInterval(timer)
   }, [syncFromEngine])
 
-  function handleParam(paramKey: string, value: number) {
-    engine.setGeometryParam(activeLayer, paramKey, value)
+  function handleParam(paramKey: string, value: number, param: PluginParam) {
+    const cc = ccMapService.getCcNumber(geometryId, paramKey)
+    const normalized = (value - param.min) / (param.max - param.min)
+    engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
+    // フロントの表示はローカル state に即反映（200ms ポーリング待たず）
     setParams((prev) => ({
       ...prev,
       [paramKey]: { ...prev[paramKey], value },
@@ -131,7 +135,7 @@ export function GeometrySimpleWindow() {
                     value={param.value}
                     min={param.min}
                     max={param.max}
-                    onChange={(v) => handleParam(key, v)}
+                    onChange={(v) => handleParam(key, v, param)}
                   />
                 ))}
               </div>

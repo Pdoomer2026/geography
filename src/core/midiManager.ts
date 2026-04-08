@@ -29,17 +29,21 @@ class MidiManagerImpl implements MidiManager {
   handleMidiCC(event: MidiCCEvent): void {
     if (!this.store || !this.knobManager) return
 
+    // CC番号を key に ParameterStore へ直接書く（MacroKnob アサイン有無に関わらず）
+    // SimpleWindow のスライダー操作も物理MIDIも同じ経路を通る
+    this.store.set(String(event.cc), event.value)
+
+    // MacroKnob アサインがあれば追加で rangeMap して assigns の paramId にも書く
     const knobs = this.knobManager.getKnobs()
     const knob = knobs.find((k) => k.midiCC === event.cc)
-    if (!knob) return
+    if (knob) {
+      // 現在値を MacroKnobManager 側にキャッシュ（表示用）
+      this.knobManager.setValue(knob.id, event.value)
 
-    // 現在値を MacroKnobManager 側にキャッシュ（表示用）
-    this.knobManager.setValue(knob.id, event.value)
-
-    // 各 assign に対して rangeMap して ParameterStore に書く
-    for (const assign of knob.assigns) {
-      const mapped = rangeMap(event.value, assign.min, assign.max)
-      this.store.set(assign.paramId, mapped)
+      for (const assign of knob.assigns) {
+        const mapped = rangeMap(event.value, assign.min, assign.max)
+        this.store.set(assign.paramId, mapped)
+      }
     }
   }
 

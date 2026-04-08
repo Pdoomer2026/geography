@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { engine } from '../core/engine'
+import { ccMapService } from '../core/ccMapService'
 import { useDraggable } from './useDraggable'
-import type { FXPlugin } from '../types'
+import type { FXPlugin, PluginParam } from '../types'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
 type LayerId = (typeof LAYER_TABS)[number]
@@ -33,8 +34,10 @@ export function FxSimpleWindow() {
     engine.setFxEnabled(fxId, enabled, activeLayer)
   }
 
-  function handleParam(fxId: string, paramKey: string, value: number) {
-    engine.setFxParam(fxId, paramKey, value, activeLayer)
+  function handleParam(fxId: string, paramKey: string, value: number, param: PluginParam) {
+    const cc = ccMapService.getCcNumber(fxId, paramKey)
+    const normalized = (value - param.min) / (param.max - param.min)
+    engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
   }
 
   return (
@@ -88,7 +91,7 @@ export function FxSimpleWindow() {
                 key={fx.id}
                 fx={fx}
                 onToggle={(enabled) => handleToggle(fx.id, enabled)}
-                onParam={(paramKey, value) => handleParam(fx.id, paramKey, value)}
+                onParam={(paramKey, value, param) => handleParam(fx.id, paramKey, value, param)}
               />
             ))}
             {fxPlugins.length === 0 && (
@@ -110,7 +113,7 @@ export function FxSimpleWindow() {
 interface FxRowProps {
   fx: FXPlugin
   onToggle: (enabled: boolean) => void
-  onParam: (paramKey: string, value: number) => void
+  onParam: (paramKey: string, value: number, param: PluginParam) => void
 }
 
 function FxRow({ fx, onToggle, onParam }: FxRowProps) {
@@ -151,7 +154,7 @@ function FxRow({ fx, onToggle, onParam }: FxRowProps) {
                 max={param.max}
                 step={(param.max - param.min) / 200}
                 value={param.value}
-                onChange={(e) => onParam(key, parseFloat(e.target.value))}
+                onChange={(e) => onParam(key, parseFloat(e.target.value), param)}
                 className="flex-1 accent-[#5a5aff] h-1 cursor-pointer"
               />
               <span className="text-[9px] text-[#5a5a8e] w-10 text-right tabular-nums">

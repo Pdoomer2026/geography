@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { engine } from '../core/engine'
+import { ccMapService } from '../core/ccMapService'
 import { useDraggable } from './useDraggable'
 import type { CameraPlugin, PluginParam } from '../types'
 
@@ -60,8 +61,11 @@ export function CameraSimpleWindow() {
     }
   }
 
-  function handleParam(paramKey: string, value: number) {
-    engine.setCameraParam(activeLayer, paramKey, value)
+  function handleParam(paramKey: string, value: number, param: PluginParam) {
+    const cc = ccMapService.getCcNumber(cameraId, paramKey)
+    const normalized = (value - param.min) / (param.max - param.min)
+    engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
+    // フロントの表示はローカル state に即反映（200ms ポーリング待たず）
     setParams((prev) => ({
       ...prev,
       [paramKey]: { ...prev[paramKey], value },
@@ -143,7 +147,7 @@ export function CameraSimpleWindow() {
                     value={param.value}
                     min={param.min}
                     max={param.max}
-                    onChange={(v) => handleParam(key, v)}
+                    onChange={(v) => handleParam(key, v, param)}
                   />
                 ))}
               </div>
