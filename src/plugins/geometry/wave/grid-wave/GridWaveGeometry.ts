@@ -13,7 +13,7 @@ export class GridWaveGeometry {
   }
 
   update(time: number, params: Record<string, number>): void {
-    const { speed, amplitude, frequency } = params
+    const { speed, amplitude, frequency, hue } = params
     const positions = this.geometry.attributes.position
 
     for (let i = 0; i < positions.count; i++) {
@@ -26,6 +26,11 @@ export class GridWaveGeometry {
 
     positions.needsUpdate = true
     this.geometry.computeVertexNormals()
+
+    // hue 制御（0〜360度）
+    if (hue !== undefined) {
+      this.material.color.setHSL(hue / 360, 1, 0.5)
+    }
   }
 
   getMesh(): THREE.Mesh {

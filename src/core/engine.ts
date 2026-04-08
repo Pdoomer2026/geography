@@ -308,12 +308,14 @@ export class Engine {
   }
 
   /**
-   * ParameterStore の値を各レイヤーの plugin.params に反映する。
-   * key = String(cc番号)（例: "101""300""400")
-   * 全レイヤーの Geometry / Camera / FX を走査し、該当する CC# を持つ param に値を書く。
-   * ccMapService から pluginId × paramId × CC# の対応を引き、
-   * PluginParam の min/max で逆変換（0.0～1.0 → 実際値）して書く。
-   * Day51 新設。
+   * ParameterStore の値を各レイヤーの plugin.params に反映する。（Day51 新設）
+   *
+   * フォールバック付き2段階解決:
+   * 1. ccMapService に mapping あり（Electron 環境・cc-map.json 生成済み）
+   *    → CC番号で store を引いて pluginMin/Max で逆変換
+   * 2. ccMapService に mapping なし（ブラウザ確認時・cc-map.json 未生成）
+   *    → getCcNumber() で CC番号だけ取得し param.min/max で逆変換
+   *    （SimpleWindow が normalized = (v - min) / (max - min) で書いた値をそのまま戻す）
    */
   private flushParameterStore(): void {
     const allValues = this.parameterStore.getAll()
@@ -326,13 +328,8 @@ export class Engine {
       const geo = layer.plugin
       if (geo) {
         for (const [paramKey, param] of Object.entries(geo.params)) {
-          const mapping = ccMapService.getMapping(geo.id, paramKey)
-          if (!mapping) continue
-          const storeValue = allValues.get(String(mapping.ccNumber))
-          if (storeValue === undefined) continue
-          // 0.0～1.0 → pluginMin～pluginMax に逆変換
-          const actual = mapping.pluginMin + storeValue * (mapping.pluginMax - mapping.pluginMin)
-          if (param.value === actual) continue
+          const actual = this.resolveParamValue(geo.id, paramKey, param, allValues)
+          if (actual === undefined || param.value === actual) continue
           param.value = actual
           if (param.requiresRebuild) {
             layerManager.rebuildPlugin(layer.id)
@@ -344,12 +341,8 @@ export class Engine {
       const cam = layerManager.getCameraPlugin(layer.id)
       if (cam) {
         for (const [paramKey, param] of Object.entries(cam.params)) {
-          const mapping = ccMapService.getMapping(cam.id, paramKey)
-          if (!mapping) continue
-          const storeValue = allValues.get(String(mapping.ccNumber))
-          if (storeValue === undefined) continue
-          const actual = mapping.pluginMin + storeValue * (mapping.pluginMax - mapping.pluginMin)
-          if (param.value === actual) continue
+          const actual = this.resolveParamValue(cam.id, paramKey, param, allValues)
+          if (actual === undefined || param.value === actual) continue
           param.value = actual
         }
       }
@@ -357,16 +350,36 @@ export class Engine {
       // --- FX Stack ---
       for (const fx of layer.fxStack.getOrdered()) {
         for (const [paramKey, param] of Object.entries(fx.params)) {
-          const mapping = ccMapService.getMapping(fx.id, paramKey)
-          if (!mapping) continue
-          const storeValue = allValues.get(String(mapping.ccNumber))
-          if (storeValue === undefined) continue
-          const actual = mapping.pluginMin + storeValue * (mapping.pluginMax - mapping.pluginMin)
-          if (param.value === actual) continue
+          const actual = this.resolveParamValue(fx.id, paramKey, param, allValues)
+          if (actual === undefined || param.value === actual) continue
           param.value = actual
         }
       }
     }
+  }
+
+  /**
+   * CC番号 → store 値 → 実際値 の解決。
+   * ccMapService に mapping があれば pluginMin/Max で逆変換。
+   * なければ getCcNumber() + param.min/max でフォールバック。
+   */
+  private resolveParamValue(
+    pluginId: string,
+    paramKey: string,
+    param: { min: number; max: number },
+    allValues: Map<string, number>
+  ): number | undefined {
+    const mapping = ccMapService.getMapping(pluginId, paramKey)
+    if (mapping) {
+      const storeValue = allValues.get(String(mapping.ccNumber))
+      if (storeValue === undefined) return undefined
+      return mapping.pluginMin + storeValue * (mapping.pluginMax - mapping.pluginMin)
+    }
+    // フォールバック: cc-map.json 未生成時は param.min/max で逆変換
+    const cc = ccMapService.getCcNumber(pluginId, paramKey)
+    const storeValue = allValues.get(String(cc))
+    if (storeValue === undefined) return undefined
+    return param.min + storeValue * (param.max - param.min)
   }
 
   // --- リサイズ ---
