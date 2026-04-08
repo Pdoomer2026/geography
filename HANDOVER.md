@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day51（CC Mapping 整備・SimpleWindow engine経由統一）｜2026-04-08
+# GeoGraphy 引き継ぎメモ｜Day52（MacroKnob D&D UI + RangeSlider + Geometry Preset）｜2026-04-08
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -15,70 +15,116 @@
 | ファイル | パス |
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md`（v11） |
-| 実装計画書（最新） | `docs/実装計画書_v4.0.md` |
-| MidiManager | `src/core/midiManager.ts`（Day50新設） |
+| MidiManager | `src/core/midiManager.ts` |
 | MacroKnobManager | `src/core/macroKnob.ts` |
-| CC Map Service | `src/core/ccMapService.ts` |
 | Engine | `src/core/engine.ts` |
 | 型定義 | `src/types/index.ts` |
-| MacroKnob spec | `docs/spec/macro-knob.spec.md`（Day50更新） |
-| Simple Window spec | `docs/spec/simple-window.spec.md`（Day50更新） |
-| CC Standard | `docs/spec/cc-standard.spec.md` |
-| CC Mapping | `docs/spec/cc-mapping.spec.md` |
+| GeometrySimpleWindow | `src/ui/GeometrySimpleWindow.tsx` |
+| MacroKnobPanel | `src/ui/panels/macro-knob/MacroKnobPanel.tsx` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day51`
+- **タグ**: `day52`（未打）
 - **テスト**: 114 tests グリーン・tsc エラーゼロ
-- **Day51は CC Mapping 整備 + SimpleWindow engine.handleMidiCC() 経由統一**
+- **コミット**: 05fd545（WIP）
 
 ---
 
-## Day51 で完了したこと
+## Day52 で完了したこと
 
-### 1. CC Mapping 整備（Day49 引き継ぎタスク完了）
+### 1. MacroKnob D&D アサイン UI（完成）
+- `GeometrySimpleWindow` の各パラメーター行に CC番号表示 + `≡` D&D ハンドル追加
+- `MacroKnobPanel` の KnobCell にドロップ受け口 + AssignDialog（min/max 設定）
+- アサイン済みノブは弧が紫で点灯
+- `≡` 右クリック → アサイン解除メニュー
+- EditDialog の ASSIGNS 欄に CC番号表示 + `×` ボタンで個別 Remove
+- `DragPayload` に `layerId` / `pluginId` を追加
 
-- `cc-standard.spec.md` Block 1xx に CC110（Auto Rotate）追加
-- `cc-standard.spec.md` Block 5xx に CC510〜512（LookAt X/Y/Z）追加・クイックリファレンス更新
-- `cc-mapping.md` v0.3 に更新
-  - Camera Plugin 3種（static/orbit/aerial）のマッピング追加
-  - grid-wave の hue（CC400）欠落を修正
-- git commit: 82f361a
+### 2. MacroKnob ノブ操作（完成）
+- 上下ドラッグで値をリアルタイム変更
+- クリック（移動量ゼロ）→ EditDialog を開く
+- `receiveMidiModulation(knobId, val)` 経由で Geometry に反映
 
-### 2. SimpleWindow → engine.handleMidiCC() 経由への統一（Day50 設計完成）
+### 3. Geometry Param Preset（完成）
+- Save / Load / Delete
+- `localStorage: geography:geo-presets-v1`（便宜的・将来 `GeoGraphyProject` に統合）
+- pluginId 単位でフィルタリング
 
-- `src/core/midiManager.ts` 修正: CC番号を key に ParameterStore へ直接書くよう変更（MacroKnob アサイン有無に関わらず動作）
-- `src/core/engine.ts` に `flushParameterStore()` / `resolveParamValue()` を追加
-  - 毎フレームの update() ループ内で ParameterStore → plugin.params に反映
-  - cc-map.json あり（Electron）: ccMapService の mapping で逆変換
-  - cc-map.json なし（ブラウザ確認時）: getCcNumber() + param.min/max でフォールバック
-- `GeometrySimpleWindow` / `CameraSimpleWindow` / `FxSimpleWindow` の handleParam を `engine.handleMidiCC()` 経由に変更
-- git commit: ee4af4c
+### 4. RangeSlider（ParamRow）（実装済み・同期の設計確定）
+- `PluginParam` に `rangeMin`/`rangeMax` を追加（UI 専用）
+- HTML range input 3本重ねで実装（rangeMin つまみ / rangeMax つまみ / 値スライダー）
+- レール色分け（範囲外：暗い / 範囲内：明るい紫）
+- D&D 時に `rangeMin`/`rangeMax` を `DragPayload.min`/`max` として渡す
 
-### 3. grid-wave hue の実装完成
+### 5. MacroKnob ↔ SimpleWindow 双方向同期（実装済み・設計 WIP）
+- MacroKnob → SimpleWindow は動作確認済み ✅
+- SimpleWindow → MacroKnob は動作確認済み ✅
 
-- `grid-wave.config.ts` に hue param 追加（value:180, min:0, max:360）
-- `GridWaveGeometry.ts` の update() で `material.color.setHSL(hue/360, 1, 0.5)` に反映
-- ブラウザで動作確認済み
-- git commit: c9ac424
+### 6. localStorage 使用方針を CLAUDE.md に明文化
+- `src/ui/CLAUDE.md` に localStorage 使用方針セクション新設
+- ルート `CLAUDE.md` の MUST に localStorage 例外ルール追記
 
 ---
 
-## 確立した新ルール（Day51）
+## Day53 の最重要タスク（設計確定・未実装）
 
-- **セッション引き継ぎは必ず全ファイルを読んでから分析する**: 引き継ぎチャット・HANDOVER.md・関連 spec/CLAUDE.md を全て読んでから推測・分析を始める。「記憶で推測」は禁止
-- **flushParameterStore フォールバック設計**: cc-map.json 未生成時は `getCcNumber()` + `param.min/max` で逆変換してブラウザ確認でも動作させる
+### MidiCCEvent に rangeMin/rangeMax を追加する
+
+**確定した設計：**
+
+```typescript
+interface MidiCCEvent {
+  cc: number
+  value: number           // 0.0〜1.0（相対値）
+  protocol: 'midi1' | 'midi2'
+  resolution: 128 | 4294967296
+  rangeMin?: number       // 変化幅の下限（絶対値）= assign.min = rangeMin
+  rangeMax?: number       // 変化幅の上限（絶対値）= assign.max = rangeMax
+}
+```
+
+**各入力源：**
+
+| 入力源 | value | rangeMin | rangeMax |
+|---|---|---|---|
+| SimpleWindow スライダー | 0.0〜1.0 | rangeMin | rangeMax |
+| MacroKnob UI ドラッグ | 0.0〜1.0 | assign.min | assign.max |
+| 物理MIDI（アサイン済み） | 0.0〜1.0 | assign.min | assign.max |
+
+**設計の根拠（Day52 壁打ちで確定）：**
+- `rangeMin`/`rangeMax` は UI 専用・engine 側には伝えない
+- スライダーノブ と MacroKnob ノブ は同じ 0.0〜1.0 の相対値
+- 変化幅（rangeMin/rangeMax = assign.min/max）は MidiCCEvent で渡す
+- engine 側は実値を受け取るだけ・特別な変換不要
+
+**midiManager 側：**
+```
+実値 = rangeMin + value * (rangeMax - rangeMin)
+store に実値を書く
+```
+
+**resolveParamValue：**
+```
+store から実値をそのまま取り出す（変換不要）
+```
+
+**修正が必要なファイル：**
+1. `src/types/index.ts` — `MidiCCEvent` に `rangeMin?`/`rangeMax?` を追加
+2. `src/core/midiManager.ts` — `handleMidiCC` / `receiveModulation` で実値変換
+3. `src/core/engine.ts` — `resolveParamValue` から assign 分岐・effective 分岐を削除
+4. `src/ui/GeometrySimpleWindow.tsx` — `handleParam` で `rangeMin`/`rangeMax` を渡す
+5. `src/ui/panels/macro-knob/MacroKnobPanel.tsx` — `onKnobChange` で `assign.min`/`max` を渡す
 
 ---
 
-## 次回やること（Day52）
+## 確立した新ルール（Day52）
 
-- **Sequencer Plugin 設計**（壁打ち）: uProgress 0.0〜1.0 の制御源として Sequencer が必要。Shader Plugin 実装の前提
-- **MacroKnob D&D アサイン UI**: SimpleWindow の `[≡]` ハンドル実装・MacroKnob へのドロップ
-- **Plugin Store v1 設計**（壁打ち）
+- **仮説を話してすぐに実装しない**: 設計の合意を得てから実装する
+- **rangeMin/rangeMax は UI 専用**: engine 側の `defaultParams` には書かない
+- **MidiCCEvent の未定義フィールドで変化幅を渡す**: `rangeMin?`/`rangeMax?` を追加
 
 ---
 
@@ -92,20 +138,10 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 
 ## 環境メモ（累積）
 
-- **セッション開始時は全ファイルを読んでから分析**（Day51確立）: HANDOVER.md・関連 spec・CLAUDE.md を全て読んでから推測・分析を始める
-- **差分保持ルール**（Day50確立）: write_file前に必ずread_text_fileで元ファイルを読む・差分を整理して承認を得てから実行。CLAUDE.md / spec.md / 全ドキュメントに適用
-- **ENABLE_TOOL_SEARCH: true**（Day49確立）: `~/.claude/settings.json` に設定済み（Claude Code のコンテキスト削減）
-- **5分アイドルでキャッシュ切れ**（Day49確認）: 混雑時間帯は1ステップずつ・短いメッセージで繋ぐ
-- **ブラウザ確認フロー**（Day47確立）: `pnpm dev` → `open http://localhost:5173` の2ステップ必須。HMR・hard reload では反映されない
-- **Preset は GeoGraphyProject をそのまま保存**（Day47確立）: localStorage キー `geography:presets-v1`
-- **Camera 初期値バグ修正済み**（Day48）: PreferencesPanel は engine.getLayers() から cameraPlugin.id を直接読む
-- **requiresRebuild フラグ**（Day46確立）: メッシュ形状に影響する param に `requiresRebuild: true` を必ず設定
-- **Camera Plugin はファクトリ関数パターン**（Day45確立）: `getCameraPlugin()` が毎回新インスタンスを生成
-- **大幅更新フロー**（Day41確立）: `move_file → read_text_file → 差分確認 → 承認 → write_file → NFC 正規化`
-- **write_file は新規ファイルのみ**: 既存ファイルへの使用は禁止
-- **spec アーカイブ**（Day41確立）: `docs/archive/spec/YYYY-MM-DD_DayN_[name].spec.md`
-- **MIDI 受信は App.tsx で直接**（Day44確立）: IPC 経路不要
-- **Linus スタイルコミット**（Day39確立）: `git commit -m "タイトル" -m "ボディ"`
+- **セッション開始時は全ファイルを読んでから分析**（Day51確立）
+- **差分保持ルール**（Day50確立）
+- **ブラウザ確認フロー**（Day47確立）: `pnpm dev` → `open http://localhost:5173`
+- **localStorage は Preset 永続化のみ例外許可**（Day52確立）: `src/ui/CLAUDE.md` 参照
 - **git タグは commit 後に打つこと**
 - **tsc が反映ズレで失敗する場合**: 2回実行すると解消する
 
@@ -114,6 +150,5 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-Day52開始
-引き継ぎメモ読んで
+Day53開始
 ```
