@@ -287,3 +287,40 @@ export interface GeoGraphyProject {
 
 /** プロジェクトファイルのフォーマットバージョン */
 export const PROJECT_FILE_VERSION = '1.0.0'
+
+// ============================================================
+// Plugin Preset（spec: docs/spec/project-file.spec.md §4）
+// ============================================================
+
+/**
+ * 個別 Plugin のパラメーターセットを保存する。
+ * 保存先: localStorage `geography:geo-presets-v1`（便宜的）→ 将来 GeoGraphyProject に統合
+ */
+export interface PluginPreset {
+  version: string              // '1.0.0'
+  savedAt: string              // ISO 8601
+  pluginId: string             // 'icosphere' 等
+  name: string                 // ユーザーが付けた名前
+  params: Record<string, number>  // paramKey → value
+}
+
+/** localStorage キー */
+export const GEO_PRESET_STORE_KEY = 'geography:geo-presets-v1'
+
+
+
+/**
+ * D&D ドラッグペイロード（パラメーター側 ↔ MacroKnob側 共通）
+ *
+ * Phase 1: 'param' | 'macroKnob'
+ * Phase 2 (Sequencer): | 'sequencerLane' を追加するだけで拡張できる
+ */
+export interface DragPayload {
+  type: 'param' | 'macroKnob'
+  id: string        // paramId or knobId
+  layerId: string   // アサイン元のレイヤー ID（'layer-1' 等）
+  pluginId: string  // アサイン元の Plugin ID（表示用）
+  ccNumber: number  // CC Standard の番号
+  min: number       // スライダー可動域 min
+  max: number       // スライダー可動域 max
+}

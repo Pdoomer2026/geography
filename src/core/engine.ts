@@ -153,6 +153,25 @@ export class Engine {
     return macroKnobManager.getValue(knobId)
   }
 
+  /** MacroKnob にアサインを追加する（D&D アサイン UI 用・Day52 新設） */
+  addMacroAssign(knobId: string, assign: import('../types').MacroAssign): void {
+    macroKnobManager.addAssign(knobId, assign)
+  }
+
+  /** MacroKnob からアサインを解除する（D&D アサイン UI 用・Day52 新設） */
+  removeMacroAssign(knobId: string, paramId: string): void {
+    macroKnobManager.removeAssign(knobId, paramId)
+  }
+
+  /** 指定 paramId にアサインされている全ノブを返す（右クリックメニュー用・Day52 新設） */
+  getAssignsForParam(paramId: string): { knobId: string; assign: import('../types').MacroAssign }[] {
+    return macroKnobManager.getKnobs().flatMap((k) =>
+      k.assigns
+        .filter((a) => a.paramId === paramId)
+        .map((a) => ({ knobId: k.id, assign: a }))
+    )
+  }
+
   /**
    * CC入力の唯一の入り口（Day50 確定）。
    * 全UI（SimpleWindow / MacroKnobPanel）・物理MIDIコントローラーが呼ぶ。

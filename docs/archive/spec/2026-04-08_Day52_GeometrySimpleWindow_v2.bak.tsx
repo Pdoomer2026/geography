@@ -2,51 +2,20 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../core/engine'
 import { ccMapService } from '../core/ccMapService'
 import { useDraggable } from './useDraggable'
-import type { DragPayload, MacroAssign, PluginParam, PluginPreset } from '../types'
-import { GEO_PRESET_STORE_KEY, PROJECT_FILE_VERSION } from '../types'
+import type { DragPayload, MacroAssign, PluginParam } from '../types'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
 type LayerId = (typeof LAYER_TABS)[number]
-
-// ============================================================
-// Preset Store ヘルパー（localStorage）
-// ============================================================
-
-type GeoPresetStore = Record<string, PluginPreset>
-
-function loadGeoPresets(): GeoPresetStore {
-  try {
-    const raw = localStorage.getItem(GEO_PRESET_STORE_KEY)
-    if (!raw) return {}
-    return JSON.parse(raw) as GeoPresetStore
-  } catch {
-    return {}
-  }
-}
-
-function saveGeoPresets(store: GeoPresetStore): void {
-  try {
-    localStorage.setItem(GEO_PRESET_STORE_KEY, JSON.stringify(store))
-  } catch {
-    // ignore
-  }
-}
-
-// ============================================================
-// GeometrySimpleWindow
-// ============================================================
 
 /**
  * GeometrySimpleWindow — Geometry Plugin params のデフォルト最小 UI
  *
  * Day52 追加:
- * - CC番号表示
+ * - 各パラメーター行に CC番号表示
  * - [≡] D&D ハンドル（MacroKnob へのドロップ元）
  * - 右クリックメニューでアサイン解除
- * - Geometry Param Preset（Save/Load/Delete）
  *
  * spec: docs/spec/simple-window.spec.md / docs/spec/macro-knob.spec.md §4-1
- * Preset 保存先: localStorage `geography:geo-presets-v1`（便宜的・将来 GeoGraphyProject に統合）
  */
 export function GeometrySimpleWindow() {
   const [collapsed, setCollapsed] = useState(false)
@@ -56,88 +25,7 @@ export function GeometrySimpleWindow() {
   const [params, setParams] = useState<Record<string, PluginParam>>({})
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 900, y: 16 })
 
-  // Preset state
-  const [presets, setPresets] = useState<GeoPresetStore>(() => loadGeoPresets())
-  const [selectedPreset, setSelectedPreset] = useState<string>('')
-  const [presetName, setPresetName] = useState<string>('')
-  const [statusMsg, setStatusMsg] = useState<string | null>(null)
-
-  function flash(msg: string) {
-    setStatusMsg(msg)
-    setTimeout(() => setStatusMsg(null), 2000)
-  }
-
-  // 現在の pluginId のプリセットだけ表示
-  const filteredPresets = Object.values(presets).filter(
-    (p) => p.pluginId === geometryId
-  )
-  const filteredNames = filteredPresets.map((p) => p.name).sort()
-
-  // ── Preset: Save ───────────────────────────────────────────
-  function handlePresetSave() {
-    const name = presetName.trim() || selectedPreset
-    if (!name) { flash('⚠ 名前を入力してください'); return }
-    if (!geometryId) { flash('⚠ Geometry が選択されていません'); return }
-
-    const preset: PluginPreset = {
-      version: PROJECT_FILE_VERSION,
-      savedAt: new Date().toISOString(),
-      pluginId: geometryId,
-      name,
-      params: Object.fromEntries(
-        Object.entries(params).map(([k, p]) => [k, p.value])
-      ),
-    }
-    const key = `${geometryId}::${name}`
-    const next = { ...presets, [key]: preset }
-    setPresets(next)
-    saveGeoPresets(next)
-    setSelectedPreset(name)
-    setPresetName('')
-    flash(`✓ Saved: "${name}"`)
-  }
-
-  // ── Preset: Load ───────────────────────────────────────────
-  function handlePresetLoad() {
-    if (!selectedPreset) { flash('⚠ プリセットを選択してください'); return }
-    const key = `${geometryId}::${selectedPreset}`
-    const preset = presets[key]
-    if (!preset) { flash('⚠ プリセットが見つかりません'); return }
-
-    // params に反映（engine.handleMidiCC 経由）
-    for (const [paramKey, value] of Object.entries(preset.params)) {
-      const param = params[paramKey]
-      if (!param) continue
-      const cc = ccMapService.getCcNumber(geometryId, paramKey)
-      const normalized = (value - param.min) / (param.max - param.min)
-      engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
-    }
-
-    // ローカル state も更新
-    setParams((prev) => {
-      const next = { ...prev }
-      for (const [k, v] of Object.entries(preset.params)) {
-        if (next[k]) next[k] = { ...next[k], value: v }
-      }
-      return next
-    })
-    flash(`✓ Loaded: "${selectedPreset}"`)
-  }
-
-  // ── Preset: Delete ─────────────────────────────────────────
-  function handlePresetDelete() {
-    if (!selectedPreset) { flash('⚠ プリセットを選択してください'); return }
-    const key = `${geometryId}::${selectedPreset}`
-    const next = { ...presets }
-    delete next[key]
-    setPresets(next)
-    saveGeoPresets(next)
-    const deleted = selectedPreset
-    setSelectedPreset('')
-    flash(`✓ Deleted: "${deleted}"`)
-  }
-
-  // ── Geometry 同期 ───────────────────────────────────────────
+  // Geometry Plugin ID が変わったときだけ params を同期する
   const syncFromEngine = useCallback(() => {
     const geo = engine.getGeometryPlugin(activeLayer)
     if (!geo) {
@@ -152,7 +40,6 @@ export function GeometrySimpleWindow() {
       setGeometryId(geo.id)
       setGeometryName(geo.name)
       setParams(structuredClone(geo.params))
-      setSelectedPreset('')
     }
   }, [activeLayer, geometryId])
 
@@ -167,7 +54,6 @@ export function GeometrySimpleWindow() {
       setGeometryName('')
       setParams({})
     }
-    setSelectedPreset('')
   }, [activeLayer])
 
   useEffect(() => {
@@ -185,16 +71,10 @@ export function GeometrySimpleWindow() {
     }))
   }
 
-  const selectStyle = {
-    background: '#1a1a2e',
-    border: '1px solid #2a2a4e',
-    color: '#aaaacc',
-  }
-
   return (
     <div
       className="fixed z-50 font-mono text-xs select-none"
-      style={{ left: pos.x, top: pos.y, width: 340 }}
+      style={{ left: pos.x, top: pos.y, width: 320 }}
     >
       <div
         className="bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg overflow-hidden"
@@ -235,65 +115,12 @@ export function GeometrySimpleWindow() {
 
         {!collapsed && (
           <div className="flex flex-col gap-2">
-            {/* Geometry 名 + Preset UI */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] text-[#5a5a8e] w-14 shrink-0">Geometry</span>
-                <span className="text-[10px] text-[#aaaaee]">
-                  {geometryName || '— none —'}
-                </span>
-              </div>
-
-              {/* Preset: Select + Load + Delete */}
-              {geometryId && (
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={selectedPreset}
-                      onChange={(e) => setSelectedPreset(e.target.value)}
-                      className="flex-1 text-[9px] rounded px-1.5 py-0.5 outline-none"
-                      style={selectStyle}
-                    >
-                      <option value="">— preset —</option>
-                      {filteredNames.map((name) => (
-                        <option key={name} value={name}>{name}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={handlePresetLoad}
-                      className="px-2 py-0.5 text-[8px] rounded border whitespace-nowrap transition-colors"
-                      style={{ background: '#1a2a1e', borderColor: '#3a6e4a', color: '#7aaa8a' }}
-                    >Load</button>
-                    <button
-                      onClick={handlePresetDelete}
-                      className="px-2 py-0.5 text-[8px] rounded border whitespace-nowrap transition-colors"
-                      style={{ background: '#2a1a1a', borderColor: '#6e3a3a', color: '#aa7a7a' }}
-                    >Del</button>
-                  </div>
-                  {/* Preset: 名前入力 + Save */}
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      value={presetName}
-                      onChange={(e) => setPresetName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handlePresetSave() }}
-                      placeholder="preset name..."
-                      className="flex-1 text-[9px] rounded px-1.5 py-0.5 outline-none"
-                      style={{ ...selectStyle, color: '#ccccee' }}
-                    />
-                    <button
-                      onClick={handlePresetSave}
-                      className="px-2 py-0.5 text-[8px] rounded border whitespace-nowrap transition-colors"
-                      style={{ background: '#1a1a2e', borderColor: '#5a5aaa', color: '#9999cc' }}
-                    >Save</button>
-                  </div>
-                  {statusMsg && (
-                    <div className="text-[8px]" style={{
-                      color: statusMsg.startsWith('⚠') ? '#aa6666' : '#6aaa7a'
-                    }}>{statusMsg}</div>
-                  )}
-                </div>
-              )}
+            {/* Geometry 名表示 */}
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] text-[#5a5a8e] w-14 shrink-0">Geometry</span>
+              <span className="text-[10px] text-[#aaaaee]">
+                {geometryName || '— none —'}
+              </span>
             </div>
 
             {/* params スライダー */}
@@ -327,9 +154,10 @@ export function GeometrySimpleWindow() {
   )
 }
 
-// ============================================================
-// ParamRow
-// ============================================================
+// ────────────────────────────────────────────────
+// ParamRow: 1 パラメーターのスライダー行
+// CC番号表示 + [≡] D&D ハンドル + 右クリック解除メニュー付き
+// ────────────────────────────────────────────────
 
 interface ParamRowProps {
   paramKey: string
@@ -346,6 +174,7 @@ function ParamRow({ paramKey, pluginId, layerId, label, value, min, max, onChang
   const isBinary = min === 0 && max === 1
   const cc = ccMapService.getCcNumber(pluginId, paramKey)
 
+  // 右クリックコンテキストメニュー
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [assigns, setAssigns] = useState<{ knobId: string; assign: MacroAssign }[]>([])
   const menuRef = useRef<HTMLDivElement>(null)
@@ -362,6 +191,7 @@ function ParamRow({ paramKey, pluginId, layerId, label, value, min, max, onChang
     setContextMenu(null)
   }
 
+  // メニュー外クリックで閉じる
   useEffect(() => {
     if (!contextMenu) return
     function onClickOutside(e: MouseEvent) {
@@ -373,6 +203,7 @@ function ParamRow({ paramKey, pluginId, layerId, label, value, min, max, onChang
     return () => window.removeEventListener('mousedown', onClickOutside)
   }, [contextMenu])
 
+  // D&D ドラッグ開始
   function handleDragStart(e: React.DragEvent) {
     const payload: DragPayload = {
       type: 'param',
@@ -389,9 +220,15 @@ function ParamRow({ paramKey, pluginId, layerId, label, value, min, max, onChang
 
   return (
     <div className="flex items-center gap-1.5 relative">
-      <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums" title={`CC${cc}`}>
+      {/* CC番号 */}
+      <span
+        className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums"
+        title={`CC${cc}`}
+      >
         CC{cc}
       </span>
+
+      {/* ラベル */}
       <span className="text-[9px] text-[#5a5a8e] w-16 truncate shrink-0">{label}</span>
 
       {isBinary ? (
@@ -423,6 +260,7 @@ function ParamRow({ paramKey, pluginId, layerId, label, value, min, max, onChang
         </>
       )}
 
+      {/* [≡] D&D ハンドル */}
       <div
         draggable
         onDragStart={handleDragStart}
@@ -434,6 +272,7 @@ function ParamRow({ paramKey, pluginId, layerId, label, value, min, max, onChang
         ≡
       </div>
 
+      {/* 右クリックコンテキストメニュー */}
       {contextMenu && (
         <div
           ref={menuRef}

@@ -335,6 +335,7 @@ Icosphere / Torus / Torusknot の 3 Plugin に cameraPreset を追加。"
 - MUST: 各モジュールの CLAUDE.md を読んでから実装すること
 - MUST: 共有ファイル（engine.ts・types/index.ts）の変更は Claude Code のみ
 - MUST: ターミナルコマンドの実行を求めるときは必ずコピペ可能なコマンドを作って渡すこと
+- MUST: localStorage は原則使用しない。Preset 永続化のみ例外許可（`src/ui/CLAUDE.md` の localStorage 使用方針を参照）
 
 ---
 

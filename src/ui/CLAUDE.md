@@ -111,13 +111,35 @@ src/ui/
 
 ---
 
-## MUST ルール（Day50 追加）
+## MUST ルール（Day50 追加・Day52 更新）
 
 - MUST: パラメーター変更は `engine.handleMidiCC(MidiCCEvent)` 経由で行うこと
 - MUST: `macroKnobManager` を直接 import しないこと・`engine` 経由のみ許可
 - MUST: `<form>` タグは使用しない（onClick / onChange で代替）
-- MUST: localStorage は使用しない（React state で管理）
 - MUST: Preferences Panel は Panel（アプリ固定）であり Window ではない
+
+## localStorage 使用方針（Day52 確定）
+
+**原則**: localStorage は使用しない（React state で管理）
+
+**例外: Preset の永続化に限り localStorage を使用する（便宜的・将来移行予定）**
+
+理由:
+- `geoAPI`（Electron ファイル保存）はブラウザ確認時に使えない
+- localStorage はブラウザ・Electron 両環境で同じ操作感を保証できる
+- コントリビューターがブラウザで開発・確認する際に Preset が消えない
+
+将来の移行先: `GeoGraphyProject`（`.geography` ファイル）に統合する
+- Preferences Preset（`geography:presets-v1`）と Geometry Preset（`geography:geo-presets-v1`）を**同時に移行**する
+- 移行タイミング: Project File の Save/Load 実装時
+
+**localStorage を使ってよい箇所:**
+| キー | 用途 | 実装場所 |
+|---|---|---|
+| `geography:presets-v1` | Preferences Preset | `PreferencesPanel.tsx` |
+| `geography:geo-presets-v1` | Geometry Param Preset | `GeometrySimpleWindow.tsx`（Day52 新設予定） |
+
+上記以外で localStorage を使う場合は必ずこの CLAUDE.md に追記すること。
 
 ---
 
