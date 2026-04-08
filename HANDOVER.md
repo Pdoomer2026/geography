@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day50（MidiManager責務分離・ドキュメント整備）｜2026-04-08
+# GeoGraphy 引き継ぎメモ｜Day51（CC Mapping 整備・SimpleWindow engine経由統一）｜2026-04-08
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -31,57 +31,54 @@
 ## 現在の状態
 
 - **ブランチ**: `main`
-- **タグ**: `day50`
+- **タグ**: `day51`
 - **テスト**: 114 tests グリーン・tsc エラーゼロ
-- **Day50は設計壁打ち＋実装＋ドキュメント整備**
+- **Day51は CC Mapping 整備 + SimpleWindow engine.handleMidiCC() 経由統一**
 
 ---
 
-## Day50 で完了したこと
+## Day51 で完了したこと
 
-### 1. 設計壁打ち：責務分離の確定
+### 1. CC Mapping 整備（Day49 引き継ぎタスク完了）
 
-- `macroKnob.ts` の責務を整理し、2つのクラスに分離することを確定
-  - `MacroKnobManager`（`macroKnob.ts`）= 32ノブのUI設定管理のみ
-  - `MidiManager`（`midiManager.ts`・新設）= CC入力の唯一の通路
-- 全 SimpleWindow と MacroKnobPanel が `engine.handleMidiCC()` 経由で統一される設計を確定
-- `MacroKnobPanel` が `macroKnobManager` を直接参照していた問題を発見・修正
+- `cc-standard.spec.md` Block 1xx に CC110（Auto Rotate）追加
+- `cc-standard.spec.md` Block 5xx に CC510〜512（LookAt X/Y/Z）追加・クイックリファレンス更新
+- `cc-mapping.md` v0.3 に更新
+  - Camera Plugin 3種（static/orbit/aerial）のマッピング追加
+  - grid-wave の hue（CC400）欠落を修正
+- git commit: 82f361a
 
-### 2. 実装
+### 2. SimpleWindow → engine.handleMidiCC() 経由への統一（Day50 設計完成）
 
-- `src/core/midiManager.ts` 新規作成（`handleMidiCC` / `receiveModulation` を移管）
-- `src/core/macroKnob.ts` 責務削減（`handleMidiCC` / `receiveModulation` / `init` を削除・`setValue` を追加）
-- `src/core/engine.ts` 更新（`midiManager` に委譲・公開API追加: `getMacroKnobs` / `setMacroKnob` / `getMacroKnobValue` / `receiveMidiModulation`）
-- `src/ui/panels/macro-knob/MacroKnobPanel.tsx` engine経由に変更（`macroKnobManager` 直接参照を削除）
-- `src/types/index.ts` `MidiManager` interface 追加・`MacroKnobManager` から `handleMidiCC` / `receiveModulation` を削除・`setValue` 追加
+- `src/core/midiManager.ts` 修正: CC番号を key に ParameterStore へ直接書くよう変更（MacroKnob アサイン有無に関わらず動作）
+- `src/core/engine.ts` に `flushParameterStore()` / `resolveParamValue()` を追加
+  - 毎フレームの update() ループ内で ParameterStore → plugin.params に反映
+  - cc-map.json あり（Electron）: ccMapService の mapping で逆変換
+  - cc-map.json なし（ブラウザ確認時）: getCcNumber() + param.min/max でフォールバック
+- `GeometrySimpleWindow` / `CameraSimpleWindow` / `FxSimpleWindow` の handleParam を `engine.handleMidiCC()` 経由に変更
+- git commit: ee4af4c
 
-### 3. ドキュメント整備
+### 3. grid-wave hue の実装完成
 
-- `docs/spec/macro-knob.spec.md` Day50アーキテクチャに全面更新（元内容を全保持・Day50変更を統合）
-- `docs/spec/simple-window.spec.md` engine経由MUSTルール追加・ファイルパス修正
-- 6つのCLAUDE.mdを新アーキテクチャに更新（MidiManager責務分離を反映）
-- ルートCLAUDE.mdに**差分保持ルール**追記（Day50確立）
-
----
-
-## 確立した新ルール（Day50）
-
-- **差分保持ルール（最重要）**: CLAUDE.md / spec.md / 全ドキュメントを更新するときは `move_file` → `read_text_file` で元ファイルを読む → 差分を整理・承認 → `write_file`。「記憶で書ける」は理由にならない
-- **ルートCLAUDE.mdは `edit_file` のみ**: `move_file` + `write_file` は禁止
-- **MidiManager = 全CC入力の唯一の通路**: 全UI・物理MIDI・Sequencer（将来）が `engine.handleMidiCC()` 経由で統一
-- **MacroKnobPanel は engine 経由のみ**: `macroKnobManager` 直接参照は禁止
+- `grid-wave.config.ts` に hue param 追加（value:180, min:0, max:360）
+- `GridWaveGeometry.ts` の update() で `material.color.setHSL(hue/360, 1, 0.5)` に反映
+- ブラウザで動作確認済み
+- git commit: c9ac424
 
 ---
 
-## 次回やること（Day51）
+## 確立した新ルール（Day51）
 
-### 未完了のDay49タスク（引き継ぎ）
-- `ccMapService.ts` の `getCcNumber()` を修正（CC1000〜自動払い出し）
-- cc-standard.spec.md / cc-mapping.spec.md の定義漏れ追記（CC110・CC510〜512・grid-wave hue）
+- **セッション引き継ぎは必ず全ファイルを読んでから分析する**: 引き継ぎチャット・HANDOVER.md・関連 spec/CLAUDE.md を全て読んでから推測・分析を始める。「記憶で推測」は禁止
+- **flushParameterStore フォールバック設計**: cc-map.json 未生成時は `getCcNumber()` + `param.min/max` で逆変換してブラウザ確認でも動作させる
 
-### SimpleWindow の engine.handleMidiCC() 経由への統一
-現在 `GeometrySimpleWindow` / `CameraSimpleWindow` / `FxSimpleWindow` のスライダーは `engine.setGeometryParam()` 等を直接呼んでいる。
-Day50で設計確定した仕様（`engine.handleMidiCC()` 経由）への移行が残っている。
+---
+
+## 次回やること（Day52）
+
+- **Sequencer Plugin 設計**（壁打ち）: uProgress 0.0〜1.0 の制御源として Sequencer が必要。Shader Plugin 実装の前提
+- **MacroKnob D&D アサイン UI**: SimpleWindow の `[≡]` ハンドル実装・MacroKnob へのドロップ
+- **Plugin Store v1 設計**（壁打ち）
 
 ---
 
@@ -95,6 +92,7 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 
 ## 環境メモ（累積）
 
+- **セッション開始時は全ファイルを読んでから分析**（Day51確立）: HANDOVER.md・関連 spec・CLAUDE.md を全て読んでから推測・分析を始める
 - **差分保持ルール**（Day50確立）: write_file前に必ずread_text_fileで元ファイルを読む・差分を整理して承認を得てから実行。CLAUDE.md / spec.md / 全ドキュメントに適用
 - **ENABLE_TOOL_SEARCH: true**（Day49確立）: `~/.claude/settings.json` に設定済み（Claude Code のコンテキスト削減）
 - **5分アイドルでキャッシュ切れ**（Day49確認）: 混雑時間帯は1ステップずつ・短いメッセージで繋ぐ
@@ -116,6 +114,6 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 ## 次回チャット用スタートプロンプト
 
 ```
-Day51開始
+Day52開始
 引き継ぎメモ読んで
 ```
