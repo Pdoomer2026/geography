@@ -153,6 +153,11 @@ export class Engine {
     return macroKnobManager.getValue(knobId)
   }
 
+  /** MacroKnob の表示用キャッシュを更新する（MacroKnobPanel UI ドラッグ用・Day52 新設） */
+  setMacroKnobValue(knobId: string, value: number): void {
+    macroKnobManager.setValue(knobId, value)
+  }
+
   /** MacroKnob にアサインを追加する（D&D アサイン UI 用・Day52 新設） */
   addMacroAssign(knobId: string, assign: import('../types').MacroAssign): void {
     macroKnobManager.addAssign(knobId, assign)
@@ -347,7 +352,11 @@ export class Engine {
       const geo = layer.plugin
       if (geo) {
         for (const [paramKey, param] of Object.entries(geo.params)) {
-          const actual = this.resolveParamValue(geo.id, paramKey, param, allValues)
+          const effective = {
+            min: param.rangeMin ?? param.min,
+            max: param.rangeMax ?? param.max,
+          }
+          const actual = this.resolveParamValue(geo.id, paramKey, effective, allValues)
           if (actual === undefined || param.value === actual) continue
           param.value = actual
           if (param.requiresRebuild) {
@@ -360,7 +369,11 @@ export class Engine {
       const cam = layerManager.getCameraPlugin(layer.id)
       if (cam) {
         for (const [paramKey, param] of Object.entries(cam.params)) {
-          const actual = this.resolveParamValue(cam.id, paramKey, param, allValues)
+          const effective = {
+            min: param.rangeMin ?? param.min,
+            max: param.rangeMax ?? param.max,
+          }
+          const actual = this.resolveParamValue(cam.id, paramKey, effective, allValues)
           if (actual === undefined || param.value === actual) continue
           param.value = actual
         }
@@ -369,7 +382,11 @@ export class Engine {
       // --- FX Stack ---
       for (const fx of layer.fxStack.getOrdered()) {
         for (const [paramKey, param] of Object.entries(fx.params)) {
-          const actual = this.resolveParamValue(fx.id, paramKey, param, allValues)
+          const effective = {
+            min: param.rangeMin ?? param.min,
+            max: param.rangeMax ?? param.max,
+          }
+          const actual = this.resolveParamValue(fx.id, paramKey, effective, allValues)
           if (actual === undefined || param.value === actual) continue
           param.value = actual
         }
@@ -394,10 +411,21 @@ export class Engine {
       if (storeValue === undefined) return undefined
       return mapping.pluginMin + storeValue * (mapping.pluginMax - mapping.pluginMin)
     }
-    // フォールバック: cc-map.json 未生成時は param.min/max で逆変換
+    // フォールバック: getCcNumber で CC 番号を出す
     const cc = ccMapService.getCcNumber(pluginId, paramKey)
     const storeValue = allValues.get(String(cc))
     if (storeValue === undefined) return undefined
+
+    // store の値は 0.0〜1.0 の相対値。
+    // MacroKnob アサインがあれば assign.min/max で変換。
+    // なければ param（= effectiveMin/Max = rangeMin/rangeMax ?? min/max）で変換。
+    // 全て同じ変換式: effectiveMin + storeValue * (effectiveMax - effectiveMin)
+    const assign = macroKnobManager.getKnobs()
+      .flatMap((k) => k.assigns)
+      .find((a) => a.ccNumber === cc)
+    if (assign) {
+      return assign.min + storeValue * (assign.max - assign.min)
+    }
     return param.min + storeValue * (param.max - param.min)
   }
 

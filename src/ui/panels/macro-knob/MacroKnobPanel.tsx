@@ -540,18 +540,13 @@ export function MacroKnobPanel() {
                   onEdit={handleEdit}
                   onDrop={handleDrop}
                   onKnobChange={(knobId, val) => {
-                    // midiCC（物理コントローラー番号）は関係ない
-                    // assigns の ccNumber ごとに直接流す
                     const knob = knobs.find(k => k.id === knobId)
                     if (!knob) return
-                    for (const assign of knob.assigns) {
-                      engine.handleMidiCC({
-                        cc: assign.ccNumber,
-                        value: val,
-                        protocol: 'midi2',
-                        resolution: 4294967296,
-                      })
-                    }
+                    // MacroKnobManager.setValue で表示用キャッシュを更新
+                    engine.setMacroKnobValue(knobId, val)
+                    // assigns ごとに rangeMap してから handleMidiCC ではなく
+                    // receiveMidiModulation（knobId 基準）で流す
+                    engine.receiveMidiModulation(knobId, val)
                   }}
                 />
               )

@@ -29,20 +29,27 @@ class MidiManagerImpl implements MidiManager {
   handleMidiCC(event: MidiCCEvent): void {
     if (!this.store || !this.knobManager) return
 
-    // CC番号を key に ParameterStore へ直接書く（MacroKnob アサイン有無に関わらず）
-    // SimpleWindow のスライダー操作も物理MIDIも同じ経路を通る
     this.store.set(String(event.cc), event.value)
 
-    // MacroKnob アサインがあれば追加で rangeMap して assigns の paramId にも書く
     const knobs = this.knobManager.getKnobs()
-    const knob = knobs.find((k) => k.midiCC === event.cc)
-    if (knob) {
-      // 現在値を MacroKnobManager 側にキャッシュ（表示用）
-      this.knobManager.setValue(knob.id, event.value)
 
-      for (const assign of knob.assigns) {
+    // midiCC（物理 MIDI CC）でヒットする MacroKnob
+    const knobByMidi = knobs.find((k) => k.midiCC === event.cc)
+    if (knobByMidi) {
+      this.knobManager.setValue(knobByMidi.id, event.value)
+      for (const assign of knobByMidi.assigns) {
         const mapped = rangeMap(event.value, assign.min, assign.max)
         this.store.set(assign.paramId, mapped)
+      }
+    }
+
+    // assign.ccNumber でヒットする MacroKnob → SimpleWindow → MacroKnob 表示を追従
+    for (const knob of knobs) {
+      for (const assign of knob.assigns) {
+        if (assign.ccNumber === event.cc) {
+          // event.value は 0.0〜1.0 の正規化値なのでそのままノブ値として使う
+          this.knobManager.setValue(knob.id, Math.min(1, Math.max(0, event.value)))
+        }
       }
     }
   }
@@ -56,8 +63,9 @@ class MidiManagerImpl implements MidiManager {
     this.knobManager.setValue(knobId, value)
 
     for (const assign of knob.assigns) {
-      const mapped = rangeMap(value, assign.min, assign.max)
-      this.store.set(assign.paramId, mapped)
+      // CC番号キーに正規化値を書くのみ（flushParameterStore の統一ルート）
+      // paramId キーには書かない（競合防止）
+      this.store.set(String(assign.ccNumber), value)
     }
   }
 }

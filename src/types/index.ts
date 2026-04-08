@@ -43,6 +43,18 @@ export interface PluginParam {
    * spec: docs/spec/geometry-plugin.spec.md §9
    */
   requiresRebuild?: boolean
+  /**
+   * UI 上の可動域の下限（省略時は min と同じ）。
+   * SimpleWindow のスライダーで絞った範囲を保持する。
+   * MacroKnob D&D アサイン時の初期 min 値としても使われる。
+   * Day52 追加
+   */
+  rangeMin?: number
+  /**
+   * UI 上の可動域の上限（省略時は max と同じ）。
+   * Day52 追加
+   */
+  rangeMax?: number
 }
 
 // ============================================================

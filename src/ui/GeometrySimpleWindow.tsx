@@ -36,18 +36,6 @@ function saveGeoPresets(store: GeoPresetStore): void {
 // GeometrySimpleWindow
 // ============================================================
 
-/**
- * GeometrySimpleWindow — Geometry Plugin params のデフォルト最小 UI
- *
- * Day52 追加:
- * - CC番号表示
- * - [≡] D&D ハンドル（MacroKnob へのドロップ元）
- * - 右クリックメニューでアサイン解除
- * - Geometry Param Preset（Save/Load/Delete）
- *
- * spec: docs/spec/simple-window.spec.md / docs/spec/macro-knob.spec.md §4-1
- * Preset 保存先: localStorage `geography:geo-presets-v1`（便宜的・将来 GeoGraphyProject に統合）
- */
 export function GeometrySimpleWindow() {
   const [collapsed, setCollapsed] = useState(false)
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
@@ -67,10 +55,7 @@ export function GeometrySimpleWindow() {
     setTimeout(() => setStatusMsg(null), 2000)
   }
 
-  // 現在の pluginId のプリセットだけ表示
-  const filteredPresets = Object.values(presets).filter(
-    (p) => p.pluginId === geometryId
-  )
+  const filteredPresets = Object.values(presets).filter((p) => p.pluginId === geometryId)
   const filteredNames = filteredPresets.map((p) => p.name).sort()
 
   // ── Preset: Save ───────────────────────────────────────────
@@ -104,20 +89,25 @@ export function GeometrySimpleWindow() {
     const preset = presets[key]
     if (!preset) { flash('⚠ プリセットが見つかりません'); return }
 
-    // params に反映（engine.handleMidiCC 経由）
     for (const [paramKey, value] of Object.entries(preset.params)) {
       const param = params[paramKey]
       if (!param) continue
       const cc = ccMapService.getCcNumber(geometryId, paramKey)
-      const normalized = (value - param.min) / (param.max - param.min)
+      const rMin = param.rangeMin ?? param.min
+      const rMax = param.rangeMax ?? param.max
+      const clamped = Math.min(rMax, Math.max(rMin, value))
+      const normalized = (clamped - param.min) / (param.max - param.min)
       engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
     }
 
-    // ローカル state も更新
     setParams((prev) => {
       const next = { ...prev }
       for (const [k, v] of Object.entries(preset.params)) {
-        if (next[k]) next[k] = { ...next[k], value: v }
+        if (next[k]) {
+          const rMin = next[k].rangeMin ?? next[k].min
+          const rMax = next[k].rangeMax ?? next[k].max
+          next[k] = { ...next[k], value: Math.min(rMax, Math.max(rMin, v)) }
+        }
       }
       return next
     })
@@ -138,13 +128,14 @@ export function GeometrySimpleWindow() {
   }
 
   // ── Geometry 同期 ───────────────────────────────────────────
+  const isDraggingRef = useRef(false)
+
   const syncFromEngine = useCallback(() => {
+    if (isDraggingRef.current) return
     const geo = engine.getGeometryPlugin(activeLayer)
     if (!geo) {
       if (geometryId !== '') {
-        setGeometryId('')
-        setGeometryName('')
-        setParams({})
+        setGeometryId(''); setGeometryName(''); setParams({})
       }
       return
     }
@@ -153,19 +144,28 @@ export function GeometrySimpleWindow() {
       setGeometryName(geo.name)
       setParams(structuredClone(geo.params))
       setSelectedPreset('')
+    } else {
+      setParams((prev) => {
+        let changed = false
+        const next = { ...prev }
+        for (const [key, geoParam] of Object.entries(geo.params)) {
+          if (prev[key] && Math.abs(prev[key].value - geoParam.value) > 0.001) {
+            next[key] = { ...prev[key], value: geoParam.value }
+            changed = true
+          }
+        }
+        return changed ? next : prev
+      })
     }
   }, [activeLayer, geometryId])
 
   useEffect(() => {
     const geo = engine.getGeometryPlugin(activeLayer)
     if (geo) {
-      setGeometryId(geo.id)
-      setGeometryName(geo.name)
+      setGeometryId(geo.id); setGeometryName(geo.name)
       setParams(structuredClone(geo.params))
     } else {
-      setGeometryId('')
-      setGeometryName('')
-      setParams({})
+      setGeometryId(''); setGeometryName(''); setParams({})
     }
     setSelectedPreset('')
   }, [activeLayer])
@@ -175,150 +175,144 @@ export function GeometrySimpleWindow() {
     return () => window.clearInterval(timer)
   }, [syncFromEngine])
 
+  // ── param 値変更（engine 経由）─────────────────────────────
   function handleParam(paramKey: string, value: number, param: PluginParam) {
     const cc = ccMapService.getCcNumber(geometryId, paramKey)
-    const normalized = (value - param.min) / (param.max - param.min)
-    engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
-    setParams((prev) => ({
-      ...prev,
-      [paramKey]: { ...prev[paramKey], value },
-    }))
+    // rangeMin/rangeMax で正規化（assign.min/max と同じ軍軸）
+    const rMin = param.rangeMin ?? param.min
+    const rMax = param.rangeMax ?? param.max
+    const normalized = rMax > rMin ? (value - rMin) / (rMax - rMin) : 0
+    engine.handleMidiCC({ cc, value: Math.min(1, Math.max(0, normalized)), protocol: 'midi2', resolution: 4294967296 })
+    setParams((prev) => ({ ...prev, [paramKey]: { ...prev[paramKey], value } }))
+  }
+
+  // ── rangeMin/rangeMax 変更（UI state のみ・engine には流さない）──
+  function handleRangeMin(paramKey: string, rangeMin: number) {
+    setParams((prev) => {
+      const p = prev[paramKey]
+      if (!p) return prev
+      const newRangeMin = Math.min(rangeMin, p.rangeMax ?? p.max)
+      // value が範囲外になったらクランプして engine にも流す
+      const newValue = Math.max(p.value, newRangeMin)
+      if (newValue !== p.value) {
+        const cc = ccMapService.getCcNumber(geometryId, paramKey)
+        const normalized = (newValue - p.min) / (p.max - p.min)
+        engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
+      }
+      return { ...prev, [paramKey]: { ...p, rangeMin: newRangeMin, value: newValue } }
+    })
+  }
+
+  function handleRangeMax(paramKey: string, rangeMax: number) {
+    setParams((prev) => {
+      const p = prev[paramKey]
+      if (!p) return prev
+      const newRangeMax = Math.max(rangeMax, p.rangeMin ?? p.min)
+      const newValue = Math.min(p.value, newRangeMax)
+      if (newValue !== p.value) {
+        const cc = ccMapService.getCcNumber(geometryId, paramKey)
+        const normalized = (newValue - p.min) / (p.max - p.min)
+        engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
+      }
+      return { ...prev, [paramKey]: { ...p, rangeMax: newRangeMax, value: newValue } }
+    })
   }
 
   const selectStyle = {
-    background: '#1a1a2e',
-    border: '1px solid #2a2a4e',
-    color: '#aaaacc',
+    background: '#1a1a2e', border: '1px solid #2a2a4e', color: '#aaaacc',
   }
 
   return (
-    <div
-      className="fixed z-50 font-mono text-xs select-none"
-      style={{ left: pos.x, top: pos.y, width: 340 }}
-    >
-      <div
-        className="bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg overflow-hidden"
-        style={{ padding: '10px 14px' }}
-      >
+    <div className="fixed z-50 font-mono text-xs select-none" style={{ left: pos.x, top: pos.y, width: 360 }}>
+      <div className="bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg overflow-hidden" style={{ padding: '10px 14px' }}>
+
         {/* ヘッダー */}
-        <div
-          onMouseDown={handleMouseDown}
-          className="flex items-center justify-between mb-2"
-          style={{ cursor: 'grab' }}
-        >
+        <div onMouseDown={handleMouseDown} className="flex items-center justify-between mb-2" style={{ cursor: 'grab' }}>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-[#7878aa] tracking-widest">GEOMETRY SIMPLE WINDOW</span>
             <div className="flex gap-1">
               {LAYER_TABS.map((id, i) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveLayer(id)}
+                <button key={id} onClick={() => setActiveLayer(id)}
                   className="text-[9px] rounded px-1.5 py-0.5 border transition-colors"
                   style={{
                     background: activeLayer === id ? '#2a2a6e' : '#1a1a2e',
                     borderColor: activeLayer === id ? '#5a5aaa' : '#2a2a4e',
                     color: activeLayer === id ? '#aaaaee' : '#4a4a6e',
-                  }}
-                >
-                  L{i + 1}
-                </button>
+                  }}>L{i + 1}</button>
               ))}
             </div>
           </div>
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            className="text-[#4a4a6e] hover:text-[#aaaacc] transition-colors text-[11px] leading-none"
-          >
+          <button onClick={() => setCollapsed((c) => !c)}
+            className="text-[#4a4a6e] hover:text-[#aaaacc] transition-colors text-[11px] leading-none">
             {collapsed ? '＋' : '－'}
           </button>
         </div>
 
         {!collapsed && (
           <div className="flex flex-col gap-2">
-            {/* Geometry 名 + Preset UI */}
+            {/* Geometry 名 + Preset */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center gap-2">
                 <span className="text-[9px] text-[#5a5a8e] w-14 shrink-0">Geometry</span>
-                <span className="text-[10px] text-[#aaaaee]">
-                  {geometryName || '— none —'}
-                </span>
+                <span className="text-[10px] text-[#aaaaee]">{geometryName || '— none —'}</span>
               </div>
 
-              {/* Preset: Select + Load + Delete */}
               {geometryId && (
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
-                    <select
-                      value={selectedPreset}
-                      onChange={(e) => setSelectedPreset(e.target.value)}
-                      className="flex-1 text-[9px] rounded px-1.5 py-0.5 outline-none"
-                      style={selectStyle}
-                    >
+                    <select value={selectedPreset} onChange={(e) => setSelectedPreset(e.target.value)}
+                      className="flex-1 text-[9px] rounded px-1.5 py-0.5 outline-none" style={selectStyle}>
                       <option value="">— preset —</option>
-                      {filteredNames.map((name) => (
-                        <option key={name} value={name}>{name}</option>
-                      ))}
+                      {filteredNames.map((name) => <option key={name} value={name}>{name}</option>)}
                     </select>
-                    <button
-                      onClick={handlePresetLoad}
-                      className="px-2 py-0.5 text-[8px] rounded border whitespace-nowrap transition-colors"
-                      style={{ background: '#1a2a1e', borderColor: '#3a6e4a', color: '#7aaa8a' }}
-                    >Load</button>
-                    <button
-                      onClick={handlePresetDelete}
-                      className="px-2 py-0.5 text-[8px] rounded border whitespace-nowrap transition-colors"
-                      style={{ background: '#2a1a1a', borderColor: '#6e3a3a', color: '#aa7a7a' }}
-                    >Del</button>
+                    <button onClick={handlePresetLoad}
+                      className="px-2 py-0.5 text-[8px] rounded border whitespace-nowrap"
+                      style={{ background: '#1a2a1e', borderColor: '#3a6e4a', color: '#7aaa8a' }}>Load</button>
+                    <button onClick={handlePresetDelete}
+                      className="px-2 py-0.5 text-[8px] rounded border whitespace-nowrap"
+                      style={{ background: '#2a1a1a', borderColor: '#6e3a3a', color: '#aa7a7a' }}>Del</button>
                   </div>
-                  {/* Preset: 名前入力 + Save */}
                   <div className="flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      value={presetName}
-                      onChange={(e) => setPresetName(e.target.value)}
+                    <input type="text" value={presetName} onChange={(e) => setPresetName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handlePresetSave() }}
                       placeholder="preset name..."
                       className="flex-1 text-[9px] rounded px-1.5 py-0.5 outline-none"
-                      style={{ ...selectStyle, color: '#ccccee' }}
-                    />
-                    <button
-                      onClick={handlePresetSave}
-                      className="px-2 py-0.5 text-[8px] rounded border whitespace-nowrap transition-colors"
-                      style={{ background: '#1a1a2e', borderColor: '#5a5aaa', color: '#9999cc' }}
-                    >Save</button>
+                      style={{ ...selectStyle, color: '#ccccee' }} />
+                    <button onClick={handlePresetSave}
+                      className="px-2 py-0.5 text-[8px] rounded border whitespace-nowrap"
+                      style={{ background: '#1a1a2e', borderColor: '#5a5aaa', color: '#9999cc' }}>Save</button>
                   </div>
                   {statusMsg && (
-                    <div className="text-[8px]" style={{
-                      color: statusMsg.startsWith('⚠') ? '#aa6666' : '#6aaa7a'
-                    }}>{statusMsg}</div>
+                    <div className="text-[8px]" style={{ color: statusMsg.startsWith('⚠') ? '#aa6666' : '#6aaa7a' }}>
+                      {statusMsg}
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* params スライダー */}
+            {/* params */}
             {Object.keys(params).length > 0 && (
-              <div className="flex flex-col gap-1 mt-1">
+              <div className="flex flex-col gap-1.5 mt-1">
                 {Object.entries(params).map(([key, param]) => (
                   <ParamRow
                     key={`${activeLayer}-${geometryId}-${key}`}
                     paramKey={key}
                     pluginId={geometryId}
                     layerId={activeLayer}
-                    label={param.label}
-                    value={param.value}
-                    min={param.min}
-                    max={param.max}
+                    param={param}
                     onChange={(v) => handleParam(key, v, param)}
+                    onRangeMinChange={(v) => handleRangeMin(key, v)}
+                    onRangeMaxChange={(v) => handleRangeMax(key, v)}
+                    onSliderDragStart={() => { isDraggingRef.current = true }}
+                    onSliderDragEnd={() => { isDraggingRef.current = false }}
                   />
                 ))}
               </div>
             )}
 
             {!geometryId && (
-              <div className="text-[#3a3a5e] text-[10px] py-2 text-center">
-                — no geometry —
-              </div>
+              <div className="text-[#3a3a5e] text-[10px] py-2 text-center">— no geometry —</div>
             )}
           </div>
         )}
@@ -328,32 +322,40 @@ export function GeometrySimpleWindow() {
 }
 
 // ============================================================
-// ParamRow
+// ParamRow — RangeSlider + D&D ハンドル
 // ============================================================
 
 interface ParamRowProps {
   paramKey: string
   pluginId: string
   layerId: string
-  label: string
-  value: number
-  min: number
-  max: number
+  param: PluginParam
   onChange: (value: number) => void
+  onRangeMinChange: (value: number) => void
+  onRangeMaxChange: (value: number) => void
+  onSliderDragStart: () => void
+  onSliderDragEnd: () => void
 }
 
-function ParamRow({ paramKey, pluginId, layerId, label, value, min, max, onChange }: ParamRowProps) {
+function ParamRow({
+  paramKey, pluginId, layerId, param,
+  onChange, onRangeMinChange, onRangeMaxChange,
+  onSliderDragStart, onSliderDragEnd,
+}: ParamRowProps) {
+  const { value, min, max, label } = param
+  const rangeMin = param.rangeMin ?? min
+  const rangeMax = param.rangeMax ?? max
   const isBinary = min === 0 && max === 1
   const cc = ccMapService.getCcNumber(pluginId, paramKey)
 
+  // 右クリックコンテキストメニュー
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [assigns, setAssigns] = useState<{ knobId: string; assign: MacroAssign }[]>([])
   const menuRef = useRef<HTMLDivElement>(null)
 
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault()
-    const current = engine.getAssignsForParam(paramKey)
-    setAssigns(current)
+    setAssigns(engine.getAssignsForParam(paramKey))
     setContextMenu({ x: e.clientX, y: e.clientY })
   }
 
@@ -365,14 +367,13 @@ function ParamRow({ paramKey, pluginId, layerId, label, value, min, max, onChang
   useEffect(() => {
     if (!contextMenu) return
     function onClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setContextMenu(null)
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setContextMenu(null)
     }
     window.addEventListener('mousedown', onClickOutside)
     return () => window.removeEventListener('mousedown', onClickOutside)
   }, [contextMenu])
 
+  // D&D: rangeMin/rangeMax を DragPayload の min/max として使う
   function handleDragStart(e: React.DragEvent) {
     const payload: DragPayload = {
       type: 'param',
@@ -380,19 +381,39 @@ function ParamRow({ paramKey, pluginId, layerId, label, value, min, max, onChang
       layerId,
       pluginId,
       ccNumber: cc,
-      min,
-      max,
+      min: rangeMin,   // 絞った範囲を初期値として渡す
+      max: rangeMax,
     }
     e.dataTransfer.setData('application/geography-param', JSON.stringify(payload))
     e.dataTransfer.effectAllowed = 'copy'
   }
 
+  // レール全体に対する % 計算
+  const toPercent = (v: number) => ((v - min) / (max - min)) * 100
+  const rangeMinPct = toPercent(rangeMin)
+  const rangeMaxPct = toPercent(rangeMax)
+
+  // linear-gradient で範囲外を暗く・範囲内を明るく
+  const trackGradient = `linear-gradient(to right,
+    #1a1a3e 0%,
+    #1a1a3e ${rangeMinPct}%,
+    #4a4aaa ${rangeMinPct}%,
+    #4a4aaa ${rangeMaxPct}%,
+    #1a1a3e ${rangeMaxPct}%,
+    #1a1a3e 100%
+  )`
+
+  const step = (max - min) / 200
+
   return (
     <div className="flex items-center gap-1.5 relative">
+      {/* CC番号 */}
       <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums" title={`CC${cc}`}>
         CC{cc}
       </span>
-      <span className="text-[9px] text-[#5a5a8e] w-16 truncate shrink-0">{label}</span>
+
+      {/* ラベル */}
+      <span className="text-[9px] text-[#5a5a8e] w-14 truncate shrink-0">{label}</span>
 
       {isBinary ? (
         <button
@@ -408,52 +429,119 @@ function ParamRow({ paramKey, pluginId, layerId, label, value, min, max, onChang
         </button>
       ) : (
         <>
-          <input
-            type="range"
-            min={min}
-            max={max}
-            step={(max - min) / 200}
-            value={value}
-            onChange={(e) => onChange(parseFloat(e.target.value))}
-            className="flex-1 accent-[#5a5aff] h-1 cursor-pointer"
-          />
-          <span className="text-[9px] text-[#5a5a8e] w-10 text-right tabular-nums">
+          {/* RangeSlider: 3本の input を重ねる */}
+          <div className="relative flex-1" style={{ height: 16 }}>
+            {/* ── 共通スタイル ── */}
+            <style>{`
+              .geo-range {
+                position: absolute;
+                width: 100%;
+                height: 4px;
+                top: 50%;
+                transform: translateY(-50%);
+                -webkit-appearance: none;
+                appearance: none;
+                background: transparent;
+                outline: none;
+                pointer-events: none;
+              }
+              .geo-range::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                pointer-events: all;
+                cursor: pointer;
+                border-radius: 50%;
+              }
+              /* 値スライダー: 青紫・大きめ */
+              .geo-range-value::-webkit-slider-thumb {
+                width: 10px; height: 10px;
+                background: #8080ff;
+                border: 1px solid #aaaaff;
+              }
+              /* rangeMin/rangeMax つまみ: 白・小さめ */
+              .geo-range-bound::-webkit-slider-thumb {
+                width: 7px; height: 14px;
+                background: #667;
+                border: 1px solid #99a;
+                border-radius: 2px;
+              }
+              .geo-range-bound::-webkit-slider-thumb:hover {
+                background: #889;
+              }
+            `}</style>
+
+            {/* トラック背景（色分け） */}
+            <div
+              className="absolute rounded-full"
+              style={{
+                left: 0, right: 0,
+                top: '50%', transform: 'translateY(-50%)',
+                height: 4,
+                background: trackGradient,
+              }}
+            />
+
+            {/* rangeMin つまみ */}
+            <input
+              type="range" min={min} max={max} step={step}
+              value={rangeMin}
+              onChange={(e) => onRangeMinChange(parseFloat(e.target.value))}
+              className="geo-range geo-range-bound"
+              style={{ zIndex: 2 }}
+            />
+
+            {/* rangeMax つまみ */}
+            <input
+              type="range" min={min} max={max} step={step}
+              value={rangeMax}
+              onChange={(e) => onRangeMaxChange(parseFloat(e.target.value))}
+              className="geo-range geo-range-bound"
+              style={{ zIndex: 2 }}
+            />
+
+            {/* 値スライダー（rangeMin〜rangeMax の範囲内のみ） */}
+            <input
+              type="range" min={rangeMin} max={rangeMax} step={step}
+              value={Math.min(rangeMax, Math.max(rangeMin, value))}
+              onChange={(e) => onChange(parseFloat(e.target.value))}
+              onMouseDown={onSliderDragStart}
+              onMouseUp={onSliderDragEnd}
+              className="geo-range geo-range-value"
+              style={{ zIndex: 3 }}
+            />
+          </div>
+
+          {/* 現在値 */}
+          <span className="text-[9px] text-[#5a5a8e] w-10 text-right tabular-nums shrink-0">
             {value.toFixed(2)}
           </span>
         </>
       )}
 
+      {/* [≡] D&D ハンドル */}
       <div
         draggable
         onDragStart={handleDragStart}
         onContextMenu={handleContextMenu}
         className="text-[10px] text-[#3a3a6e] hover:text-[#8888cc] cursor-grab
                    active:cursor-grabbing px-1 shrink-0 select-none transition-colors"
-        title="MacroKnob にドラッグしてアサイン / 右クリックで解除"
-      >
-        ≡
-      </div>
+        title="MacroKnob にドラッグ（絞った範囲が初期値になる）/ 右クリックで解除"
+      >≡</div>
 
+      {/* 右クリックメニュー */}
       {contextMenu && (
-        <div
-          ref={menuRef}
+        <div ref={menuRef}
           className="fixed z-[300] bg-[#0f0f1e] border border-[#3a3a6e] rounded shadow-lg py-1"
-          style={{ left: contextMenu.x, top: contextMenu.y, minWidth: 180 }}
-        >
+          style={{ left: contextMenu.x, top: contextMenu.y, minWidth: 180 }}>
           {assigns.length === 0 ? (
             <div className="px-3 py-1.5 text-[9px] text-[#4a4a6e]">アサインなし</div>
-          ) : (
-            assigns.map(({ knobId, assign }) => (
-              <button
-                key={knobId}
-                onClick={() => handleRemoveAssign(knobId)}
-                className="w-full text-left px-3 py-1.5 text-[9px] text-[#8888bb]
-                           hover:bg-[#1a1a3e] hover:text-[#cc4444] transition-colors"
-              >
-                Remove: {knobId} (CC{assign.ccNumber}) [{assign.min}…{assign.max}]
-              </button>
-            ))
-          )}
+          ) : assigns.map(({ knobId, assign }) => (
+            <button key={knobId} onClick={() => handleRemoveAssign(knobId)}
+              className="w-full text-left px-3 py-1.5 text-[9px] text-[#8888bb]
+                         hover:bg-[#1a1a3e] hover:text-[#cc4444] transition-colors">
+              Remove: {knobId} (CC{assign.ccNumber}) [{assign.min}…{assign.max}]
+            </button>
+          ))}
         </div>
       )}
     </div>
