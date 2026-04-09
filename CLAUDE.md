@@ -317,6 +317,8 @@ Icosphere / Torus / Torusknot の 3 Plugin に cameraPreset を追加。"
 | `docs/spec/project-file.spec.md` | プロジェクトファイル | Claude Code | ✅ |
 | `docs/spec/plugin-lifecycle.spec.md` | Plugin ライフサイクル | Claude Code | ⬜ |
 | `docs/spec/shader-plugin.spec.md` | Shader Plugin（疎結合・GeoGraffiコア） | Claude Code | ⬜ 設計済み・実装はシーケンサー後 |
+| `docs/spec/midi-registry.spec.md` | MIDI Registry（動的状態管理） | Claude Desktop | ⬜ Day55 設計確定 |
+| `docs/spec/plugin-manager.spec.md` | Plugin Manager（Phase A/B フロー） | Claude Desktop | ⬜ Day55 設計確定 |
 
 ---
 

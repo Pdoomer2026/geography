@@ -36,7 +36,12 @@ function saveGeoPresets(store: GeoPresetStore): void {
 // GeometrySimpleWindow
 // ============================================================
 
-export function GeometrySimpleWindow() {
+interface GeometrySimpleWindowProps {
+  onPluginApply: (layerId: string, pluginId: string) => void
+  onPluginRemove: (layerId: string) => void
+}
+
+export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: GeometrySimpleWindowProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
   const [geometryId, setGeometryId] = useState<string>('')
@@ -136,6 +141,7 @@ export function GeometrySimpleWindow() {
     if (!geo) {
       if (geometryId !== '') {
         setGeometryId(''); setGeometryName(''); setParams({})
+        onPluginRemove(activeLayer)
       }
       return
     }
@@ -144,6 +150,7 @@ export function GeometrySimpleWindow() {
       setGeometryName(geo.name)
       setParams(structuredClone(geo.params))
       setSelectedPreset('')
+      onPluginApply(activeLayer, geo.id)
     } else {
       setParams((prev) => {
         let changed = false
@@ -157,7 +164,7 @@ export function GeometrySimpleWindow() {
         return changed ? next : prev
       })
     }
-  }, [activeLayer, geometryId])
+  }, [activeLayer, geometryId, onPluginApply, onPluginRemove])
 
   useEffect(() => {
     const geo = engine.getGeometryPlugin(activeLayer)

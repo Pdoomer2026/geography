@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../core/engine'
 import type { MidiCCEvent } from '../types'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
@@ -23,27 +23,21 @@ export default function App() {
   // MIDI Registry state（Day53 新設）
   const [midiRegistry, setMidiRegistry] = useState<MIDIRegistry>(createInitialRegistry)
 
-  /** Plugin Apply 時に Registry を更新するヘルパー（Day53 新設）
-   * TODO Day54: GeometrySimpleWindow の Plugin Apply 時に呼ぶ
-   */
-  const applyPluginToRegistry = (layerId: string, pluginId: string) => {
+  /** Plugin Apply 時に Registry を更新するヘルパー（Day55 接続）*/
+  const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
     const plugin = engine.getGeometryPlugin(layerId)
     if (!plugin) return
     const enriched = plugin.getParameters().map((p) => ({ ...p, layerId, pluginId }))
     setMidiRegistry((prev) => registerParams(prev, enriched, layerId))
-  }
+  }, [])
 
-  /** Plugin をレイヤーから外した時に Registry をクリアするヘルパー（Day53 新設）
-   * TODO Day54: GeometrySimpleWindow の Plugin Remove 時に呼ぶ
-   */
-  const removePluginFromRegistry = (layerId: string) => {
+  /** Plugin をレイヤーから外した時に Registry をクリアするヘルパー（Day55 接続）*/
+  const removePluginFromRegistry = useCallback((layerId: string) => {
     setMidiRegistry((prev) => clearParams(prev, layerId))
-  }
+  }, [])
 
-  // 未使用変数エラー回避（Day54 で GeometrySimpleWindow に props として渡す）
+  // midiRegistry は将来 WindowPlugin に渡す（Phase B）
   void midiRegistry
-  void applyPluginToRegistry
-  void removePluginFromRegistry
 
   useAutosave()
 
@@ -207,7 +201,12 @@ export default function App() {
       {uiVisible.fx && <FxSimpleWindow />}
       {uiVisible.mixer && <MixerSimpleWindow />}
       {uiVisible.camera && <CameraSimpleWindow />}
-      {uiVisible.geometry && <GeometrySimpleWindow />}
+      {uiVisible.geometry && (
+        <GeometrySimpleWindow
+          onPluginApply={applyPluginToRegistry}
+          onPluginRemove={removePluginFromRegistry}
+        />
+      )}
 
       {isRecording && (
         <div
