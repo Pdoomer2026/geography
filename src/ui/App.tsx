@@ -9,6 +9,9 @@ import { GeometrySimpleWindow } from './GeometrySimpleWindow'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 import type { GeoGraphyProject } from '../types'
+import { createInitialRegistry } from '../types/midi-registry'
+import { registerParams, clearParams } from '../core/midiRegistry'
+import type { MIDIRegistry } from '../types/midi-registry'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
@@ -16,6 +19,31 @@ export default function App() {
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const currentFilePathRef = useRef<string | null>(null)
+
+  // MIDI Registry state（Day53 新設）
+  const [midiRegistry, setMidiRegistry] = useState<MIDIRegistry>(createInitialRegistry)
+
+  /** Plugin Apply 時に Registry を更新するヘルパー（Day53 新設）
+   * TODO Day54: GeometrySimpleWindow の Plugin Apply 時に呼ぶ
+   */
+  const applyPluginToRegistry = (layerId: string, pluginId: string) => {
+    const plugin = engine.getGeometryPlugin(layerId)
+    if (!plugin) return
+    const enriched = plugin.getParameters().map((p) => ({ ...p, layerId, pluginId }))
+    setMidiRegistry((prev) => registerParams(prev, enriched, layerId))
+  }
+
+  /** Plugin をレイヤーから外した時に Registry をクリアするヘルパー（Day53 新設）
+   * TODO Day54: GeometrySimpleWindow の Plugin Remove 時に呼ぶ
+   */
+  const removePluginFromRegistry = (layerId: string) => {
+    setMidiRegistry((prev) => clearParams(prev, layerId))
+  }
+
+  // 未使用変数エラー回避（Day54 で GeometrySimpleWindow に props として渡す）
+  void midiRegistry
+  void applyPluginToRegistry
+  void removePluginFromRegistry
 
   useAutosave()
 
@@ -52,7 +80,16 @@ export default function App() {
   useEffect(() => {
     if (!mountRef.current) return
     const container = mountRef.current
-    engine.initialize(container).then(() => { engine.start() })
+    engine.initialize(container).then(() => {
+      engine.start()
+      // 起動時に全レイヤーを一括登録（Day53 新設）
+      engine.getAllLayerPlugins().forEach(({ layerId, plugin }) => {
+        const enriched = plugin.getParameters().map((p) => ({
+          ...p, layerId, pluginId: plugin.id,
+        }))
+        setMidiRegistry((prev) => registerParams(prev, enriched, layerId))
+      })
+    })
     return () => { engine.dispose() }
   }, [])
 

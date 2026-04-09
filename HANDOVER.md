@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day52（MacroKnob D&D UI + RangeSlider + Geometry Preset）｜2026-04-08
+# GeoGraphy 引き継ぎメモ｜Day53（MIDI Registry 基盤 + アーキテクチャ設計見直し）｜2026-04-09
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -15,116 +15,111 @@
 | ファイル | パス |
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md`（v11） |
+| MIDI Registry 型定義 | `src/types/midi-registry.ts` |
+| MIDI Registry 実装 | `src/core/midiRegistry.ts` |
 | MidiManager | `src/core/midiManager.ts` |
 | MacroKnobManager | `src/core/macroKnob.ts` |
 | Engine | `src/core/engine.ts` |
 | 型定義 | `src/types/index.ts` |
-| GeometrySimpleWindow | `src/ui/GeometrySimpleWindow.tsx` |
-| MacroKnobPanel | `src/ui/panels/macro-knob/MacroKnobPanel.tsx` |
 
 ---
 
 ## 現在の状態
 
-- **ブランチ**: `main`
-- **タグ**: `day52`（未打）
+- **ブランチ**: `refactor/day53-design`（main からブランチ）
+- **タグ**: `day53`
 - **テスト**: 114 tests グリーン・tsc エラーゼロ
-- **コミット**: 05fd545（WIP）
+- **コミット**: 49785e2
 
 ---
 
-## Day52 で完了したこと
+## Day53 で完了したこと
 
-### 1. MacroKnob D&D アサイン UI（完成）
-- `GeometrySimpleWindow` の各パラメーター行に CC番号表示 + `≡` D&D ハンドル追加
-- `MacroKnobPanel` の KnobCell にドロップ受け口 + AssignDialog（min/max 設定）
-- アサイン済みノブは弧が紫で点灯
-- `≡` 右クリック → アサイン解除メニュー
-- EditDialog の ASSIGNS 欄に CC番号表示 + `×` ボタンで個別 Remove
-- `DragPayload` に `layerId` / `pluginId` を追加
+### 1. アーキテクチャ設計の根本見直し（壁打ちで確定）
 
-### 2. MacroKnob ノブ操作（完成）
-- 上下ドラッグで値をリアルタイム変更
-- クリック（移動量ゼロ）→ EditDialog を開く
-- `receiveMidiModulation(knobId, val)` 経由で Geometry に反映
+**新設計の核心：**
+- `SimpleWindow` を廃止し Geometry・FX は「選択のみ」の形にする
+- `MIDI Registry` を新設し、Plugin Apply 時に自動登録する
+- Window Plugin は Registry を読んで独立した UI を提供する（密結合を解消）
 
-### 3. Geometry Param Preset（完成）
-- Save / Load / Delete
-- `localStorage: geography:geo-presets-v1`（便宜的・将来 `GeoGraphyProject` に統合）
-- pluginId 単位でフィルタリング
+**確定したデータフロー：**
+```
+Plugin Apply
+  → PluginManager がエンジンをインスタンス化
+  → engine.getParameters() でパラメータ抽出
+  → App.tsx が layerId/pluginId を付与
+  → registerParams() で Registry に登録
+  → Window Plugin が Registry を読んで UI を更新（次フェーズ）
+```
 
-### 4. RangeSlider（ParamRow）（実装済み・同期の設計確定）
-- `PluginParam` に `rangeMin`/`rangeMax` を追加（UI 専用）
-- HTML range input 3本重ねで実装（rangeMin つまみ / rangeMax つまみ / 値スライダー）
-- レール色分け（範囲外：暗い / 範囲内：明るい紫）
-- D&D 時に `rangeMin`/`rangeMax` を `DragPayload.min`/`max` として渡す
+### 2. MIDI Registry 基盤の実装
 
-### 5. MacroKnob ↔ SimpleWindow 双方向同期（実装済み・設計 WIP）
-- MacroKnob → SimpleWindow は動作確認済み ✅
-- SimpleWindow → MacroKnob は動作確認済み ✅
+**新設ファイル：**
 
-### 6. localStorage 使用方針を CLAUDE.md に明文化
-- `src/ui/CLAUDE.md` に localStorage 使用方針セクション新設
-- ルート `CLAUDE.md` の MUST に localStorage 例外ルール追記
-
----
-
-## Day53 の最重要タスク（設計確定・未実装）
-
-### MidiCCEvent に rangeMin/rangeMax を追加する
-
-**確定した設計：**
-
+`src/types/midi-registry.ts`
 ```typescript
-interface MidiCCEvent {
-  cc: number
-  value: number           // 0.0〜1.0（相対値）
-  protocol: 'midi1' | 'midi2'
-  resolution: 128 | 4294967296
-  rangeMin?: number       // 変化幅の下限（絶対値）= assign.min = rangeMin
-  rangeMax?: number       // 変化幅の上限（絶対値）= assign.max = rangeMax
+interface ParameterSchema {
+  id: string; name: string; min: number; max: number; step: number
+}
+interface RegisteredParameter extends ParameterSchema {
+  layerId: string   // どのレイヤーのパラメータか
+  pluginId: string  // どの Plugin のパラメータか
+}
+interface MIDIRegistry {
+  availableParameters: RegisteredParameter[]
+  bindings: Map<number, string>
 }
 ```
 
-**各入力源：**
+`src/core/midiRegistry.ts`
+- `registerParams(registry, params, layerId)` — layerId 単位で上書き・他レイヤー保持
+- `clearParams(registry, layerId)` — 指定レイヤーのみ除去
 
-| 入力源 | value | rangeMin | rangeMax |
-|---|---|---|---|
-| SimpleWindow スライダー | 0.0〜1.0 | rangeMin | rangeMax |
-| MacroKnob UI ドラッグ | 0.0〜1.0 | assign.min | assign.max |
-| 物理MIDI（アサイン済み） | 0.0〜1.0 | assign.min | assign.max |
+### 3. 全 Plugin に getParameters() を追加
 
-**設計の根拠（Day52 壁打ちで確定）：**
-- `rangeMin`/`rangeMax` は UI 専用・engine 側には伝えない
-- スライダーノブ と MacroKnob ノブ は同じ 0.0〜1.0 の相対値
-- 変化幅（rangeMin/rangeMax = assign.min/max）は MidiCCEvent で渡す
-- engine 側は実値を受け取るだけ・特別な変換不要
+- Geometry 8本・FX 12本・Camera 3本・Light 1本 = 計24本
+- 実装: `Object.entries(this.params).map()` で `ParameterSchema[]` に変換
+- **責務分離確定**: Plugin は `ParameterSchema[]` を返すだけ・`layerId`/`pluginId` の付与は呼び出し側（App.tsx）
 
-**midiManager 側：**
-```
-実値 = rangeMin + value * (rangeMax - rangeMin)
-store に実値を書く
-```
+### 4. 確定した設計原則
 
-**resolveParamValue：**
-```
-store から実値をそのまま取り出す（変換不要）
-```
-
-**修正が必要なファイル：**
-1. `src/types/index.ts` — `MidiCCEvent` に `rangeMin?`/`rangeMax?` を追加
-2. `src/core/midiManager.ts` — `handleMidiCC` / `receiveModulation` で実値変換
-3. `src/core/engine.ts` — `resolveParamValue` から assign 分岐・effective 分岐を削除
-4. `src/ui/GeometrySimpleWindow.tsx` — `handleParam` で `rangeMin`/`rangeMax` を渡す
-5. `src/ui/panels/macro-knob/MacroKnobPanel.tsx` — `onKnobChange` で `assign.min`/`max` を渡す
+- `ParameterSchema`（Plugin が返す型）と `RegisteredParameter`（Registry に登録する型）を分離
+- Registry は全レイヤー分をフラットに保持（`layerId` でフィルタリング）
+- `registerParams()` は layerId 単位で上書きするため、1レイヤーだけ変更する場合も同じ関数で対応できる
 
 ---
 
-## 確立した新ルール（Day52）
+## Day54 の最重要タスク
 
-- **仮説を話してすぐに実装しない**: 設計の合意を得てから実装する
-- **rangeMin/rangeMax は UI 専用**: engine 側の `defaultParams` には書かない
-- **MidiCCEvent の未定義フィールドで変化幅を渡す**: `rangeMin?`/`rangeMax?` を追加
+### App.tsx の配線（B-2 案の実装）
+
+```typescript
+// Plugin Apply 時
+const handleApply = (layerId: string, pluginId: string) => {
+  engine.setGeometry(layerId, pluginId)
+  
+  const plugin = engine.getPlugin(layerId)
+  const params = plugin.getParameters()   // ParameterSchema[]
+  
+  // layerId / pluginId を付与して RegisteredParameter[] に変換
+  const enriched = params.map(p => ({ ...p, layerId, pluginId }))
+  setRegistry(prev => registerParams(prev, enriched, layerId))
+}
+```
+
+**必要な作業：**
+1. `App.tsx` に `MIDIRegistry` の React state を追加
+2. `engine.getPlugin(layerId)` を `engine.ts` に追加（Plugin インスタンスを返す）
+3. Plugin Apply 時に Registry を更新する配線を追加
+4. 起動時（initialize 後）に全レイヤー分を一括登録する処理を追加
+
+---
+
+## 確立した新ルール（Day53）
+
+- **Plugin は layerId/pluginId を知らない**: 付与は呼び出し側（App.tsx）の責務
+- **Registry はフラット構造**: layerId でフィルタリングする設計
+- **registerParams は layerId 単位で上書き**: 他レイヤーは保持する純粋関数
 
 ---
 
@@ -144,11 +139,12 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 - **localStorage は Preset 永続化のみ例外許可**（Day52確立）: `src/ui/CLAUDE.md` 参照
 - **git タグは commit 後に打つこと**
 - **tsc が反映ズレで失敗する場合**: 2回実行すると解消する
+- **ブランチ**: `refactor/day53-design` は main からの大幅改変ブランチ。main にマージするのは設計が安定してから
 
 ---
 
 ## 次回チャット用スタートプロンプト
 
 ```
-Day53開始
+Day54開始
 ```

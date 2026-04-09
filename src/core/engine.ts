@@ -597,6 +597,13 @@ export class Engine {
     return layer?.plugin ?? null
   }
 
+  /** 全レイヤーの { layerId, plugin } を返す（Registry 一括登録用・Day53 新設） */
+  getAllLayerPlugins(): { layerId: string; plugin: GeometryPlugin }[] {
+    return layerManager.getLayers()
+      .filter((l) => l.plugin !== null)
+      .map((l) => ({ layerId: l.id, plugin: l.plugin! }))
+  }
+
   setGeometryParam(layerId: string, paramKey: string, value: number): void {
     const layer = layerManager.getLayers().find((l) => l.id === layerId)
     const plugin = layer?.plugin
