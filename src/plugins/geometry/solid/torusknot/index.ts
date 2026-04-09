@@ -36,6 +36,16 @@ const torusknotPlugin: GeometryPlugin = {
     })
   },
 
+  getParameters() {
+    return Object.entries(this.params).map(([id, p]) => ({
+      id,
+      name: p.label,
+      min: p.min,
+      max: p.max,
+      step: 0.01,
+    }))
+  },
+
   destroy(scene: THREE.Scene): void {
     if (!torusknot) return
     scene.remove(torusknot.getMesh())

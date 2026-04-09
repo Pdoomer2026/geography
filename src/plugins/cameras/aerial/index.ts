@@ -19,6 +19,13 @@ export function createAerialCameraPlugin(): CameraPlugin {
       height: { value: 20, min: 1, max: 100, label: 'Height' },
     },
 
+    getParameters() {
+      return Object.entries(this.params).map(([id, p]) => ({
+        id, name: p.label, min: p.min, max: p.max,
+        step: (p.max - p.min) / 100,
+      }))
+    },
+
     mount(cam: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer): void {
       _camera = cam
       const h = this.params.height.value

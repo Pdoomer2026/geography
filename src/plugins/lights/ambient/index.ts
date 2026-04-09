@@ -15,6 +15,13 @@ const ambientPlugin: LightPlugin = {
   enabled: false,
   params: structuredClone(defaultParams),
 
+  getParameters() {
+    return Object.entries(this.params).map(([id, p]) => ({
+      id, name: p.label, min: p.min, max: p.max,
+      step: (p.max - p.min) / 100,
+    }))
+  },
+
   create(scene) {
     controller = new AmbientLightController()
     controller.create(scene, this.params.intensity.value)

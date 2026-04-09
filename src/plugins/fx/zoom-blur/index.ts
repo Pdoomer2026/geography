@@ -67,6 +67,13 @@ export class ZoomBlurPlugin implements FXPlugin {
     this.pass.enabled = this.enabled
   }
 
+  getParameters() {
+    return Object.entries(this.params).map(([id, p]) => ({
+      id, name: p.label, min: p.min, max: p.max,
+      step: (p.max - p.min) / 100,
+    }))
+  }
+
   destroy(): void {
     if (this.pass) {
       this.pass.dispose()

@@ -22,6 +22,13 @@ export function createStaticCameraPlugin(): CameraPlugin {
       lookAtZ: { value: 0,  min: -50, max: 50, label: 'LookAt Z' },
     },
 
+    getParameters() {
+      return Object.entries(this.params).map(([id, p]) => ({
+        id, name: p.label, min: p.min, max: p.max,
+        step: (p.max - p.min) / 100,
+      }))
+    },
+
     mount(cam: THREE.PerspectiveCamera, _renderer: THREE.WebGLRenderer): void {
       _camera = cam
       _camera.position.set(

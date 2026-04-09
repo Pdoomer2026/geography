@@ -28,6 +28,13 @@ export function createOrbitCameraPlugin(): CameraPlugin {
       autoRotate: { value: 1,   min: 0,   max: 1,   label: 'Auto Rotate' },
     },
 
+    getParameters() {
+      return Object.entries(this.params).map(([id, p]) => ({
+        id, name: p.label, min: p.min, max: p.max,
+        step: (p.max - p.min) / 100,
+      }))
+    },
+
     mount(cam: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer): void {
       _camera = cam
       _angle = 0

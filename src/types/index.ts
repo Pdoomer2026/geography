@@ -1,5 +1,7 @@
 import type * as THREE from 'three'
 import type { FC } from 'react'
+import type { ParameterSchema } from './midi-registry'
+export type { ParameterSchema } from './midi-registry'
 
 // ============================================================
 // PluginBase（すべての Plugin の共通基底）
@@ -26,6 +28,8 @@ export interface PluginBase {
 export interface ModulatablePlugin extends PluginBase {
   /** CC Standard 経由で MidiManager から制御可能なパラメーター群 */
   params: Record<string, PluginParam>
+  /** MIDI Registry への登録用。params から ParameterSchema[] に変換して返す */
+  getParameters(): ParameterSchema[]
 }
 
 // ============================================================
