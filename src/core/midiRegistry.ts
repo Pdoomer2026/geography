@@ -1,4 +1,4 @@
-import type { MIDIRegistry, RegisteredParameter } from '../types/midi-registry'
+import type { MIDIRegistry, RegisteredParameterWithCC } from '../types/midi-registry'
 
 /**
  * Registry の更新は常に新しいオブジェクトを返す純粋関数で行う（不変性）
@@ -10,7 +10,7 @@ import type { MIDIRegistry, RegisteredParameter } from '../types/midi-registry'
  */
 export function registerParams(
   registry: MIDIRegistry,
-  params: RegisteredParameter[],
+  params: RegisteredParameterWithCC[],
   layerId: string
 ): MIDIRegistry {
   const others = registry.availableParameters.filter(

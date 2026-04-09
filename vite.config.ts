@@ -8,6 +8,9 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url))
 export default defineConfig({
   // Electron の dist/index.html ロードに必要な相対パス指定
   base: './',
+  // settings/ を静的配信: fetch('/cc-map.json') でブラウザ環境でも cc-map.json を読める
+  // spec: docs/spec/cc-mapping.spec.md §6
+  publicDir: 'settings',
   plugins: [react()],
   resolve: {
     alias: {

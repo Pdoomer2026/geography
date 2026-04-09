@@ -19,8 +19,13 @@ export interface RegisteredParameter extends ParameterSchema {
   pluginId: string
 }
 
+/** Phase B: App.tsx が ccNumber を付与した型。WindowPlugin に渡す最小情報セット */
+export interface RegisteredParameterWithCC extends RegisteredParameter {
+  ccNumber: number
+}
+
 export interface MIDIRegistry {
-  availableParameters: RegisteredParameter[]
+  availableParameters: RegisteredParameterWithCC[]
   bindings: Map<number, string>
 }
 

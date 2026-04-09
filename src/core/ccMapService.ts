@@ -108,35 +108,62 @@ class CcMapServiceImpl implements CcMapService {
     this.applyOverridesToMappings()
   }
 
-  /** cc-map.json を読み込む（Electron 環境のみ・なければ warning のみ） */
+  /**
+   * cc-map.json をパースして mappings に展開する（共通処理）
+   * Electron / ブラウザ両環境から呼ばれる
+   */
+  private parseCcMap(raw: string): void {
+    const parsed: RawCcMap = JSON.parse(raw)
+    this.mappings = parsed.mappings.flatMap((plugin) =>
+      plugin.params.map((p): ParamMapping => ({
+        pluginId: plugin.pluginId,
+        pluginType: plugin.pluginType,
+        paramId: p.paramId,
+        ccNumber: p.ccNumber,
+        defaultCcNumber: p.ccNumber,
+        block: p.block,
+        blockName: p.blockName,
+        pluginMin: p.pluginMin,
+        pluginMax: p.pluginMax,
+        ccMin: p.ccMin,
+        ccMax: p.ccMax,
+        note: p.note,
+        isOverridden: false,
+      }))
+    )
+  }
+
+  /**
+   * cc-map.json を読み込む
+   * Electron 環境: window.geoAPI.loadCcMap()（IPC 経由）
+   * ブラウザ環境（開発時）: fetch('/cc-map.json')（vite 静的配信）
+   */
   private async loadCcMap(): Promise<void> {
-    if (!window.geoAPI) return
-    try {
-      const raw = await window.geoAPI.loadCcMap()
-      if (!raw) {
-        console.warn('[CcMapService] cc-map.json が見つかりません。pnpm gen:cc-map を実行してください。')
-        return
+    if (window.geoAPI) {
+      // Electron 環境
+      try {
+        const raw = await window.geoAPI.loadCcMap()
+        if (!raw) {
+          console.warn('[CcMapService] cc-map.json が見つかりません。pnpm gen:cc-map を実行してください。')
+          return
+        }
+        this.parseCcMap(raw)
+      } catch (e) {
+        console.error('[CcMapService] cc-map.json の読み込みに失敗しました:', e)
       }
-      const parsed: RawCcMap = JSON.parse(raw)
-      this.mappings = parsed.mappings.flatMap((plugin) =>
-        plugin.params.map((p): ParamMapping => ({
-          pluginId: plugin.pluginId,
-          pluginType: plugin.pluginType,
-          paramId: p.paramId,
-          ccNumber: p.ccNumber,
-          defaultCcNumber: p.ccNumber,
-          block: p.block,
-          blockName: p.blockName,
-          pluginMin: p.pluginMin,
-          pluginMax: p.pluginMax,
-          ccMin: p.ccMin,
-          ccMax: p.ccMax,
-          note: p.note,
-          isOverridden: false,
-        }))
-      )
-    } catch (e) {
-      console.error('[CcMapService] cc-map.json の読み込みに失敗しました:', e)
+    } else {
+      // ブラウザ環境（開発時）: vite.config.ts publicDir: 'settings' により配信される
+      try {
+        const res = await fetch('/cc-map.json')
+        if (!res.ok) {
+          console.warn('[CcMapService] fetch /cc-map.json 失敗。pnpm gen:cc-map を実行してください。')
+          return
+        }
+        const raw = await res.text()
+        this.parseCcMap(raw)
+      } catch (e) {
+        console.warn('[CcMapService] fetch /cc-map.json エラー:', e)
+      }
     }
   }
 

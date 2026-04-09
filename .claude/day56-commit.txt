@@ -1,0 +1,16 @@
+feat: Phase B v1 - SimpleWindowPlugin / FxWindowPlugin (Day56)
+
+Phase B v1 の完成。
+- RegisteredParameterWithCC 型を追加（ccNumber 付きパラメータ）
+- MIDIRegistry.availableParameters を RegisteredParameterWithCC[] に昇格
+- ccMapService にブラウザ環境用 fetch フォールバックを追加
+- vite.config.ts に publicDir: settings を追加（cc-map.json をブラウザから参照可能に）
+- SimpleWindowPlugin 新規実装（src/plugins/windows/simple-window/）
+- FxWindowPlugin 新規実装（src/plugins/windows/fx-window/）
+- App.tsx: FX params も MIDIRegistry に登録・両 WindowPlugin を表示
+- FxSimpleWindow を App.tsx から切り離し（FxWindowPlugin に移行）
+設計確定事項:
+- params の取得元は MIDIRegistry に統一（Geometry / FX 共通）
+- enabled は engine API 経由（FX 固有・コントリビューターは engine を直接知らない）
+- 正規化は WindowPlugin が担当（value - min / max - min）
+- ccMapService のブラウザ/Electron 差異を解消

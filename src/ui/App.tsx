@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../core/engine'
+import { ccMapService } from '../core/ccMapService'
 import type { MidiCCEvent } from '../types'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
-import { FxSimpleWindow } from './FxSimpleWindow'
 import { CameraSimpleWindow } from './CameraSimpleWindow'
 import { GeometrySimpleWindow } from './GeometrySimpleWindow'
+import { SimpleWindowPlugin } from '../plugins/windows/simple-window'
+import { FxWindowPlugin } from '../plugins/windows/fx-window'
+import type { FxGroup } from '../plugins/windows/fx-window'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 import type { GeoGraphyProject } from '../types'
@@ -23,11 +26,16 @@ export default function App() {
   // MIDI Registry state（Day53 新設）
   const [midiRegistry, setMidiRegistry] = useState<MIDIRegistry>(createInitialRegistry)
 
-  /** Plugin Apply 時に Registry を更新するヘルパー（Day55 接続）*/
+  /** Plugin Apply 時に Registry を更新するヘルパー（Day55 接続・Day56 ccNumber 付与）*/
   const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
     const plugin = engine.getGeometryPlugin(layerId)
     if (!plugin) return
-    const enriched = plugin.getParameters().map((p) => ({ ...p, layerId, pluginId }))
+    const enriched = plugin.getParameters().map((p) => ({
+      ...p,
+      layerId,
+      pluginId,
+      ccNumber: ccMapService.getCcNumber(pluginId, p.id),
+    }))
     setMidiRegistry((prev) => registerParams(prev, enriched, layerId))
   }, [])
 
@@ -36,8 +44,22 @@ export default function App() {
     setMidiRegistry((prev) => clearParams(prev, layerId))
   }, [])
 
-  // midiRegistry は将来 WindowPlugin に渡す（Phase B）
-  void midiRegistry
+  // FxGroup を組み立てる（layer-1 固定・v1）
+  // enabled は engine から取得・params は MIDIRegistry から取得（疎結合統一）
+  const fxGroups: FxGroup[] = engine.getFxPlugins('layer-1').map((fx) => ({
+    pluginId: fx.id,
+    pluginName: fx.name,
+    enabled: fx.enabled,
+    params: midiRegistry.availableParameters.filter(
+      (p) => p.pluginId === fx.id && p.layerId === 'layer-1'
+    ),
+  }))
+
+  // Geometry params を組み立てる（layer-1 固定・v1）
+  const geoPlugin = engine.getGeometryPlugin('layer-1')
+  const geoParams = midiRegistry.availableParameters.filter(
+    (p) => p.layerId === 'layer-1' && geoPlugin && p.pluginId === geoPlugin.id
+  )
 
   useAutosave()
 
@@ -76,12 +98,35 @@ export default function App() {
     const container = mountRef.current
     engine.initialize(container).then(() => {
       engine.start()
-      // 起動時に全レイヤーを一括登録（Day53 新設）
+      // 起動時に Geometry を一括登録（Day53 新設・Day56 ccNumber 付与）
       engine.getAllLayerPlugins().forEach(({ layerId, plugin }) => {
         const enriched = plugin.getParameters().map((p) => ({
-          ...p, layerId, pluginId: plugin.id,
+          ...p,
+          layerId,
+          pluginId: plugin.id,
+          ccNumber: ccMapService.getCcNumber(plugin.id, p.id),
         }))
         setMidiRegistry((prev) => registerParams(prev, enriched, layerId))
+      })
+      // 起動時に FX を一括登録（Day56 新設）
+      // 全 FX を layerId 単位でまとめて登録する（後勝ち防止）
+      const layers = ['layer-1', 'layer-2', 'layer-3'] as const
+      layers.forEach((layerId) => {
+        const fxPlugins = engine.getFxPlugins(layerId)
+        if (fxPlugins.length === 0) return
+        const allFxParams = fxPlugins.flatMap((fx) =>
+          Object.entries(fx.params).map(([paramId, param]) => ({
+            id: paramId,
+            name: param.label,
+            min: param.min,
+            max: param.max,
+            step: (param.max - param.min) / 200,
+            layerId,
+            pluginId: fx.id,
+            ccNumber: ccMapService.getCcNumber(fx.id, paramId),
+          }))
+        )
+        setMidiRegistry((prev) => registerParams(prev, allFxParams, layerId))
       })
     })
     return () => { engine.dispose() }
@@ -198,13 +243,29 @@ export default function App() {
       <PreferencesPanel open={prefsOpen} onClose={() => setPrefsOpen(false)} />
 
       {uiVisible.macro && <MacroKnobPanel />}
-      {uiVisible.fx && <FxSimpleWindow />}
+      {/* FxSimpleWindow → FxWindowPlugin に移行（Day56 Phase B）*/}
+      {uiVisible.fx && (
+        <FxWindowPlugin
+          layerId="layer-1"
+          fxGroups={fxGroups}
+          onToggle={(fxId, enabled) => engine.setFxEnabled(fxId, enabled, 'layer-1')}
+        />
+      )}
       {uiVisible.mixer && <MixerSimpleWindow />}
       {uiVisible.camera && <CameraSimpleWindow />}
       {uiVisible.geometry && (
         <GeometrySimpleWindow
           onPluginApply={applyPluginToRegistry}
           onPluginRemove={removePluginFromRegistry}
+        />
+      )}
+      {/* SimpleWindowPlugin: layer-1 の Geometry 表示（Day56 Phase B）*/}
+      {uiVisible.geometry && geoPlugin && (
+        <SimpleWindowPlugin
+          layerId="layer-1"
+          pluginId={geoPlugin.id}
+          pluginName={geoPlugin.name}
+          params={geoParams}
         />
       )}
 
