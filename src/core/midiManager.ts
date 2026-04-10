@@ -29,12 +29,12 @@ class MidiManagerImpl implements MidiManager {
   handleMidiCC(event: MidiCCEvent): void {
     if (!this.store || !this.knobManager) return
 
-    this.store.set(String(event.cc), event.value)
+    this.store.set(String(event.slot), event.value)
 
     const knobs = this.knobManager.getKnobs()
 
     // midiCC（物理 MIDI CC）でヒットする MacroKnob
-    const knobByMidi = knobs.find((k) => k.midiCC === event.cc)
+    const knobByMidi = knobs.find((k) => k.midiCC === event.slot)
     if (knobByMidi) {
       this.knobManager.setValue(knobByMidi.id, event.value)
       for (const assign of knobByMidi.assigns) {
@@ -46,7 +46,7 @@ class MidiManagerImpl implements MidiManager {
     // assign.ccNumber でヒットする MacroKnob → SimpleWindow → MacroKnob 表示を追従
     for (const knob of knobs) {
       for (const assign of knob.assigns) {
-        if (assign.ccNumber === event.cc) {
+        if (assign.ccNumber === event.slot) {
           // event.value は 0.0〜1.0 の正規化値なのでそのままノブ値として使う
           this.knobManager.setValue(knob.id, Math.min(1, Math.max(0, event.value)))
         }

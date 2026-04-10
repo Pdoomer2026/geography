@@ -220,10 +220,16 @@ export interface MacroAssign {
 /**
  * MIDI CC イベント（MIDI 1.0 / MIDI 2.0 共通フォーマット）
  * spec: docs/spec/macro-knob.spec.md §3
+ *
+ * slot: プロトコル非依存の抽象 ID（現在は CC番号と同値。将来 OSC 等に対応するとき分離する）
+ * source: ループ防止用（'ui' | 'engine' | 'midi' 等。省略可）
+ * time: イベントのタイムスタンプ ms（省略可）
  */
 export interface MidiCCEvent {
-  cc: number
+  slot: number
   value: number
+  source?: string
+  time?: number
   protocol: 'midi1' | 'midi2'
   resolution: 128 | 4294967296
 }

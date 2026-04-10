@@ -73,7 +73,7 @@ export default function App() {
       if (statusType !== 0xb0) return
       const cc = data[1]
       const rawValue = data[2]
-      const midiEvent: MidiCCEvent = { cc, value: rawValue / 127, protocol: 'midi1', resolution: 128 }
+      const midiEvent: MidiCCEvent = { slot: cc, value: rawValue / 127, protocol: 'midi1', resolution: 128 }
       engine.handleMidiCC(midiEvent)
     }
     const setupMidi = (access: MIDIAccess) => {

@@ -64,7 +64,7 @@ export function CameraSimpleWindow() {
   function handleParam(paramKey: string, value: number, param: PluginParam) {
     const cc = ccMapService.getCcNumber(cameraId, paramKey)
     const normalized = (value - param.min) / (param.max - param.min)
-    engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
+    engine.handleMidiCC({ slot: cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
     // フロントの表示はローカル state に即反映（200ms ポーリング待たず）
     setParams((prev) => ({
       ...prev,

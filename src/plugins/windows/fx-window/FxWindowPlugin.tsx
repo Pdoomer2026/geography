@@ -151,12 +151,7 @@ function ParamRow({ param }: ParamRowProps) {
   function handleChange(raw: number) {
     setValue(raw)
     const normalized = max > min ? (raw - min) / (max - min) : 0
-    engine.handleMidiCC({
-      cc: ccNumber,
-      value: Math.min(1, Math.max(0, normalized)),
-      protocol: 'midi2',
-      resolution: 4294967296,
-    })
+    engine.handleMidiCC({ slot: ccNumber, value: Math.min(1, Math.max(0, normalized)), protocol: 'midi2', resolution: 4294967296 })
   }
 
   return (
