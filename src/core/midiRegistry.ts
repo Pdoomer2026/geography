@@ -24,8 +24,30 @@ export function registerParams(
 }
 
 /**
- * 指定 layerId のパラメータを Registry から除去する（Plugin アンロード時に呼ばれる）
+ * engine の現在値を Registry の value に同期する（純粋関数）
+ * App.tsx が 200ms ポーリングで呼び出す。
+ * getEngineValue: (pluginId, paramId) => 現在値 | undefined
  */
+export function syncValues(
+  registry: MIDIRegistry,
+  getEngineValue: (pluginId: string, paramId: string) => number | undefined
+): MIDIRegistry {
+  let changed = false
+  const next = registry.availableParameters.map((p) => {
+    const engineValue = getEngineValue(p.pluginId, p.id)
+    if (engineValue === undefined) return p
+    if (Math.abs(p.value - engineValue) < 0.0001) return p
+    changed = true
+    return { ...p, value: engineValue }
+  })
+  if (!changed) return registry
+  return {
+    ...registry,
+    availableParameters: next,
+    bindings: new Map(registry.bindings),
+  }
+}
+
 export function clearParams(
   registry: MIDIRegistry,
   layerId: string

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { engine } from '../core/engine'
 import { ccMapService } from '../core/ccMapService'
 import type { MidiCCEvent } from '../types'
@@ -13,7 +13,7 @@ import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 import type { GeoGraphyProject } from '../types'
 import { createInitialRegistry } from '../types/midi-registry'
-import { registerParams, clearParams } from '../core/midiRegistry'
+import { registerParams, clearParams, syncValues } from '../core/midiRegistry'
 import type { MIDIRegistry } from '../types/midi-registry'
 
 export default function App() {
@@ -26,7 +26,7 @@ export default function App() {
   // MIDI Registry state（Day53 新設）
   const [midiRegistry, setMidiRegistry] = useState<MIDIRegistry>(createInitialRegistry)
 
-  /** Plugin Apply 時に Registry を更新するヘルパー（Day55 接続・Day56 ccNumber 付与）*/
+  /** Plugin Apply 時に Registry を更新するヘルパー（Day55 接続・Day56 ccNumber 付与・Day57 value 追加）*/
   const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
     const plugin = engine.getGeometryPlugin(layerId)
     if (!plugin) return
@@ -35,6 +35,7 @@ export default function App() {
       layerId,
       pluginId,
       ccNumber: ccMapService.getCcNumber(pluginId, p.id),
+      value: plugin.params[p.id]?.value ?? p.min,
     }))
     setMidiRegistry((prev) => registerParams(prev, enriched, layerId))
   }, [])
@@ -44,22 +45,52 @@ export default function App() {
     setMidiRegistry((prev) => clearParams(prev, layerId))
   }, [])
 
+  // 200ms ポーリング：engine の現在値を Registry に同期（Plugin → Window 逆流）
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setMidiRegistry((prev) =>
+        syncValues(prev, (pluginId, paramId) => {
+          // Geometry / Camera
+          const layers = engine.getLayers()
+          for (const layer of layers) {
+            if (layer.plugin?.id === pluginId) {
+              return layer.plugin.params[paramId]?.value
+            }
+            if (engine.getCameraPlugin(layer.id)?.id === pluginId) {
+              return engine.getCameraPlugin(layer.id)?.params[paramId]?.value
+            }
+            // FX
+            for (const fx of layer.fxStack.getOrdered()) {
+              if (fx.id === pluginId) return fx.params[paramId]?.value
+            }
+          }
+          return undefined
+        })
+      )
+    }, 200)
+    return () => window.clearInterval(timer)
+  }, [])
+
   // FxGroup を組み立てる（layer-1 固定・v1）
   // enabled は engine から取得・params は MIDIRegistry から取得（疎結合統一）
-  const fxGroups: FxGroup[] = engine.getFxPlugins('layer-1').map((fx) => ({
-    pluginId: fx.id,
-    pluginName: fx.name,
-    enabled: fx.enabled,
-    params: midiRegistry.availableParameters.filter(
-      (p) => p.pluginId === fx.id && p.layerId === 'layer-1'
-    ),
-  }))
+  const fxGroups: FxGroup[] = useMemo(() =>
+    engine.getFxPlugins('layer-1').map((fx) => ({
+      pluginId: fx.id,
+      pluginName: fx.name,
+      enabled: fx.enabled,
+      params: midiRegistry.availableParameters.filter(
+        (p) => p.pluginId === fx.id && p.layerId === 'layer-1'
+      ),
+    })),
+  [midiRegistry])
 
   // Geometry params を組み立てる（layer-1 固定・v1）
   const geoPlugin = engine.getGeometryPlugin('layer-1')
-  const geoParams = midiRegistry.availableParameters.filter(
-    (p) => p.layerId === 'layer-1' && geoPlugin && p.pluginId === geoPlugin.id
-  )
+  const geoParams = useMemo(() =>
+    midiRegistry.availableParameters.filter(
+      (p) => p.layerId === 'layer-1' && geoPlugin && p.pluginId === geoPlugin.id
+    ),
+  [midiRegistry, geoPlugin])
 
   useAutosave()
 
@@ -98,17 +129,18 @@ export default function App() {
     const container = mountRef.current
     engine.initialize(container).then(() => {
       engine.start()
-      // 起動時に Geometry を一括登録（Day53 新設・Day56 ccNumber 付与）
+      // 起動時に Geometry を一括登録（Day53 新設・Day56 ccNumber 付与・Day57 value 追加）
       engine.getAllLayerPlugins().forEach(({ layerId, plugin }) => {
         const enriched = plugin.getParameters().map((p) => ({
           ...p,
           layerId,
           pluginId: plugin.id,
           ccNumber: ccMapService.getCcNumber(plugin.id, p.id),
+          value: plugin.params[p.id]?.value ?? p.min,
         }))
         setMidiRegistry((prev) => registerParams(prev, enriched, layerId))
       })
-      // 起動時に FX を一括登録（Day56 新設）
+      // 起動時に FX を一括登録（Day56 新設・Day57 value 追加）
       // 全 FX を layerId 単位でまとめて登録する（後勝ち防止）
       const layers = ['layer-1', 'layer-2', 'layer-3'] as const
       layers.forEach((layerId) => {
@@ -124,6 +156,7 @@ export default function App() {
             layerId,
             pluginId: fx.id,
             ccNumber: ccMapService.getCcNumber(fx.id, paramId),
+            value: param.value,
           }))
         )
         setMidiRegistry((prev) => registerParams(prev, allFxParams, layerId))

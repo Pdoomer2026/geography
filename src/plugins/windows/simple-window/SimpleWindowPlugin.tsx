@@ -85,7 +85,7 @@ interface ParamRowProps {
 
 function ParamRow({ param }: ParamRowProps) {
   const { name, min, max, step, ccNumber } = param
-  const [value, setValue] = useState(min)
+  const [value, setValue] = useState(param.value)
 
   const isBinary = min === 0 && max === 1 && step === 1
 

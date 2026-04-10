@@ -2,7 +2,7 @@
 
 > SSoT: このファイル
 > 担当: Claude Desktop（設計）/ Claude Code（実装）
-> 状態: Day55 設計確定・実装は次フェーズ
+> 状態: Day57 実装完了
 
 ---
 
@@ -47,8 +47,8 @@ Phase A: Geometry 選択
   ↓
 Phase B: WindowPlugin 選択（SimpleWindowPlugin / FxWindowPlugin）
   → ccMapService.getCcNumber(pluginId, paramId) を paramId ごとに呼ぶ
-  → RegisteredParameter に ccNumber を追加
-  → WindowPlugin が MIDIRegistry を読んで ParamRow を動的生成
+  → RegisteredParameter に ccNumber と value を追加
+  → WindowPlugin が MIDIRegistry を filter して ParamRow を動的生成
   → ユーザーが初めてパラメータを操作できる状態になる
 ```
 
@@ -63,8 +63,9 @@ Geometry / Camera / Light Plugin 共通の汎用 UI。
 **責務（v1 最小実装）：**
 ```
 ① params → ParamRow を動的生成
-② ccMapService.getCcNumber(pluginId, paramId) で CC番号取得
+② ccNumber は props から受け取る（App.tsx が付与済み）
 ③ engine.handleMidiCC() でパラメータ変更
+④ params[].value は常に engine の現在値と同期済み（逆流・200ms ポーリング）
 ```
 
 **将来追加（実装しない）：**
@@ -77,9 +78,9 @@ Geometry / Camera / Light Plugin 共通の汎用 UI。
 interface SimpleWindowPluginProps {
   layerId: string
   pluginId: string
-  pluginName: string       // 表示用
-  params: Record<string, PluginParam>
-  // PluginParam.min / max がスライダー範囲になる
+  pluginName: string                   // 表示用
+  params: RegisteredParameterWithCC[]  // Registry から filter するだけで取得
+  // params[].value は常に engine の現在値と同期済み（逆流）
 }
 ```
 
@@ -98,7 +99,7 @@ FX Plugin 専用 UI。ON/OFF トグルが必要なため別実装。
 ```
 ① FX ON/OFF トグル（FX Plugin 固有の仕様）
 ② params → ParamRow 動的生成
-③ ccMapService.getCcNumber(pluginId, paramId) で CC番号取得
+③ ccNumber は props から受け取る（App.tsx が付与済み）
 ④ engine.handleMidiCC() でパラメータ変更
 ```
 
@@ -165,29 +166,23 @@ SimpleWindowPlugin → 渡された params を表示するだけ
 
 | Phase | 作業 | 状態 |
 |---|---|---|
-| A | MIDIRegistry への Geometry 登録 | ⬜ 実装中（Day54 基盤完成） |
-| A | GeometrySimpleWindow → onPluginApply 接続 | ⬜ 未実装 |
-| B | SimpleWindowPlugin 新規実装 | ⬜ 未実装 |
-| B | FxWindowPlugin 新規実装 | ⬜ 未実装 |
-| B | ccNumber の RegisteredParameter への付与 | ⬜ 未実装（Phase B の未解決事項あり） |
-| 将来 | 既存 SimpleWindow 廃止 | ⬜ Phase B 完了後 |
+| A | MIDIRegistry への Geometry 登録 | 完了 Day56 |
+| A | GeometrySimpleWindow → onPluginApply 接続 | 完了 Day56 |
+| B | SimpleWindowPlugin 新規実装 | 完了 Day56 |
+| B | FxWindowPlugin 新規実装 | 完了 Day56 |
+| B | ccNumber の RegisteredParameter への付与 | 完了 Day56 |
+| B | MidiCCEvent.cc → slot 導入（Slot 概念の先行定着） | 完了 Day57 |
+| B | Registry に value 追加（Plugin → Window 逆流） | 完了 Day57 |
+| 将来 | 既存 SimpleWindow 廃止 | 動作確認完了後 |
 
 ---
 
-## 9. Phase B の未解決事項（要壁打ち）
+## 9. 将来対応項目
 
-1. **cc-mapping.md の整備状況**
-   - 全 Plugin 分の CC 番号が定義されているか確認が必要
-   - 未定義 param は CC1000〜 自動払い出しで良いか
-
-2. **値域変換の責務**
-   - pluginMin / pluginMax（Plugin の実値域）
-   - ccMin / ccMax（0.0〜1.0 正規化）
-   - この変換を誰が持つか（ccMapService / WindowPlugin / engine）
-
-3. **多重レイヤー問題**
-   - 同一 pluginId が複数レイヤーに存在する場合の ccNumber の扱い
-   - bindings フェーズ（MacroKnob D&D）と一緒に設計する
+1. **既存 SimpleWindow 廃止** → GeometrySimpleWindow / FxSimpleWindow / CameraSimpleWindow を削除
+2. **[L1][L2][L3] タブ切り替え** → layer-1 固定から activeLayer state へ
+3. **多重レイヤー問題** → bindings フェーズ（MacroKnob D&D）と一緒に設計
+4. **transform** → UI（WindowPlugin）の責務として将来実装
 
 ---
 
