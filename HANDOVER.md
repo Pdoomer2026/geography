@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day58（Transport Architecture Step1+2 完了）｜2026-04-12
+# GeoGraphy 引き継ぎメモ｜Day58（Transport Architecture Step1+2+3 完了）｜2026-04-12
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -18,6 +18,8 @@
 | Transport Architecture spec | `docs/spec/transport-architecture.spec.md` |
 | MIDI Registry spec | `docs/spec/midi-registry.spec.md` |
 | Plugin Manager spec | `docs/spec/plugin-manager.spec.md` |
+| CC Mapping（SSoT） | `docs/spec/cc-mapping.md` |
+| CC Map JSON（自動生成） | `settings/cc-map.json` |
 | TransportEvent 型定義 | `src/types/index.ts` |
 | MidiManager | `src/core/midiManager.ts` |
 | MidiInputWrapper | `src/drivers/input/MidiInputWrapper.ts`（Day58 新規） |
@@ -33,7 +35,7 @@
 
 - **ブランチ**: `refactor/day53-design`
 - **タグ**: `day58`
-- **コミット**: `ef8fcb9`
+- **最新コミット**: `44d5517`
 - **テスト**: 114 tests グリーン・tsc エラーゼロ
 
 ---
@@ -41,62 +43,70 @@
 ## Day58 で完了したこと
 
 ### Step 1: MidiCCEvent → TransportEvent rename
-
 - `src/types/index.ts`: `MidiCCEvent` を `TransportEvent` に改名
 - `protocol` / `resolution` フィールドを削除（Input Wrapper が吸収）
-- `source` の型を `string` → `'window' | 'plugin' | 'midi' | 'osc'` に絞る
-- 影響ファイル8本を一括更新（engine / midiManager / App.tsx / 各 WindowPlugin）
+- `source` の型を `'window' | 'plugin' | 'midi' | 'osc'` に絞る
+- 影響ファイル8本を一括更新
 
 ### Step 2: MidiInputWrapper 切り出し
-
 - `src/drivers/input/MidiInputWrapper.ts` を新規作成
 - 責務: Web MIDI API 受信・CCパース・rawValue 正規化・TransportEvent 生成
-- `App.tsx` の MIDI `useEffect` が約20行 → 3行に簡略化
-- シングルトン `midiInputWrapper` を export
+- App.tsx の MIDI useEffect が約20行 → 3行に簡略化
 
-### 確定した設計判断
+### Step 3: イベント駆動化（ポーリング廃止）
+- `engine.ts` に `onParamChanged(cb)` コールバック登録 API を追加
+- `flushParameterStore()` 内で値が実際に変わったときだけコールバックを発火
+- App.tsx の 200ms ポーリングを廃止 → `engine.onParamChanged + 16ms throttle` に置き換え
+- Registry 更新が「値変化時のみ」になった
 
-- **ControlBus（別 AI 提案）は Obsidian に保存**・今の実装には持ち込まない（過剰抽象化リスク）
-- **Desktop 環境でも実装完結できる**ことを確認（tsc + test は手動実行）
-- `source: 'window'` への統一により Step 3（ループ防止）の基盤が整った
+### Day58 で確定した重要な認識
+- **`cc-mapping.md` → `cc-map.json` の翻訳機は既に完成している**
+- **問題は「json → engine」の経路が不完全**なこと（フォールバック時に pluginMin/Max が無視される）
+- **Step 4 の本質**: engine から ccMapService 依存を剥がすことで、「外側（プロトコル・セマンティクス）」と「内側（純粋な値処理）」の境界線を完全に閉じる
+- **将来の自然言語 AI 対応**は、この境界線の外側に実装される（engine は何も知らずに動く）
+- **ControlBus（別 AI 提案）は Obsidian に保存**・今の実装には持ち込まない
 
 ---
 
-## 現在地（何ができて何ができていないか）
+## 現在地
 
 | 状態 | 内容 |
 |---|---|
 | ✅ 完了 | TransportEvent 型（MidiCCEvent から移行） |
 | ✅ 完了 | MidiInputWrapper（Input Wrapper 切り出し） |
-| ✅ 完了 | source: 'window' / 'midi' の統一 |
-| ⏳ 未着手 | Step 3: イベント駆動化（ポーリング廃止） |
+| ✅ 完了 | イベント駆動化（ポーリング廃止） |
+| ✅ 完了 | cc-mapping.md → cc-map.json の翻訳機 |
+| ⏳ 次フェーズ | Step 4: Engine ccMapService 依存解消（境界線を完全に閉じる） |
 | ⏳ 未着手 | 既存 SimpleWindow 廃止（3ファイル） |
 | ⏳ 未着手 | MacroKnob D&D アサイン UI |
 | ⏳ 未着手 | [L1][L2][L3] タブ切り替え |
 | ⏳ 未着手 | Sequencer spec 作成（壁打ちから） |
-| 別セッション | Step 4: Engine ccMapService 依存解消 |
 
 ---
 
 ## 次回セッションの方針
 
-**Step 3 の壁打ちから始める。**
+**Step 4 の壁打ちから始める。**
 
 ```
-Step 3: イベント駆動化（ポーリング → イベント駆動）
+Step 4: Engine の ccMapService 依存解消
 
-現状:
-  App.tsx が 200ms ごとに syncValues() を呼ぶ
-  → engine の全レイヤー・全 Plugin を走査
+問題箇所:
+  engine.ts の flushParameterStore() が
+  ccMapService.getCcNumber() を直接呼んでいる（フォールバック経路）
+  → CC番号という MIDI の概念が engine 内部に残存している
 
 目標:
-  Plugin が値を変更したとき
-  → source: 'plugin' の TransportEvent を発火
-  → Registry 経由で Window に通知
-  → Window は source === 'plugin' のとき自己ループを防止して表示更新
+  engine は TransportEvent（slot + value）だけを知る
+  cc-map.json の意味解釈は完全に外側（Registry / Input層）の責務
 
-着手前に設計を壁打ちしてから実装すること。
-参照: docs/spec/transport-architecture.spec.md §5 Step 3
+設計の本質:
+  「外側と内側の境界線を完全に閉じる」
+  外側: プロトコル・自然言語・セマンティクス（cc-mapping.md / MidiInputWrapper）
+  内側: 純粋な値の処理（engine / plugin）
+
+着手前に単独で壁打ちして設計を固めること。
+参照: docs/spec/transport-architecture.spec.md §5 Step4
 ```
 
 ---
@@ -117,9 +127,9 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 - **git タグは commit 後に打つこと**
 - **tsc が反映ズレで失敗する場合**: 2回実行すると解消する
 - **cc-map.json**: `settings/cc-map.json` が SSoT・変更後は `pnpm gen:cc-map` を実行
-- **git commit メッセージ**: `.claude/dayN-commit.txt` に書いて `git commit -F` で実行（`-m` は日本語で hang するリスク）
+- **git commit メッセージ**: `.claude/dayN-commit.txt` に書いて `git commit -F` で実行
 - **Desktop 環境でも実装可能**: tsc + test は慎太郎さんが手動実行して結果を貼る
-- **NFC 正規化スクリプト**: `/Users/shinbigan/nfc_normalize.py`（このセッションでは不在だった・次回確認）
+- **NFC 正規化スクリプト**: `/Users/shinbigan/nfc_normalize.py`
 
 ---
 
