@@ -113,7 +113,7 @@ src/ui/
 
 ## MUST ルール（Day50 追加・Day52 更新）
 
-- MUST: パラメーター変更は `engine.handleMidiCC(MidiCCEvent)` 経由で行うこと
+- MUST: パラメーター変更は `engine.handleMidiCC(TransportEvent)` 経由で行うこと（source: 'window' を付与）
 - MUST: `macroKnobManager` を直接 import しないこと・`engine` 経由のみ許可
 - MUST: `<form>` タグは使用しない（onClick / onChange で代替）
 - MUST: Preferences Panel は Panel（アプリ固定）であり Window ではない

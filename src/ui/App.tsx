@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { engine } from '../core/engine'
-import { ccMapService } from '../core/ccMapService'
+import { transportRegistry } from '../core/transportRegistry'
 import { midiInputWrapper } from '../drivers/input/MidiInputWrapper'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
@@ -12,8 +12,6 @@ import type { FxGroup } from '../plugins/windows/fx-window'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 import type { GeoGraphyProject } from '../types'
-import { createInitialRegistry } from '../types/midi-registry'
-import { registerParams, clearParams, syncValues } from '../core/midiRegistry'
 import type { MIDIRegistry } from '../types/midi-registry'
 
 export default function App() {
@@ -23,53 +21,42 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false)
   const currentFilePathRef = useRef<string | null>(null)
 
-  // MIDI Registry state（Day53 新設）
-  const [midiRegistry, setMidiRegistry] = useState<MIDIRegistry>(createInitialRegistry)
+  // MIDI Registry state — transportRegistry の「鏡」（Day58 Step4）
+  const [midiRegistry, setMidiRegistry] = useState<MIDIRegistry>(() => ({
+    availableParameters: transportRegistry.getAll(),
+    bindings: new Map(),
+  }))
 
-  /** Plugin Apply 時に Registry を更新するヘルパー（Day55 接続・Day56 ccNumber 付与・Day57 value 追加）*/
+  /** Plugin Apply 時に transportRegistry を更新するヘルパー */
   const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
-    const plugin = engine.getGeometryPlugin(layerId)
-    if (!plugin) return
-    const enriched = plugin.getParameters().map((p) => ({
-      ...p,
-      layerId,
-      pluginId,
-      ccNumber: ccMapService.getCcNumber(pluginId, p.id),
-      value: plugin.params[p.id]?.value ?? p.min,
-    }))
-    setMidiRegistry((prev) => registerParams(prev, enriched, layerId))
+    // engine.initTransportRegistry パターンで登録する
+    // GeometrySimpleWindow から Plugin 切り替え時に呼ばれる
+    engine.registerPluginToTransportRegistry(layerId, pluginId)
   }, [])
 
-  /** Plugin をレイヤーから外した時に Registry をクリアするヘルパー（Day55 接続）*/
+  /** Plugin をレイヤーから外した時に transportRegistry をクリアするヘルパー */
   const removePluginFromRegistry = useCallback((layerId: string) => {
-    setMidiRegistry((prev) => clearParams(prev, layerId))
+    transportRegistry.clear(layerId)
   }, [])
 
-  // Plugin → Window 逆流：engine.onParamChanged + 16ms throttle（Day58 Step3）
-  // 200ms ポーリング（syncValues）を廃止してイベント駆動に置き換える
+  // transportRegistry の変化を購読して React state を更新（鏡）
   useEffect(() => {
-    let lastFired = 0
+    transportRegistry.onChanged(() => {
+      setMidiRegistry({
+        availableParameters: [...transportRegistry.getAll()],
+        bindings: new Map(),
+      })
+    })
+  }, [])
+
+  // Plugin → Window 逆流：engine.onParamChanged（Day58 Step3）
+  // flushParameterStore が syncValue を呼ぶので onChanged が発火 → UI 更新
+  useEffect(() => {
     engine.onParamChanged(() => {
-      const now = performance.now()
-      if (now - lastFired < 16) return
-      lastFired = now
-      setMidiRegistry((prev) =>
-        syncValues(prev, (pluginId, paramId) => {
-          const layers = engine.getLayers()
-          for (const layer of layers) {
-            if (layer.plugin?.id === pluginId) {
-              return layer.plugin.params[paramId]?.value
-            }
-            if (engine.getCameraPlugin(layer.id)?.id === pluginId) {
-              return engine.getCameraPlugin(layer.id)?.params[paramId]?.value
-            }
-            for (const fx of layer.fxStack.getOrdered()) {
-              if (fx.id === pluginId) return fx.params[paramId]?.value
-            }
-          }
-          return undefined
-        })
-      )
+      setMidiRegistry({
+        availableParameters: [...transportRegistry.getAll()],
+        bindings: new Map(),
+      })
     })
   }, [])
 
@@ -107,38 +94,8 @@ export default function App() {
     const container = mountRef.current
     engine.initialize(container).then(() => {
       engine.start()
-      // 起動時に Geometry を一括登録（Day53 新設・Day56 ccNumber 付与・Day57 value 追加）
-      engine.getAllLayerPlugins().forEach(({ layerId, plugin }) => {
-        const enriched = plugin.getParameters().map((p) => ({
-          ...p,
-          layerId,
-          pluginId: plugin.id,
-          ccNumber: ccMapService.getCcNumber(plugin.id, p.id),
-          value: plugin.params[p.id]?.value ?? p.min,
-        }))
-        setMidiRegistry((prev) => registerParams(prev, enriched, layerId))
-      })
-      // 起動時に FX を一括登録（Day56 新設・Day57 value 追加）
-      // 全 FX を layerId 単位でまとめて登録する（後勝ち防止）
-      const layers = ['layer-1', 'layer-2', 'layer-3'] as const
-      layers.forEach((layerId) => {
-        const fxPlugins = engine.getFxPlugins(layerId)
-        if (fxPlugins.length === 0) return
-        const allFxParams = fxPlugins.flatMap((fx) =>
-          Object.entries(fx.params).map(([paramId, param]) => ({
-            id: paramId,
-            name: param.label,
-            min: param.min,
-            max: param.max,
-            step: (param.max - param.min) / 200,
-            layerId,
-            pluginId: fx.id,
-            ccNumber: ccMapService.getCcNumber(fx.id, paramId),
-            value: param.value,
-          }))
-        )
-        setMidiRegistry((prev) => registerParams(prev, allFxParams, layerId))
-      })
+      // Registry 登録は engine.initialize() 内の initTransportRegistry() が担当
+      // App.tsx は ccMapService を知らない（Day58 Step4）
     })
     return () => { engine.dispose() }
   }, [])

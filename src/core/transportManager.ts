@@ -1,0 +1,92 @@
+/**
+ * TransportManager
+ * spec: docs/spec/transport-architecture.spec.md
+ *
+ * 旧: MidiManager（Day50 新設）
+ * Day58 Step4: プロトコル非依存の TransportManager に昇格
+ *
+ * 責務:
+ *   - TransportEvent を受け取って ParameterStore に書く
+ *   - MacroKnob の解決（midiCC / assign.ccNumber でヒット検索）
+ *   - Sequencer / LFO からの変調値受け取り（receiveModulation）
+ *
+ * 責務外:
+ *   - プロトコル知識（MIDI / OSC は InputWrapper が担当）
+ *   - slot → paramId の意味解決（TransportRegistry が担当）
+ *   - plugin.params への書き込み（engine.flushParameterStore が担当）
+ */
+
+import { rangeMap } from './macroKnob'
+import type { MacroKnobManager, TransportEvent } from '../types'
+import type { ParameterStore } from './parameterStore'
+
+// ============================================================
+// TransportManager interface
+// ============================================================
+
+export interface TransportManager {
+  init(store: ParameterStore, knobManager: MacroKnobManager): void
+  handle(event: TransportEvent): void
+  receiveModulation(knobId: string, value: number): void
+}
+
+// ============================================================
+// TransportManagerImpl
+// ============================================================
+
+class TransportManagerImpl implements TransportManager {
+  private store: ParameterStore | null = null
+  private knobManager: MacroKnobManager | null = null
+
+  init(store: ParameterStore, knobManager: MacroKnobManager): void {
+    this.store = store
+    this.knobManager = knobManager
+  }
+
+  handle(event: TransportEvent): void {
+    if (!this.store || !this.knobManager) return
+
+    // slot 番号をキーとして store に書く（MIDI 2.0 として厳密・変更なし）
+    this.store.set(String(event.slot), event.value)
+
+    const knobs = this.knobManager.getKnobs()
+
+    // midiCC（物理 MIDI CC）でヒットする MacroKnob
+    const knobByMidi = knobs.find((k) => k.midiCC === event.slot)
+    if (knobByMidi) {
+      this.knobManager.setValue(knobByMidi.id, event.value)
+      for (const assign of knobByMidi.assigns) {
+        const mapped = rangeMap(event.value, assign.min, assign.max)
+        this.store.set(assign.paramId, mapped)
+      }
+    }
+
+    // assign.ccNumber でヒットする MacroKnob → MacroKnob 表示を追従
+    for (const knob of knobs) {
+      for (const assign of knob.assigns) {
+        if (assign.ccNumber === event.slot) {
+          this.knobManager.setValue(knob.id, Math.min(1, Math.max(0, event.value)))
+        }
+      }
+    }
+  }
+
+  receiveModulation(knobId: string, value: number): void {
+    if (!this.store || !this.knobManager) return
+
+    const knob = this.knobManager.getKnobs().find((k) => k.id === knobId)
+    if (!knob) return
+
+    this.knobManager.setValue(knobId, value)
+
+    for (const assign of knob.assigns) {
+      this.store.set(String(assign.ccNumber), value)
+    }
+  }
+}
+
+// ============================================================
+// シングルトン
+// ============================================================
+
+export const transportManager = new TransportManagerImpl()

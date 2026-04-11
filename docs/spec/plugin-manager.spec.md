@@ -2,14 +2,14 @@
 
 > SSoT: このファイル
 > 担当: Claude Desktop（設計）/ Claude Code（実装）
-> 状態: Day57 実装完了
+> 状態: Day58 更新（TransportRegistry・TransportManager への移行を反映）
 
 ---
 
 ## 1. 概要
 
 Plugin Manager は「どの Plugin × どの WindowPlugin をどのレイヤーに Apply するか」を管理する Orchestrator。
-ユーザーの Plugin Apply 操作を受けて、MIDIRegistry の更新と WindowPlugin の起動を順序立てて行う。
+ユーザーの Plugin Apply 操作を受けて、TransportRegistry の更新と WindowPlugin の起動を順序立てて行う。
 
 ---
 
@@ -29,26 +29,27 @@ Plugin Manager がこれらのペアを管理する。
 
 ---
 
-## 3. Plugin Apply の2段階フロー（確定）
+## 3. Plugin Apply の2段階フロー（Day58 更新）
 
 Geometry と WindowPlugin は常にペアで選ぶ。
-ユーザーが Geometry を選んだだけでは操作できない（Window がないため）。
 
 ```
 Plugin Apply（ユーザー操作）
   ↓
 Phase A: Geometry 選択
   → engine.setLayerPlugin(layerId, pluginId)
-  → plugin.getParameters() → ParameterSchema[]
-  → App.tsx が layerId / pluginId を付与
-  → registerParams() → MIDIRegistry.availableParameters に登録
-  ここまでが MIDIRegistry の責務
+  → engine.registerPluginToTransportRegistry(layerId, pluginId)
+      └── plugin.getParameters() → ParameterSchema[]
+      └── ccMapService.getCcNumber() で ccNumber を付与（engine 内部のみ）
+      └── transportRegistry.register(enriched, layerId)
+      └── transportRegistry.onChanged() 発火 → App.tsx が midiRegistry を更新
+  ここまでが TransportRegistry の責務
 
   ↓
-Phase B: WindowPlugin 選択（SimpleWindowPlugin / FxWindowPlugin）
-  → ccMapService.getCcNumber(pluginId, paramId) を paramId ごとに呼ぶ
-  → RegisteredParameter に ccNumber と value を追加
-  → WindowPlugin が MIDIRegistry を filter して ParamRow を動的生成
+Phase B: WindowPlugin 表示
+  → App.tsx が midiRegistry.availableParameters を filter
+  → SimpleWindowPlugin / FxWindowPlugin に props として渡す
+  → WindowPlugin が ParamRow を動的生成
   → ユーザーが初めてパラメータを操作できる状態になる
 ```
 
@@ -63,24 +64,18 @@ Geometry / Camera / Light Plugin 共通の汎用 UI。
 **責務（v1 最小実装）：**
 ```
 ① params → ParamRow を動的生成
-② ccNumber は props から受け取る（App.tsx が付与済み）
-③ engine.handleMidiCC() でパラメータ変更
-④ params[].value は常に engine の現在値と同期済み（逆流・200ms ポーリング）
+② ccNumber は props から受け取る（TransportRegistry が付与済み）
+③ engine.handleMidiCC(TransportEvent) でパラメータ変更（source: 'window'）
+④ params[].value は常に engine の現在値と同期済み（TransportRegistry 経由）
 ```
-
-**将来追加（実装しない）：**
-- Preset（Save / Load / Delete）
-- D&D ハンドル（MacroKnob アサイン）→ 次の段階
-- RangeSlider（min/max 絞り）→ 上位 WindowPlugin で導入
 
 **props：**
 ```typescript
 interface SimpleWindowPluginProps {
   layerId: string
   pluginId: string
-  pluginName: string                   // 表示用
-  params: RegisteredParameterWithCC[]  // Registry から filter するだけで取得
-  // params[].value は常に engine の現在値と同期済み（逆流）
+  pluginName: string
+  params: RegisteredParameterWithCC[]  // TransportRegistry から filter するだけで取得
 }
 ```
 
@@ -99,8 +94,8 @@ FX Plugin 専用 UI。ON/OFF トグルが必要なため別実装。
 ```
 ① FX ON/OFF トグル（FX Plugin 固有の仕様）
 ② params → ParamRow 動的生成
-③ ccNumber は props から受け取る（App.tsx が付与済み）
-④ engine.handleMidiCC() でパラメータ変更
+③ ccNumber は props から受け取る（TransportRegistry が付与済み）
+④ engine.handleMidiCC(TransportEvent) でパラメータ変更
 ```
 
 **ファイル：**
@@ -117,10 +112,10 @@ src/plugins/windows/fx-window/
 ```
 1. Geometry Plugin の Apply / Remove
    → engine.setLayerPlugin(layerId, pluginId)
-   → MIDIRegistry の更新（registerParams / clearParams）
+   → engine.registerPluginToTransportRegistry(layerId, pluginId)  // Registry 更新
+   → engine.transportRegistry.clear(layerId)                      // Remove 時
 
 2. WindowPlugin の Apply / Remove
-   → どの WindowPlugin を使うかを決定
    → Geometry Plugin の種別に応じて自動選択：
      Geometry / Camera / Light → SimpleWindowPlugin
      FX                        → FxWindowPlugin
@@ -151,28 +146,23 @@ Plugin Manager 実装後、以下は廃止する：
 現行の CameraSimpleWindow は `engine.listCameraPlugins()` / `engine.setCameraPlugin()` を直接呼ぶ密結合。
 Plugin Manager が「どの Plugin を使うか」を管理することで解消する。
 
-```
-現状（密結合）
-CameraSimpleWindow → engine.listCameraPlugins() → エンジンが Camera 種別を管理
-
-あるべき姿（疎結合）
-Plugin Manager → Camera Plugin を選択して Apply
-SimpleWindowPlugin → 渡された params を表示するだけ
-```
-
 ---
 
 ## 8. 実装順序
 
 | Phase | 作業 | 状態 |
 |---|---|---|
-| A | MIDIRegistry への Geometry 登録 | 完了 Day56 |
+| A | TransportRegistry への Geometry 登録 | 完了 Day56〜58 |
 | A | GeometrySimpleWindow → onPluginApply 接続 | 完了 Day56 |
 | B | SimpleWindowPlugin 新規実装 | 完了 Day56 |
 | B | FxWindowPlugin 新規実装 | 完了 Day56 |
 | B | ccNumber の RegisteredParameter への付与 | 完了 Day56 |
 | B | MidiCCEvent.cc → slot 導入（Slot 概念の先行定着） | 完了 Day57 |
 | B | Registry に value 追加（Plugin → Window 逆流） | 完了 Day57 |
+| B | MidiCCEvent → TransportEvent rename | 完了 Day58 |
+| B | MidiInputWrapper 切り出し | 完了 Day58 |
+| B | イベント駆動化（ポーリング廃止） | 完了 Day58 |
+| B | TransportRegistry コア層化・App.tsx を鏡に | 完了 Day58 |
 | 将来 | 既存 SimpleWindow 廃止 | 動作確認完了後 |
 
 ---
@@ -189,7 +179,8 @@ SimpleWindowPlugin → 渡された params を表示するだけ
 ## 10. References
 
 - `docs/spec/midi-registry.spec.md` — MIDIRegistry 仕様
-- `docs/spec/cc-mapping.spec.md` — CC マッピング仕様
+- `docs/spec/transport-architecture.spec.md` — Transport Architecture 全体仕様
+- `docs/spec/cc-mapping.md` — CC マッピング仕様
 - `docs/spec/window-plugin.spec.md` — WindowPlugin 定義
 - `docs/spec/simple-window.spec.md` — 既存 SimpleWindow（廃止予定）
 - `docs/spec/plugin-lifecycle.spec.md` — Plugin ライフサイクル

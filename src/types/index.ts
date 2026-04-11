@@ -260,12 +260,13 @@ export interface MacroKnobManager {
 }
 
 /**
- * MidiManager — CC入力の唯一の通路
- * spec: docs/spec/macro-knob.spec.md §3
+ * TransportManager — プロトコル非依存のイベント処理エンジン
+ * spec: docs/spec/transport-architecture.spec.md
  *
+ * 旧: MidiManager（Day50 新設）
+ * Day58 Step4: プロトコル非依存の TransportManager に昇格。
  * 全入力源（物理MIDI / SimpleWindow / Sequencer / LFO / AI）が
- * engine.handleMidiCC(MidiCCEvent) 経由でここに流れ込む。
- * Day50 新設・MacroKnobManager から handleMidiCC / receiveModulation を移管。
+ * engine.handleMidiCC(TransportEvent) 経由でここに流れ込む。
  */
 export interface MidiManager {
   init(store: { set(paramId: string, value: number): void }, knobManager: MacroKnobManager): void

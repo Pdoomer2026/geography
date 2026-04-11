@@ -11,7 +11,8 @@ import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
 import { macroKnobManager } from './macroKnob'
-import { midiManager } from './midiManager'
+import { transportManager } from './transportManager'
+import { transportRegistry } from './transportRegistry'
 import { ccMapService } from './ccMapService'
 import { getCameraPlugin, listCameraPlugins } from '../plugins/cameras'
 import type {
@@ -72,8 +73,9 @@ export class Engine {
     this.container = container
     layerManager.initialize(container)
 
-    // MidiManager を初期化（Day50: macroKnobManager.init → midiManager.init に変更）
-    midiManager.init(this.parameterStore, macroKnobManager)
+    // TransportManager を初期化（Day58 Step4: midiManager → transportManager に昇格）
+    transportManager.init(this.parameterStore, macroKnobManager)
+    // ccMapService は engine.initialize 内でのみ使用（App.tsx から完全に分離）
     await ccMapService.init()
 
     // Plugin 自動登録
@@ -140,6 +142,66 @@ export class Engine {
     }
 
     window.addEventListener('resize', this.onResize)
+
+    // 起動時に Registry を一括登録（Day58 Step4: engine が ccMapService を使う唯一の場所）
+    this.initTransportRegistry()
+  }
+
+  /**
+   * Plugin 切り替え時に展開先から呼ばれる Registry 登録 API
+   * GeometrySimpleWindow の onPluginApply から履歴する。
+   * ccMapService を使う唯一の公開 API。
+   */
+  registerPluginToTransportRegistry(layerId: string, _pluginId: string): void {
+    const plugin = this.getGeometryPlugin(layerId)
+    if (!plugin) return
+    const enriched = plugin.getParameters().map((p) => ({
+      ...p,
+      layerId,
+      pluginId: plugin.id,
+      ccNumber: ccMapService.getCcNumber(plugin.id, p.id),
+      value: plugin.params[p.id]?.value ?? p.min,
+    }))
+    transportRegistry.register(enriched, layerId)
+  }
+
+  /**
+   * 起動時に全 Plugin を TransportRegistry に登録する。
+   * ccMapService を使う唯一の場所。App.tsx は ccMapService を知らない。
+   */
+  private initTransportRegistry(): void {
+    // Geometry
+    this.getAllLayerPlugins().forEach(({ layerId, plugin }) => {
+      const enriched = plugin.getParameters().map((p) => ({
+        ...p,
+        layerId,
+        pluginId: plugin.id,
+        ccNumber: ccMapService.getCcNumber(plugin.id, p.id),
+        value: plugin.params[p.id]?.value ?? p.min,
+      }))
+      transportRegistry.register(enriched, layerId)
+    })
+    // FX
+    const layerIds = ['layer-1', 'layer-2', 'layer-3'] as const
+    layerIds.forEach((layerId) => {
+      const fxPlugins = layerManager.getLayers()
+        .find((l) => l.id === layerId)?.fxStack.getOrdered() ?? []
+      if (fxPlugins.length === 0) return
+      const allFxParams = fxPlugins.flatMap((fx) =>
+        Object.entries(fx.params).map(([paramId, param]) => ({
+          id: paramId,
+          name: param.label,
+          min: param.min,
+          max: param.max,
+          step: (param.max - param.min) / 200,
+          layerId,
+          pluginId: fx.id,
+          ccNumber: ccMapService.getCcNumber(fx.id, paramId),
+          value: param.value,
+        }))
+      )
+      transportRegistry.register(allFxParams, layerId)
+    })
   }
 
   // --- Transition 選択 ---
@@ -195,15 +257,15 @@ export class Engine {
    * MidiManager に委譲する。
    */
   handleMidiCC(event: TransportEvent): void {
-    midiManager.handleMidiCC(event)
+    transportManager.handle(event)
   }
 
   /**
    * Sequencer / LFO からの変調値受け取り（将来実装）。
-   * MidiManager に委譲する。
+   * TransportManager に委譲する。
    */
   receiveMidiModulation(knobId: string, value: number): void {
-    midiManager.receiveModulation(knobId, value)
+    transportManager.receiveModulation(knobId, value)
   }
 
   // --- FX コントロール API（layerId 対応）---
@@ -344,109 +406,68 @@ export class Engine {
   }
 
   /**
-   * ParameterStore の値を各レイヤーの plugin.params に反映する。（Day51 新設）
+   * ParameterStore の値を各 plugin.params に反映する（Day58 Step4 改訂）
    *
-   * フォールバック付き2段階解決:
-   * 1. ccMapService に mapping あり（Electron 環境・cc-map.json 生成済み）
-   *    → CC番号で store を引いて pluginMin/Max で逆変換
-   * 2. ccMapService に mapping なし（ブラウザ確認時・cc-map.json 未生成）
-   *    → getCcNumber() で CC番号だけ取得し param.min/max で逆変換
-   *    （SimpleWindow が normalized = (v - min) / (max - min) で書いた値をそのまま戻す）
+   * TransportRegistry から slot → param の対応を取得し、
+   * ccMapService に依存せず純粋に値を流す。
+   * engine は CC番号の意味を知らない。
    */
   private flushParameterStore(): void {
     const allValues = this.parameterStore.getAll()
     if (allValues.size === 0) return
 
-    const layers = layerManager.getLayers()
+    const entries = transportRegistry.getAll()
+    if (entries.length === 0) return
+
     let changed = false
 
-    for (const layer of layers) {
-      // --- Geometry Plugin ---
-      const geo = layer.plugin
-      if (geo) {
-        for (const [paramKey, param] of Object.entries(geo.params)) {
-          const effective = {
-            min: param.rangeMin ?? param.min,
-            max: param.rangeMax ?? param.max,
-          }
-          const actual = this.resolveParamValue(geo.id, paramKey, effective, allValues)
-          if (actual === undefined || param.value === actual) continue
-          param.value = actual
-          changed = true
-          if (param.requiresRebuild) {
-            layerManager.rebuildPlugin(layer.id)
-          }
-        }
+    for (const entry of entries) {
+      const storeValue = allValues.get(String(entry.ccNumber))
+      if (storeValue === undefined) continue
+
+      // entry.min/max（rangeMin/Max を反映済み）で実際値に変換
+      const actual = entry.min + storeValue * (entry.max - entry.min)
+
+      // plugin を特定して params に書く
+      const layer = layerManager.getLayers().find((l) => l.id === entry.layerId)
+      if (!layer) continue
+
+      // Geometry
+      if (layer.plugin?.id === entry.pluginId) {
+        const param = layer.plugin.params[entry.id]
+        if (!param || Math.abs(param.value - actual) < 0.0001) continue
+        param.value = actual
+        changed = true
+        if (param.requiresRebuild) layerManager.rebuildPlugin(entry.layerId)
+        transportRegistry.syncValue(entry.pluginId, entry.id, actual)
+        continue
       }
 
-      // --- Camera Plugin ---
-      const cam = layerManager.getCameraPlugin(layer.id)
-      if (cam) {
-        for (const [paramKey, param] of Object.entries(cam.params)) {
-          const effective = {
-            min: param.rangeMin ?? param.min,
-            max: param.rangeMax ?? param.max,
-          }
-          const actual = this.resolveParamValue(cam.id, paramKey, effective, allValues)
-          if (actual === undefined || param.value === actual) continue
-          param.value = actual
-          changed = true
-        }
+      // Camera
+      const cam = layerManager.getCameraPlugin(entry.layerId)
+      if (cam?.id === entry.pluginId) {
+        const param = cam.params[entry.id]
+        if (!param || Math.abs(param.value - actual) < 0.0001) continue
+        param.value = actual
+        changed = true
+        transportRegistry.syncValue(entry.pluginId, entry.id, actual)
+        continue
       }
 
-      // --- FX Stack ---
-      for (const fx of layer.fxStack.getOrdered()) {
-        for (const [paramKey, param] of Object.entries(fx.params)) {
-          const effective = {
-            min: param.rangeMin ?? param.min,
-            max: param.rangeMax ?? param.max,
-          }
-          const actual = this.resolveParamValue(fx.id, paramKey, effective, allValues)
-          if (actual === undefined || param.value === actual) continue
-          param.value = actual
-          changed = true
-        }
+      // FX
+      const fx = layer.fxStack.getPlugin(entry.pluginId)
+      if (fx) {
+        const param = fx.params[entry.id]
+        if (!param || Math.abs(param.value - actual) < 0.0001) continue
+        param.value = actual
+        changed = true
+        transportRegistry.syncValue(entry.pluginId, entry.id, actual)
       }
     }
 
     if (changed) {
       this.paramChangedCallback?.()
     }
-  }
-
-  /**
-   * CC番号 → store 値 → 実際値 の解決。
-   * ccMapService に mapping があれば pluginMin/Max で逆変換。
-   * なければ getCcNumber() + param.min/max でフォールバック。
-   */
-  private resolveParamValue(
-    pluginId: string,
-    paramKey: string,
-    param: { min: number; max: number },
-    allValues: Map<string, number>
-  ): number | undefined {
-    const mapping = ccMapService.getMapping(pluginId, paramKey)
-    if (mapping) {
-      const storeValue = allValues.get(String(mapping.ccNumber))
-      if (storeValue === undefined) return undefined
-      return mapping.pluginMin + storeValue * (mapping.pluginMax - mapping.pluginMin)
-    }
-    // フォールバック: getCcNumber で CC 番号を出す
-    const cc = ccMapService.getCcNumber(pluginId, paramKey)
-    const storeValue = allValues.get(String(cc))
-    if (storeValue === undefined) return undefined
-
-    // store の値は 0.0〜1.0 の相対値。
-    // MacroKnob アサインがあれば assign.min/max で変換。
-    // なければ param（= effectiveMin/Max = rangeMin/rangeMax ?? min/max）で変換。
-    // 全て同じ変換式: effectiveMin + storeValue * (effectiveMax - effectiveMin)
-    const assign = macroKnobManager.getKnobs()
-      .flatMap((k) => k.assigns)
-      .find((a) => a.ccNumber === cc)
-    if (assign) {
-      return assign.min + storeValue * (assign.max - assign.min)
-    }
-    return param.min + storeValue * (param.max - param.min)
   }
 
   // --- リサイズ ---
