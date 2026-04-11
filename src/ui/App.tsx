@@ -45,12 +45,16 @@ export default function App() {
     setMidiRegistry((prev) => clearParams(prev, layerId))
   }, [])
 
-  // 200ms ポーリング：engine の現在値を Registry に同期（Plugin → Window 逆流）
+  // Plugin → Window 逆流：engine.onParamChanged + 16ms throttle（Day58 Step3）
+  // 200ms ポーリング（syncValues）を廃止してイベント駆動に置き換える
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    let lastFired = 0
+    engine.onParamChanged(() => {
+      const now = performance.now()
+      if (now - lastFired < 16) return
+      lastFired = now
       setMidiRegistry((prev) =>
         syncValues(prev, (pluginId, paramId) => {
-          // Geometry / Camera
           const layers = engine.getLayers()
           for (const layer of layers) {
             if (layer.plugin?.id === pluginId) {
@@ -59,7 +63,6 @@ export default function App() {
             if (engine.getCameraPlugin(layer.id)?.id === pluginId) {
               return engine.getCameraPlugin(layer.id)?.params[paramId]?.value
             }
-            // FX
             for (const fx of layer.fxStack.getOrdered()) {
               if (fx.id === pluginId) return fx.params[paramId]?.value
             }
@@ -67,8 +70,7 @@ export default function App() {
           return undefined
         })
       )
-    }, 200)
-    return () => window.clearInterval(timer)
+    })
   }, [])
 
   // FxGroup を組み立てる（layer-1 固定・v1）

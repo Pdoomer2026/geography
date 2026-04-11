@@ -50,8 +50,20 @@ export class Engine {
 
   readonly parameterStore: ParameterStore
 
+  /** Plugin → Window 逆流コールバック（Day58 Step3）*/
+  private paramChangedCallback: (() => void) | null = null
+
   constructor() {
     this.parameterStore = new ParameterStore()
+  }
+
+  /**
+   * Plugin の params.value が変化したとき呼ばれるコールバックを登録する。
+   * App.tsx が syncValues() を即時実行するために使う。
+   * spec: docs/spec/transport-architecture.spec.md §5 Step3
+   */
+  onParamChanged(cb: () => void): void {
+    this.paramChangedCallback = cb
   }
 
   // --- 初期化 ---
@@ -346,6 +358,7 @@ export class Engine {
     if (allValues.size === 0) return
 
     const layers = layerManager.getLayers()
+    let changed = false
 
     for (const layer of layers) {
       // --- Geometry Plugin ---
@@ -359,6 +372,7 @@ export class Engine {
           const actual = this.resolveParamValue(geo.id, paramKey, effective, allValues)
           if (actual === undefined || param.value === actual) continue
           param.value = actual
+          changed = true
           if (param.requiresRebuild) {
             layerManager.rebuildPlugin(layer.id)
           }
@@ -376,6 +390,7 @@ export class Engine {
           const actual = this.resolveParamValue(cam.id, paramKey, effective, allValues)
           if (actual === undefined || param.value === actual) continue
           param.value = actual
+          changed = true
         }
       }
 
@@ -389,8 +404,13 @@ export class Engine {
           const actual = this.resolveParamValue(fx.id, paramKey, effective, allValues)
           if (actual === undefined || param.value === actual) continue
           param.value = actual
+          changed = true
         }
       }
+    }
+
+    if (changed) {
+      this.paramChangedCallback?.()
     }
   }
 
