@@ -25,10 +25,10 @@ GeoGraphy CC Standard はこれらを解決する**共通言語**として設計
 MIDI 1.0 の CC は 0〜127 の 128個。うち多くが音楽用途で定義済みのため CG 用途には狭い。
 MIDI 2.0 の Assignable Controllers（AC）空間は **32,768個** あり、GeoGraphy 専用の体系を自由に設計できる。解像度も 7bit（128段階）から **32bit**（約43億段階）に拡張され、リアルタイム VJ 制御に十分な滑らかさが得られる。
 
-> **外部受信と内部バスの分離（Day58 確定）**
+> **外部受信と内部バスの分離（Day44確定）**
 > GeoGraphy の CC番号体系は MIDI 2.0 AC 空間に統一した独自の体系（内部バス）。
 > 外部コントローラーとの通信は Web MIDI API 経由のため MIDI 1.0 プロトコルで受信するが、
-> GeoGraphy に入った瞬間に MidiInputWrapper が TransportEvent（slot + value・0.0〜1.0）に変換し、内部バスは常に MIDI 2.0 準拠。
+> GeoGraphy に入った瞬間に MidiCCEvent（0.0〜1.0 float）に変換され、内部バスは常に MIDI 2.0 準拠。
 > 「CC番号体系 = MIDI 2.0 AC」と「受信プロトコル」は別の話。
 > MIDI 2.0 ネイティブ受信（高精度 32bit で直接受け取る）は将来タスク（C++ addon 実装が前提）。
 
@@ -56,7 +56,7 @@ cc-mapping.md で Plugin の paramId に対応づける
 Plugin パラメーターの具体値（実装レベル）
 ```
 
-「ネオンが光る廃墟の夜」→ AI が CC Standard の値を決定 → TransportEvent → GeoGraphy が再現。
+「ネオンが光る廃墟の夜」→ AI が CC Standard の値を決定 → Scene State JSON → GeoGraphy が再現。
 この流れを可能にするために、CC のカテゴリー名・意味・値域を**人間にも AI にも理解しやすい言葉**で定義する。
 
 ---
@@ -106,7 +106,7 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 | CC102 | Secondary Amount | float | 0.0〜1.0 | 大きさ・強さの副軸。`tube`, `inner radius` 等に対応 |
 | CC103 | Opacity | float | 0.0〜1.0 | 透明度・不透明度。`opacity`, `damp`（残像系）に対応 |
 
-| CC110 | Auto Rotate | bool | 0/1 | カメラ自動回転 ON/OFF。orbit-camera の `autoRotate` に対応 |
+| CC110 | Auto Rotate | bool | 0/1 | カメラ自動回転 ON/OFF。orbit-camera の `autoRotate` に対応。CC100（Enabled）と同じ bool 系 |
 
 **将来追加候補：**
 - CC104: Threshold（しきい値。Bloom の `threshold` 等）
@@ -117,12 +117,15 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 
 | CC# | 名前 | 型 | 値域 | 意味 |
 |---|---|---|---|---|
-| CC200 | Shape Type | int | 0〜N | 形状モードの切り替え |
+| CC200 | Shape Type | int | 0〜N | 形状モードの切り替え。`shape`（Halftone）に対応 |
 | CC201 | Density / Detail | float | 0.0〜1.0 | 密度・細かさ。`segments`, `detail`, `count`, `cols/rows` に対応 |
 | CC202 | Inner Shape | float | 0.0〜1.0 | 形状の内側パラメーター。`radialSegs`, `rows`, `rings` 等に対応 |
 | CC203 | Symmetry / Repeat | float | 0.0〜1.0 | 対称・反復数。`segments`（Kaleidoscope）, `horizontal`（Mirror）に対応 |
 | CC204 | Topology A | int | 0〜N | トポロジー変化の第1軸。TorusKnot の `p` に対応 |
 | CC205 | Topology B | int | 0〜N | トポロジー変化の第2軸。TorusKnot の `q` に対応（Day42 新設）|
+
+**将来追加候補：**
+- CC206: Scatter（ランダム散布。HalftonePass の `scatter`、Particle 系）
 
 ---
 
@@ -130,11 +133,15 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 
 | CC# | 名前 | 型 | 値域 | 意味 |
 |---|---|---|---|---|
-| CC300 | Temporal Speed | float | 0.0〜1.0 | 時間的な速度。全 Plugin の `speed` に対応 |
-| CC301 | Phase / Offset | float | 0.0〜1.0 | 波・アニメーションの位相オフセット |
-| CC302 | Deformation | float | 0.0〜1.0 | 変形・歪み・振幅。`amplitude`, `maxHeight` に対応 |
-| CC303 | Frequency | float | 0.0〜1.0 | 波の周波数・細かさ |
-| CC304 | Randomness | float | 0.0〜1.0 | ランダム性の強さ |
+| CC300 | Temporal Speed | float | 0.0〜1.0 | 時間的な速度。全 Plugin の `speed` に対応。最も普遍的な軸 |
+| CC301 | Phase / Offset | float | 0.0〜1.0 | 波・アニメーションの位相オフセット。`angle`（Kaleidoscope, RGB Shift）に対応 |
+| CC302 | Deformation | float | 0.0〜1.0 | 変形・歪み・振幅。`amplitude`, `distortion_x/y`（Glitch）, `maxHeight` に対応 |
+| CC303 | Frequency | float | 0.0〜1.0 | 波の周波数・細かさ。`frequency`（Grid Wave）, `scale`（Contour）に対応 |
+| CC304 | Randomness | float | 0.0〜1.0 | ランダム性の強さ。`seed_x/y`（Glitch）, `scatter`（Halftone）に対応 |
+
+**将来追加候補：**
+- CC305: Rotation Speed（回転速度。カメラ回転・Geometry 回転の独立制御）
+- CC306: Turbulence（乱流。Particle 系の動きの乱れ）
 
 ---
 
@@ -142,11 +149,15 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 
 | CC# | 名前 | 型 | 値域 | 意味 |
 |---|---|---|---|---|
-| CC400 | Hue | float | 0.0〜1.0 | 色相（0=赤, 0.33=緑, 0.67=青, 1.0=赤に戻る） |
-| CC401 | Saturation | float | 0.0〜1.0 | 彩度 |
-| CC402 | Brightness | float | 0.0〜1.0 | 明るさ |
-| CC403 | Contrast | float | 0.0〜1.0 | コントラスト |
-| CC404 | Color Tint | Color | RGB | 映像全体への着色 |
+| CC400 | Hue | float | 0.0〜1.0 | 色相（0=赤, 0.33=緑, 0.67=青, 1.0=赤に戻る）。全 Geometry の `hue` に対応 |
+| CC401 | Saturation | float | 0.0〜1.0 | 彩度。0=グレースケール, 1=標準, 上限=過飽和 |
+| CC402 | Brightness | float | 0.0〜1.0 | 明るさ。0=真っ暗, 0.5=標準, 1.0=白飛び |
+| CC403 | Contrast | float | 0.0〜1.0 | コントラスト。0=フラット, 0.5=標準, 1.0=最大 |
+| CC404 | Color Tint | Color | RGB | 映像全体への着色。`color`（ColorifyShader）に対応 |
+
+**将来追加候補：**
+- CC405: Color Temperature（色温度。暖色↔寒色）
+- CC406: RGB Shift Amount（RGB チャンネルのずれ量。`amount`（RGB Shift）に対応）
 
 ---
 
@@ -157,14 +168,18 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 | CC500 | Position X | float | -1.0〜1.0 | X 軸位置 |
 | CC501 | Position Y | float | -1.0〜1.0 | Y 軸位置 |
 | CC502 | Position Z | float | -1.0〜1.0 | Z 軸位置（奥行き）|
-| CC503 | Rotation | float | 0.0〜1.0 | 回転角度 |
-| CC504 | Scale / Zoom | float | 0.0〜1.0 | 拡大縮小 |
-| CC505 | Focus / Center X | float | 0.0〜1.0 | フォーカス中心点 X |
-| CC506 | Focus / Center Y | float | 0.0〜1.0 | フォーカス中心点 Y |
-| CC507 | Depth | float | 0.0〜1.0 | 奥行き範囲 |
-| CC510 | LookAt X | float | -1.0〜1.0 | カメラ注視点 X |
-| CC511 | LookAt Y | float | -1.0〜1.0 | カメラ注視点 Y |
-| CC512 | LookAt Z | float | -1.0〜1.0 | カメラ注視点 Z |
+| CC503 | Rotation | float | 0.0〜1.0 | 回転角度（0=0°, 1.0=360°）|
+| CC504 | Scale / Zoom | float | 0.0〜1.0 | 拡大縮小。`strength`（Zoom Blur）, カメラ zoom に対応 |
+| CC505 | Focus / Center X | float | 0.0〜1.0 | フォーカス・ブラー等の中心点 X |
+| CC506 | Focus / Center Y | float | 0.0〜1.0 | フォーカス・ブラー等の中心点 Y |
+| CC507 | Depth | float | 0.0〜1.0 | 奥行き範囲。`depth`（Starfield）, `length`（Grid Tunnel）に対応 |
+| CC510 | LookAt X | float | -1.0〜1.0 | カメラ注視点 X。static-camera の `lookAtX` に対応 |
+| CC511 | LookAt Y | float | -1.0〜1.0 | カメラ注視点 Y。static-camera の `lookAtY` に対応 |
+| CC512 | LookAt Z | float | -1.0〜1.0 | カメラ注視点 Z。static-camera の `lookAtZ` に対応 |
+
+**将来追加候補：**
+- CC508: Field of View（カメラの視野角）
+- CC509: Focus Distance（BokehPass の `focus` に対応）
 
 ---
 
@@ -172,11 +187,15 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 
 | CC# | 名前 | 型 | 値域 | 意味 |
 |---|---|---|---|---|
-| CC600 | Edge Strength | float | 0.0〜1.0 | 輪郭の強さ |
-| CC601 | Edge Thickness | float | 0.0〜1.0 | 輪郭の太さ |
-| CC602 | Edge Glow | float | 0.0〜1.0 | 輪郭の発光量 |
+| CC600 | Edge Strength | float | 0.0〜1.0 | 輪郭の強さ。`edgeStrength`（OutlinePass）, FreiChen の検出強度に対応 |
+| CC601 | Edge Thickness | float | 0.0〜1.0 | 輪郭の太さ。`edgeThickness`（OutlinePass）に対応 |
+| CC602 | Edge Glow | float | 0.0〜1.0 | 輪郭の発光量。`edgeGlow`（OutlinePass）+ Bloom の組み合わせに対応 |
 | CC603 | Sharpness / Blur | float | -1.0〜1.0 | 鮮鋭度。負=ブラー, 0=標準, 正=シャープ |
-| CC604 | Vignette | float | 0.0〜1.0 | 画面周辺の暗化 |
+| CC604 | Vignette | float | 0.0〜1.0 | 画面周辺の暗化。CRT の周辺減光等に対応 |
+
+**将来追加候補：**
+- CC605: Edge Color（輪郭の色。`visibleEdgeColor`（OutlinePass）に対応）
+- CC606: Normal Edge Strength（RenderPixelatedPass の `normalEdgeStrength` に対応）
 
 ---
 
@@ -184,39 +203,91 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 
 | CC# | 名前 | 型 | 値域 | 意味 |
 |---|---|---|---|---|
-| CC700 | Blend Amount | float | 0.0〜1.0 | Dry/Wet 混合比 |
-| CC701 | Feedback Amount | float | 0.0〜1.0 | 前フレームとの混合比 |
-| CC702 | Blend Mode | int | 0〜N | 合成モード |
-| CC703 | Feedback Scale | float | 0.0〜1.0 | フィードバック時の減衰率 |
-| CC704 | Feedback Rotation | float | -1.0〜1.0 | フィードバック時の回転量 |
+| CC700 | Blend Amount | float | 0.0〜1.0 | Dry/Wet 混合比。FX 全般の効果量に対応 |
+| CC701 | Feedback Amount | float | 0.0〜1.0 | 前フレームとの混合比。`amount`（Feedback）, `damp`（AfterImage）に対応 |
+| CC702 | Blend Mode | int | 0〜N | 合成モード。`blendingMode`（HalftonePass）に対応 |
+| CC703 | Feedback Scale | float | 0.0〜1.0 | フィードバック時の減衰率。Feedback の `decay` に対応 |
+| CC704 | Feedback Rotation | float | -1.0〜1.0 | フィードバック時の回転量（Feedback 拡張 `rotation`）|
+
+**将来追加候補：**
+- CC705: Feedback Offset X/Y（Feedback が流れる方向）
+- CC706: Mix Crossfade（Mixer Plugin の A/B クロスフェード）
 
 ---
 
 ### Block 8xx：SHADER（Shader Plugin 専用）
 
-> `shader-plugin.spec.md` の SSoT 記述と連動する。Block 1xx〜7xx は全 Plugin 共通。Block 8xx は疎結合 ShaderPlugin 専用。
+> `shader-plugin.spec.md` の SSoT 記述と連動する。
+> Block 1xx〜7xx は全 Plugin 共通。Block 8xx は疎結合 ShaderPlugin 専用。
+> 密結合 Shader（`native/`）はこの Block を使わず専用型を定義する。
+> 策定: Day39（2026-04-03）
 
 | CC# | 名前 | 型 | 値域 | 意味 |
 |---|---|---|---|---|
 | CC800 | Effect Type | int | 0〜2 | 描画モードの切り替え。0=Fill / 1=Outline / 2=Detail |
-| CC801 | Draw Progress | float | 0.0〜1.0 | 描画進捗（`uProgress`） |
-| CC802 | Line Width | float | 0.0〜1.0 | アウトラインの線幅 |
-| CC803 | Spray Radius | float | 0.0〜1.0 | スプレーの拡散半径 |
-| CC804 | Noise Strength | float | 0.0〜1.0 | ノイズの強度 |
-| CC805 | Shader Color | float | 0.0〜1.0 | Shader 専用の色相 |
+| CC801 | Draw Progress | float | 0.0〜1.0 | 描画進捗（`uProgress`）。MacroKnob / シーケンサーから制御する主要軸 |
+| CC802 | Line Width | float | 0.0〜1.0 | アウトラインの線幅（Outline モード用。`uLineWidth`）|
+| CC803 | Spray Radius | float | 0.0〜1.0 | スプレーの拡散半径（Fill モード用。`uSprayRadius`）|
+| CC804 | Noise Strength | float | 0.0〜1.0 | ノイズの強度（スプレー質感・散布感。`uNoiseStrength`）|
+| CC805 | Shader Color | float | 0.0〜1.0 | Shader 専用の色相（Block 4xx CC400 の Hue と別軸。複数 Shader を異なる色で重ねる場合に使う）|
+
+**将来追加候補：**
+- CC806: Drip Intensity（液だれの強度。graffiti-detail 専用）
+- CC807: Particle Count（PointCloud の密度。Fill モード用）
+- CC808: Edge Glow（Outline と発光の組み合わせ。Block 6xx CC602 と並立して使う）
+
+**Block 1xx〜7xx との併用ルール：**
+```
+疎結合 ShaderPlugin は Block 8xx + 以下の Block を併用する：
+  CC401 Saturation   ← 描画色の彩度
+  CC403 Contrast     ← グラデーションのコントラスト
+  CC300 Speed        ← アニメーションの全体速度
+  CC304 Randomness   ← スプレーの散布ランダム性
+```
 
 ---
 
 ### Block 9xx：SCENE（シーン全体の状態）
 
 > AI との自然言語インターフェースの**接点**となる最重要ブロック。
+> AI はまず Block 9xx の値を決定し、そこから Block 1xx〜7xx の具体値を導出する。
 
 | CC# | 名前 | 型 | 値域 | 意味 |
 |---|---|---|---|---|
-| CC900 | Scene Energy | float | 0.0〜1.0 | シーン全体のエネルギー量 |
-| CC901 | Scene Tension | float | -1.0〜1.0 | 緊張感 |
-| CC902 | Scene Density | float | 0.0〜1.0 | 映像の密度・情報量 |
-| CC903 | Sync Rate | float | 0.0〜1.0 | BPM に対する反応速度 |
+| CC900 | Scene Energy | float | 0.0〜1.0 | シーン全体のエネルギー量。0=静止, 1.0=最大限の動き |
+| CC901 | Scene Tension | float | -1.0〜1.0 | 緊張感。-1.0=完全な弛緩（夢・瞑想）, 1.0=極度の緊張（恐怖・興奮）|
+| CC902 | Scene Density | float | 0.0〜1.0 | 映像の密度・情報量。0=ミニマル, 1.0=カオス |
+| CC903 | Sync Rate | float | 0.0〜1.0 | BPM に対する反応速度。0=1小節, 0.5=4分音符, 1.0=16分音符 |
+
+**AI による Block 9xx → Block 1xx〜7xx の変換例：**
+
+```
+「ネオン廃墟の夜」と指示された場合
+
+Block 9xx（AI が決定）：
+  CC900 Scene Energy   = 0.4（中程度）
+  CC901 Scene Tension  = -0.6（やや緊張）
+  CC902 Scene Density  = 0.3（スパース）
+  CC903 Sync Rate      = 0.5（4分音符同期）
+
+↓ AI が Block 9xx を元に具体値を導出
+
+Block 4xx（COLOR）：
+  CC400 Hue        = 0.75（紫〜青）
+  CC402 Brightness = 0.25（暗め）
+  CC403 Contrast   = 0.8（高め）
+
+Block 6xx（EDGE）：
+  CC600 Edge Strength = 0.9（強い輪郭）
+  CC602 Edge Glow     = 0.8（発光するエッジ）
+
+Block 7xx（BLEND）：
+  CC701 Feedback Amount = 0.85（長い残像）
+
+Block 3xx（MOTION）：
+  CC300 Temporal Speed  = 0.3（遅め）
+  CC302 Deformation     = 0.2（わずかな歪み）
+```
 
 ---
 
@@ -226,13 +297,13 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 
 | MIDI 1.0 CC# | 音楽での意味 | 対応する GeoGraphy CC# | 対応概念 |
 |---|---|---|---|
-| CC1 | Modulation | CC302 | Deformation |
-| CC7 | Volume | CC103 | Opacity |
-| CC10 | Pan | CC500 | Position X |
-| CC11 | Expression | CC101 | Primary Amount |
-| CC64 | Sustain | CC701 | Feedback Amount |
-| CC71 | Resonance | CC600 | Edge Strength |
-| CC74 | Filter Cutoff | CC201 | Density / Detail |
+| CC1 | Modulation（震え・揺らぎ）| CC302 | Deformation |
+| CC7 | Volume（音量）| CC103 | Opacity |
+| CC10 | Pan（左右定位）| CC500 | Position X |
+| CC11 | Expression（表情・強弱）| CC101 | Primary Amount |
+| CC64 | Sustain（音を伸ばす・持続）| CC701 | Feedback Amount |
+| CC71 | Resonance（フィルターの鋭さ）| CC600 | Edge Strength |
+| CC74 | Filter Cutoff（音の明るさ）| CC201 | Density / Detail |
 
 **同時受信時のルール：** 最後に受け取った値が勝つ（last-write-wins）。
 
@@ -262,20 +333,6 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 | CC400 | Hue | `hue`🔓 | `hue`🔓 | `hue`🔓 | `hue`🔓 | `hue`🔓 | — | `hue`🔓 |
 | CC507 | Depth | — | — | — | — | — | — | `length`🔓 |
 
-### Camera Plugin（Day45 追加）
-
-| CC# | 概念 | static-camera | orbit-camera | aerial-camera |
-|---|---|---|---|---|
-| CC101 | Primary Amount | — | `radius`🔓 | — |
-| CC110 | Auto Rotate | — | `autoRotate`🔓 | — |
-| CC300 | Temporal Speed | — | `speed`🔓 | — |
-| CC500 | Position X | `posX`🔓 | — | — |
-| CC501 | Position Y | `posY`🔓 | `height`🔓 | `height`🔓 |
-| CC502 | Position Z | `posZ`🔓 | — | — |
-| CC510 | LookAt X | `lookAtX`🔓 | — | — |
-| CC511 | LookAt Y | `lookAtY`🔓 | — | — |
-| CC512 | LookAt Z | `lookAtZ`🔓 | — | — |
-
 ### Particle Plugin
 
 | CC# | 概念 | Starfield |
@@ -292,6 +349,7 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | CC101 | Primary Amount | `strength`🔓 | — | `goWild`🔓 | — | `amount`🔓 | — | — | — | `strength`🔓 | — | `intensity`🔓 | — |
 | CC203 | Symmetry/Repeat | — | — | — | `segments`🔓 | — | — | — | — | — | `horizontal`🔓 | — | — |
+| CC204 | Topology A | — | — | — | — | — | — | — | — | — | — | — | — |
 | CC301 | Phase/Offset | — | — | — | `angle`🔓 | `angle`🔓 | — | — | — | — | — | — | — |
 | CC304 | Randomness | — | — | `interval`🔓 | — | — | — | — | — | — | — | — | — |
 | CC401 | Saturation | — | — | — | — | — | — | `saturation`🔓 | — | — | — | `grayscale`🔓 | — |
@@ -307,6 +365,23 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 | CC701 | Feedback Amount | — | `damp`🔓 | — | — | — | `amount`🔓 | — | — | — | — | — | — |
 | CC703 | Feedback Scale | — | — | — | — | — | `decay`🔓 | — | — | — | — | — | — |
 
+### FX Plugin（未実装・Three.js に存在）
+
+| CC# | 概念 | DotScreenPass | HalftonePass | BokehPass | OutlinePass | RenderPixelated | BleachBypass | Colorify | FocusShader |
+|---|---|---|---|---|---|---|---|---|---|
+| CC101 | Primary Amount | `scale`🆕 | `radius`🆕 | `aperture`🆕 | `edgeStrength`🆕 | — | `opacity`🆕 | — | `sampleDistance`🆕 |
+| CC200 | Shape Type | — | `shape`🆕 | — | — | — | — | — | — |
+| CC201 | Density/Detail | — | `radius`🆕 | — | — | `pixelSize`🆕 | — | — | — |
+| CC301 | Phase/Offset | `angle`🆕 | `rotateR`🆕 | — | — | — | — | — | — |
+| CC304 | Randomness | — | `scatter`🆕 | — | — | — | — | — | — |
+| CC400 | Hue | — | — | — | — | — | — | `color`🆕 | — |
+| CC509 | Focus Distance | — | — | `focus`🆕 | — | — | — | — | — |
+| CC600 | Edge Strength | — | — | — | `edgeStrength`🆕 | `normalEdgeStrength`🆕 | — | — | — |
+| CC601 | Edge Thickness | — | — | — | `edgeThickness`🆕 | — | — | — | — |
+| CC602 | Edge Glow | — | — | — | `edgeGlow`🆕 | — | — | — | — |
+| CC700 | Blend Amount | — | `blending`🆕 | — | — | — | — | — | — |
+| CC702 | Blend Mode | — | `blendingMode`🆕 | — | — | — | — | — | — |
+
 ### Shader Plugin（疎結合・実装待ち）
 
 | CC# | 概念 | graffiti-fill | graffiti-outline | graffiti-detail |
@@ -317,10 +392,23 @@ Layer 2：MIDI 1.0 互換ブリッジ（音楽との共通部分のみ）
 | CC803 | Spray Radius | `uSprayRadius`🆕 | — | — |
 | CC804 | Noise Strength | `uNoiseStrength`🆕 | `uNoiseStrength`🆕 | `uNoiseStrength`🆕 |
 | CC805 | Shader Color | `uColor`🆕 | `uColor`🆕 | `uColor`🆕 |
+| CC300 | Temporal Speed | `uTime`連動🆕 | `uTime`連動🆕 | `uTime`連動🆕 |
+| CC304 | Randomness | `uNoiseStrength`🆕 | — | `uNoiseStrength`🆕 |
 
 ---
 
-## 6. 新規 Plugin 開発ガイドライン
+## 6. CC番号に収まらないパラメーター（検討中）
+
+| Plugin | paramId | 現状の分類 | 検討 |
+|---|---|---|---|
+| HalftonePass | `rotateG`, `rotateB` | CC301 に `rotateR` を割り当てたが G/B が余る | CC301〜303 を RGB 個別に割り当てる拡張案 |
+| Glitch | `distortion_y` | CC302 に `distortion_x` を割り当てたが Y が余る | CC302 を X、CC303 を Y とする案（Frequency と競合） |
+| OutlinePass | `pulsePeriod` | Block 3xx の時間系だが `speed` とは異なる | CC305 Pulse Period として新設検討 |
+| OutlinePass | `visibleEdgeColor` | Block 4xx COLOR と Block 6xx EDGE の両方にまたがる | CC605 Edge Color として新設 |
+
+---
+
+## 7. 新規 Plugin 開発ガイドライン
 
 ### ステップ1：各パラメーターを Block に割り当てる
 
@@ -350,22 +438,35 @@ const radius = 0.5 + ccValue * (10.0 - 0.5)
 
 ---
 
-## 7. AI との連携フロー（v3 実装対象）
+## 8. Scene State JSON スキーマ（AI インターフェース）
 
+```json
+{
+  "name": "ネオン廃墟",
+  "description": "暗闇に光る紫のジオメトリ。長い残像。緩やかな崩壊感。",
+  "scene_state": {
+    "CC900": 0.4,
+    "CC901": -0.6,
+    "CC902": 0.3,
+    "CC903": 0.5
+  },
+  "cc_values": {
+    "CC101": 0.8,
+    "CC400": 0.75,
+    "CC402": 0.25,
+    "CC403": 0.8,
+    "CC600": 0.9,
+    "CC602": 0.8,
+    "CC701": 0.85,
+    "CC300": 0.3,
+    "CC302": 0.2
+  },
+  "active_plugins": {
+    "geometry": "torusknot",
+    "fx": ["bloom", "feedback", "rgb-shift", "color-grading"]
+  }
+}
 ```
-ユーザー「ネオン廃墟の夜にして」
-  ↓
-AI が settings/cc-map.json を読む（セマンティック情報付き）
-  ↓
-Block 9xx の値を決定 → Block 1xx〜7xx の具体値を導出
-  ↓
-TransportEvent として engine.handleMidiCC() に流す
-  ↓
-TransportManager → ParameterStore 更新 → 映像が変わる
-```
-
-cc-mapping.md（人間が書く・セマンティック情報あり）→ cc-map.json（機械が動く・意味を知らない）
-という「外側と内側の分離」が自然言語 AI 対応の基盤。
 
 ---
 

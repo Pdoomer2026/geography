@@ -19,14 +19,14 @@ export interface PluginBase {
 /**
  * ModulatablePlugin（MIDI 2.0 / MacroKnob 制御可能な Plugin の中間層）
  *
- * params を持ち、CC Standard 経由で MidiManager から外部制御される Plugin はここを継承する。
+ * params を持ち、CC Standard 経由で TransportManager から外部制御される Plugin はここを継承する。
  * 対象: Geometry / FX / Particle / Light / Camera / Sequencer（新設予定）
  * 非対象: Transition / Window / Mixer（params を持たない・外部制御不要）
  *
  * spec: docs/spec/macro-knob.spec.md §3
  */
 export interface ModulatablePlugin extends PluginBase {
-  /** CC Standard 経由で MidiManager から制御可能なパラメーター群 */
+  /** CC Standard 経由で TransportManager から制御可能なパラメーター群 */
   params: Record<string, PluginParam>
   /** MIDI Registry への登録用。params から ParameterSchema[] に変換して返す */
   getParameters(): ParameterSchema[]
@@ -246,7 +246,7 @@ export interface MacroKnobConfig {
  * spec: docs/spec/macro-knob.spec.md §3
  *
  * ノブの名前・MIDI CC番号・アサイン設定・現在値キャッシュを管理する。
- * CC入力の処理は MidiManager が担当する（Day50 責務分離）。
+ * CC入力の処理は TransportManager が担当する（Day58 昇格）。
  */
 export interface MacroKnobManager {
   getKnobs(): MacroKnobConfig[]
@@ -255,7 +255,7 @@ export interface MacroKnobManager {
   removeAssign(knobId: string, paramId: string): void
   /** 0.0〜1.0 に正規化した現在値を返す（表示用キャッシュ） */
   getValue(knobId: string): number
-  /** MidiManager から書かれる現在値キャッシュの更新 */
+  /** TransportManager から書かれる現在値キャッシュの更新 */
   setValue(knobId: string, value: number): void
 }
 
@@ -268,9 +268,9 @@ export interface MacroKnobManager {
  * 全入力源（物理MIDI / SimpleWindow / Sequencer / LFO / AI）が
  * engine.handleMidiCC(TransportEvent) 経由でここに流れ込む。
  */
-export interface MidiManager {
+export interface TransportManager {
   init(store: { set(paramId: string, value: number): void }, knobManager: MacroKnobManager): void
-  handleMidiCC(event: TransportEvent): void
+  handle(event: TransportEvent): void
   receiveModulation(knobId: string, value: number): void
 }
 

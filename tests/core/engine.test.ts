@@ -6,8 +6,8 @@
  * FX API の核心ロジック（getFxPlugins / setFxEnabled / setFxParam）を
  * FxStack + FXPlugin レベルで単体検証する。
  *
- * Camera API (setAutoRotate) は LayerManager レベルで検証する。
- * spec: docs/spec/camera-system.spec.md §9
+ * Camera API (setCameraPlugin) は LayerManager レベルで検証する。
+ * spec: docs/spec/camera-plugin.spec.md §9
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'

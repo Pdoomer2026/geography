@@ -1,6 +1,6 @@
 {
   "version": "0.2",
-  "generatedAt": "2026-04-07T04:17:55.011Z",
+  "generatedAt": "2026-04-11T23:10:55.181Z",
   "generatedFrom": "docs/spec/cc-mapping.md",
   "mappings": [
     {
@@ -493,6 +493,138 @@
           "ccMin": 0,
           "ccMax": 1,
           "note": ""
+        },
+        {
+          "paramId": "hue",
+          "ccNumber": 400,
+          "block": "COLOR",
+          "blockName": "Hue",
+          "pluginMin": 0,
+          "pluginMax": 360,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "度数→CC変換"
+        },
+        {
+          "paramId": "posX",
+          "ccNumber": 500,
+          "block": "SPACE",
+          "blockName": "Position X",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "中心=0.5"
+        },
+        {
+          "paramId": "posY",
+          "ccNumber": 501,
+          "block": "SPACE",
+          "blockName": "Position Y",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "中心=0.5"
+        },
+        {
+          "paramId": "posZ",
+          "ccNumber": 502,
+          "block": "SPACE",
+          "blockName": "Position Z",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "中心=0.5"
+        },
+        {
+          "paramId": "lookAtX",
+          "ccNumber": 510,
+          "block": "SPACE",
+          "blockName": "LookAt X",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "注視点・中心=0.5"
+        },
+        {
+          "paramId": "lookAtY",
+          "ccNumber": 511,
+          "block": "SPACE",
+          "blockName": "LookAt Y",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "注視点・中心=0.5"
+        },
+        {
+          "paramId": "lookAtZ",
+          "ccNumber": 512,
+          "block": "SPACE",
+          "blockName": "LookAt Z",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "注視点・中心=0.5"
+        },
+        {
+          "paramId": "radius",
+          "ccNumber": 101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 1,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "height",
+          "ccNumber": 501,
+          "block": "SPACE",
+          "blockName": "Position Y",
+          "pluginMin": -20,
+          "pluginMax": 30,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "speed",
+          "ccNumber": 300,
+          "block": "MOTION",
+          "blockName": "Temporal Speed",
+          "pluginMin": 0,
+          "pluginMax": 3,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "autoRotate",
+          "ccNumber": 110,
+          "block": "EXISTENCE",
+          "blockName": "Auto Rotate",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "bool型"
+        },
+        {
+          "paramId": "height",
+          "ccNumber": 501,
+          "block": "SPACE",
+          "blockName": "Position Y",
+          "pluginMin": 1,
+          "pluginMax": 100,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "俯瞰視点の高さ"
         }
       ]
     },
