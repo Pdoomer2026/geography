@@ -22,7 +22,7 @@ import type {
   Layer,
   LayerRouting,
   MacroKnobConfig,
-  MidiCCEvent,
+  TransportEvent,
   SceneState,
   ScreenAssign,
   ScreenAssignState,
@@ -182,7 +182,7 @@ export class Engine {
    * 全UI（SimpleWindow / MacroKnobPanel）・物理MIDIコントローラーが呼ぶ。
    * MidiManager に委譲する。
    */
-  handleMidiCC(event: MidiCCEvent): void {
+  handleMidiCC(event: TransportEvent): void {
     midiManager.handleMidiCC(event)
   }
 

@@ -102,7 +102,7 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
       const rMax = param.rangeMax ?? param.max
       const clamped = Math.min(rMax, Math.max(rMin, value))
       const normalized = (clamped - param.min) / (param.max - param.min)
-      engine.handleMidiCC({ slot: cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
+      engine.handleMidiCC({ slot: cc, value: normalized, source: 'window' })
     }
 
     setParams((prev) => {
@@ -189,7 +189,7 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
     const rMin = param.rangeMin ?? param.min
     const rMax = param.rangeMax ?? param.max
     const normalized = rMax > rMin ? (value - rMin) / (rMax - rMin) : 0
-    engine.handleMidiCC({ slot: cc, value: Math.min(1, Math.max(0, normalized)), protocol: 'midi2', resolution: 4294967296 })
+    engine.handleMidiCC({ slot: cc, value: Math.min(1, Math.max(0, normalized)), source: 'window' })
     setParams((prev) => ({ ...prev, [paramKey]: { ...prev[paramKey], value } }))
   }
 
@@ -204,7 +204,7 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
       if (newValue !== p.value) {
         const cc = ccMapService.getCcNumber(geometryId, paramKey)
         const normalized = (newValue - p.min) / (p.max - p.min)
-        engine.handleMidiCC({ slot: cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
+        engine.handleMidiCC({ slot: cc, value: normalized, source: 'window' })
       }
       return { ...prev, [paramKey]: { ...p, rangeMin: newRangeMin, value: newValue } }
     })
@@ -219,7 +219,7 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
       if (newValue !== p.value) {
         const cc = ccMapService.getCcNumber(geometryId, paramKey)
         const normalized = (newValue - p.min) / (p.max - p.min)
-        engine.handleMidiCC({ slot: cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
+        engine.handleMidiCC({ slot: cc, value: normalized, source: 'window' })
       }
       return { ...prev, [paramKey]: { ...p, rangeMax: newRangeMax, value: newValue } }
     })

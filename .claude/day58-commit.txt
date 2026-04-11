@@ -1,0 +1,16 @@
+refactor: Day58 Transport Architecture Step1+2
+
+Step1: MidiCCEvent → TransportEvent rename
+- src/types/index.ts: MidiCCEvent を TransportEvent に改名
+- protocol / resolution フィールドを削除（Input Wrapper が吸収）
+- source の型を string から union 型に絞る
+  ('window' | 'plugin' | 'midi' | 'osc')
+- 影響ファイル8本を一括更新
+
+Step2: MidiInputWrapper 切り出し
+- src/drivers/input/MidiInputWrapper.ts を新規作成
+- Web MIDI API 受信・正規化・TransportEvent 生成を担当
+- App.tsx から MIDI プロトコル解析ロジックを完全分離
+- App.tsx の useEffect が3行に簡略化
+
+テスト: 114 tests グリーン・tsc エラーゼロ

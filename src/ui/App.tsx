@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { engine } from '../core/engine'
 import { ccMapService } from '../core/ccMapService'
-import type { MidiCCEvent } from '../types'
+import { midiInputWrapper } from '../drivers/input/MidiInputWrapper'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
 import { CameraSimpleWindow } from './CameraSimpleWindow'
@@ -94,34 +94,10 @@ export default function App() {
 
   useAutosave()
 
+  // MIDI 受信：MidiInputWrapper に委譲（Day58 Step 2）
   useEffect(() => {
-    if (!navigator.requestMIDIAccess) return
-    let midiAccess: MIDIAccess | null = null
-    const onMidiMessage = (event: MIDIMessageEvent) => {
-      const data = event.data
-      if (!data || data.length < 3) return
-      const statusType = data[0] & 0xf0
-      if (statusType !== 0xb0) return
-      const cc = data[1]
-      const rawValue = data[2]
-      const midiEvent: MidiCCEvent = { slot: cc, value: rawValue / 127, protocol: 'midi1', resolution: 128 }
-      engine.handleMidiCC(midiEvent)
-    }
-    const setupMidi = (access: MIDIAccess) => {
-      midiAccess = access
-      access.inputs.forEach((input) => { input.onmidimessage = onMidiMessage })
-      access.onstatechange = () => {
-        access.inputs.forEach((input) => { input.onmidimessage = onMidiMessage })
-      }
-    }
-    navigator.requestMIDIAccess({ sysex: false }).then(setupMidi).catch((err) => {
-      console.warn('[GeoGraphy] Web MIDI API アクセス失敗:', err)
-    })
-    return () => {
-      if (midiAccess) {
-        midiAccess.inputs.forEach((input) => { input.onmidimessage = null })
-      }
-    }
+    midiInputWrapper.init((event) => engine.handleMidiCC(event))
+    return () => midiInputWrapper.dispose()
   }, [])
 
   useEffect(() => {

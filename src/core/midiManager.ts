@@ -10,7 +10,7 @@
  */
 
 import { rangeMap } from './macroKnob'
-import type { MidiManager, MacroKnobManager, MidiCCEvent } from '../types'
+import type { MidiManager, MacroKnobManager, TransportEvent } from '../types'
 import type { ParameterStore } from './parameterStore'
 
 // ============================================================
@@ -26,7 +26,7 @@ class MidiManagerImpl implements MidiManager {
     this.knobManager = knobManager
   }
 
-  handleMidiCC(event: MidiCCEvent): void {
+  handleMidiCC(event: TransportEvent): void {
     if (!this.store || !this.knobManager) return
 
     this.store.set(String(event.slot), event.value)

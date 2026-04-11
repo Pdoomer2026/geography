@@ -37,7 +37,7 @@ export function FxSimpleWindow() {
   function handleParam(fxId: string, paramKey: string, value: number, param: PluginParam) {
     const cc = ccMapService.getCcNumber(fxId, paramKey)
     const normalized = (value - param.min) / (param.max - param.min)
-    engine.handleMidiCC({ slot: cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
+    engine.handleMidiCC({ slot: cc, value: normalized, source: 'window' })
   }
 
   return (
