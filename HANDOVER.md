@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day57（Transport Architecture 設計確定・逆流実装）｜2026-04-11
+# GeoGraphy 引き継ぎメモ｜Day58（Transport Architecture Step1+2 完了）｜2026-04-12
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -18,8 +18,9 @@
 | Transport Architecture spec | `docs/spec/transport-architecture.spec.md` |
 | MIDI Registry spec | `docs/spec/midi-registry.spec.md` |
 | Plugin Manager spec | `docs/spec/plugin-manager.spec.md` |
-| MidiCCEvent 型定義 | `src/types/index.ts` |
+| TransportEvent 型定義 | `src/types/index.ts` |
 | MidiManager | `src/core/midiManager.ts` |
+| MidiInputWrapper | `src/drivers/input/MidiInputWrapper.ts`（Day58 新規） |
 | MidiRegistry 純粋関数 | `src/core/midiRegistry.ts` |
 | Registry 型定義 | `src/types/midi-registry.ts` |
 | SimpleWindowPlugin | `src/plugins/windows/simple-window/SimpleWindowPlugin.tsx` |
@@ -31,53 +32,33 @@
 ## 現在の状態
 
 - **ブランチ**: `refactor/day53-design`
-- **タグ**: `day57`
-- **コミット**: `8b834f3`
+- **タグ**: `day58`
+- **コミット**: `ef8fcb9`
 - **テスト**: 114 tests グリーン・tsc エラーゼロ
 
 ---
 
-## Day57 で完了したこと
+## Day58 で完了したこと
 
-### 1. 壁打ちで確定した設計思想
+### Step 1: MidiCCEvent → TransportEvent rename
 
-**二つの世界の完全分離（Phase B 最終確定）：**
-- Geometry World: ParamID + Ratio（0〜1）→「誰が送ってきたか知らない」
-- Window World: Slot + Ratio（0〜1）→「相手が何者か知らない」
-- Registry = 唯一の橋渡し（対応表 + 通訳）
-- transform は Registry ではなく UI（WindowPlugin）の責務
+- `src/types/index.ts`: `MidiCCEvent` を `TransportEvent` に改名
+- `protocol` / `resolution` フィールドを削除（Input Wrapper が吸収）
+- `source` の型を `string` → `'window' | 'plugin' | 'midi' | 'osc'` に絞る
+- 影響ファイル8本を一括更新（engine / midiManager / App.tsx / 各 WindowPlugin）
 
-**今日確定したルール：**
-- 値は常に 0.0〜1.0 の比率で運ぶ（Registry は変換しない）
-- Window の min/max 表示は「表示用の化粧」
-- 「外部から engine.params を直接書き換える」はあり得ない（全入力は handleMidiCC 経由）
+### Step 2: MidiInputWrapper 切り出し
 
-### 2. Step 1：MidiCCEvent.cc → slot（コミット `54ff82b`）
+- `src/drivers/input/MidiInputWrapper.ts` を新規作成
+- 責務: Web MIDI API 受信・CCパース・rawValue 正規化・TransportEvent 生成
+- `App.tsx` の MIDI `useEffect` が約20行 → 3行に簡略化
+- シングルトン `midiInputWrapper` を export
 
-- `MidiCCEvent.cc` を `slot` に改名（値は CC番号のまま）
-- `source?` / `time?` フィールドを追加（将来のループ防止・タイムスタンプ用）
-- 影響ファイル 8 本を一括修正
-- 概念を型レベルで先行定着させる「名前だけ変える一手」
+### 確定した設計判断
 
-### 3. Step 2：Registry に value 追加・Plugin→Window 逆流（コミット `6962ebf`）
-
-- `RegisteredParameterWithCC` に `value: number` を追加
-- `syncValues()` 純粋関数を `midiRegistry.ts` に追加
-- App.tsx が 200ms ポーリングで `syncValues()` を呼び engine の現在値を Registry に同期
-- `SimpleWindowPlugin` / `FxWindowPlugin` の `ParamRow` が `useState(param.value)` に変更
-- `fxGroups` / `geoParams` を `useMemo` で最適化
-- App.tsx の起動時登録（Geometry / FX）に `value` を追加
-
-### 4. spec 更新（コミット `6962ebf`）
-
-- `midi-registry.spec.md` → value フィールド・syncValues・逆流フローを追記
-- `plugin-manager.spec.md` → 実装状況を全て完了に更新・将来対応項目を整理
-
-### 5. Transport Architecture spec 作成（コミット `8b834f3`）
-
-- `docs/spec/transport-architecture.spec.md` を新規作成
-- Step 1〜4 のロードマップを確定
-- Step 4（Engine ccMapService 依存解消）は影響範囲が大きく別セッションで設計
+- **ControlBus（別 AI 提案）は Obsidian に保存**・今の実装には持ち込まない（過剰抽象化リスク）
+- **Desktop 環境でも実装完結できる**ことを確認（tsc + test は手動実行）
+- `source: 'window'` への統一により Step 3（ループ防止）の基盤が整った
 
 ---
 
@@ -85,34 +66,38 @@
 
 | 状態 | 内容 |
 |---|---|
-| 完成 | Slot 概念の型レベル定着（cc → slot） |
-| 完成 | source / time フィールド追加 |
-| 完成 | Registry に value 追加（表示同期） |
-| 完成 | Plugin → Window 逆流（200ms ポーリング） |
-| 完成 | transport-architecture.spec.md |
-| 未実装 | MidiCCEvent → TransportEvent rename（Step 1） |
-| 未実装 | Input Wrapper 切り出し（Step 2） |
-| 未実装 | Registry 逆引き・イベント駆動（Step 3） |
-| 別セッション | Engine ccMapService 依存解消（Step 4） |
-| 並存中 | GeometrySimpleWindow（廃止は将来フェーズ） |
-| 並存中 | CameraSimpleWindow（廃止は将来フェーズ） |
-| 未実装 | [L1][L2][L3] タブ切り替え |
+| ✅ 完了 | TransportEvent 型（MidiCCEvent から移行） |
+| ✅ 完了 | MidiInputWrapper（Input Wrapper 切り出し） |
+| ✅ 完了 | source: 'window' / 'midi' の統一 |
+| ⏳ 未着手 | Step 3: イベント駆動化（ポーリング廃止） |
+| ⏳ 未着手 | 既存 SimpleWindow 廃止（3ファイル） |
+| ⏳ 未着手 | MacroKnob D&D アサイン UI |
+| ⏳ 未着手 | [L1][L2][L3] タブ切り替え |
+| ⏳ 未着手 | Sequencer spec 作成（壁打ちから） |
+| 別セッション | Step 4: Engine ccMapService 依存解消 |
 
 ---
 
 ## 次回セッションの方針
 
-**Transport Architecture Step 1 から始める。**
+**Step 3 の壁打ちから始める。**
 
 ```
-Step 1: MidiCCEvent → TransportEvent rename
-  - src/types/index.ts の MidiCCEvent を TransportEvent に改名
-  - protocol / resolution フィールドを削除（Input Wrapper が吸収するため）
-  - 全参照箇所を一括変更
-  - 参照: docs/spec/transport-architecture.spec.md §2・§5
-```
+Step 3: イベント駆動化（ポーリング → イベント駆動）
 
-着手前に `transport-architecture.spec.md` を必ず読むこと。
+現状:
+  App.tsx が 200ms ごとに syncValues() を呼ぶ
+  → engine の全レイヤー・全 Plugin を走査
+
+目標:
+  Plugin が値を変更したとき
+  → source: 'plugin' の TransportEvent を発火
+  → Registry 経由で Window に通知
+  → Window は source === 'plugin' のとき自己ループを防止して表示更新
+
+着手前に設計を壁打ちしてから実装すること。
+参照: docs/spec/transport-architecture.spec.md §5 Step 3
+```
 
 ---
 
@@ -132,13 +117,14 @@ cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
 - **git タグは commit 後に打つこと**
 - **tsc が反映ズレで失敗する場合**: 2回実行すると解消する
 - **cc-map.json**: `settings/cc-map.json` が SSoT・変更後は `pnpm gen:cc-map` を実行
-- **publicDir: 'settings'**: vite の静的配信設定・ブラウザから `/cc-map.json` でアクセス可能
-- **plugin-manager.spec.md の write_file**: `⬜` 記号の NFD/NFC 不一致で edit_file が失敗したため例外的に write_file を使用。次回は move_file → write_file のフローを守ること
+- **git commit メッセージ**: `.claude/dayN-commit.txt` に書いて `git commit -F` で実行（`-m` は日本語で hang するリスク）
+- **Desktop 環境でも実装可能**: tsc + test は慎太郎さんが手動実行して結果を貼る
+- **NFC 正規化スクリプト**: `/Users/shinbigan/nfc_normalize.py`（このセッションでは不在だった・次回確認）
 
 ---
 
 ## 次回チャット用スタートプロンプト
 
 ```
-Day58開始
+Day59開始
 ```
