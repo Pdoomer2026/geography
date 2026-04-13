@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day58（Transport Architecture 全 Step 完了）｜2026-04-12
+# GeoGraphy 引き継ぎメモ｜Day58（Transport Architecture 完了・ドキュメント全更新）｜2026-04-14
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -37,7 +37,7 @@
 
 - **ブランチ**: `refactor/day53-design`
 - **タグ**: `day58`
-- **最新コミット**: `ba35d29`
+- **最新コミット**: `cb6170f`（docs: 実装計画書 v4.0 更新）
 - **テスト**: 114 tests グリーン・tsc エラーゼロ
 
 ---
@@ -113,6 +113,8 @@
 | ✅ 完了 | Transport Architecture Step 1〜4 全て |
 | ✅ 完了 | cc-mapping.md → cc-map.json の翻訳機 |
 | ✅ 完了 | 関連ドキュメント全更新 |
+| ✅ 完了 | 要件定義書 v2.0 新規作成（`docs/要件定義書_v2.0.md`） |
+| ✅ 完了 | 実装計画書 v4.0 更新（Day49〜58 実績追加・Phase 16 詳述） |
 | ⏳ 未着手 | 既存 SimpleWindow 廃止（3ファイル） |
 | ⏳ 未着手 | MacroKnob D&D アサイン UI |
 | ⏳ 未着手 | [L1][L2][L3] タブ切り替え |
@@ -122,7 +124,9 @@
 
 ## 次回セッションの方針
 
-Transport Architecture が完成したので、次は**既存 SimpleWindow 廃止**か**MacroKnob D&D UI**のどちらかに進む。
+Transport Architecture・ドキュメントが全て完成。次は **Phase 16（engine の ccMapService 依存解消）の壁打ち**から始める。
+影響範囲が大きいため単独セッションで設計を固めてから実装。
+参照: `docs/spec/transport-architecture.spec.md` §5 Step4
 
 ```bash
 # ベースライン確認
