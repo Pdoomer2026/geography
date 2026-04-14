@@ -61,9 +61,12 @@ function applyToEngine(
     .filter((id): id is string => id !== null)
   engine.applyGeometrySetup(selectedGeoIds)
   engine.applyCameraSetup([camIds[0], camIds[1], camIds[2]])
-  // layer-1 の FX 設定を全レイヤーに適用（現状は共通 FX スタック）
-  const enabledFxIds = FX_ORDER.filter((id) => selectedFx['layer-1']?.[id] ?? false)
-  engine.applyFxSetup(enabledFxIds)
+  // レイヤー別に FX を適用
+  const fxPerLayer: Record<string, string[]> = {}
+  for (const lid of LAYER_IDS) {
+    fxPerLayer[lid] = FX_ORDER.filter((id) => selectedFx[lid]?.[id] ?? false)
+  }
+  engine.applyFxSetupPerLayer(fxPerLayer)
 }
 
 // ----------------------------------------------------------------
@@ -235,6 +238,7 @@ function SetupTab({ onClose }: { onClose: () => void }) {
       .filter((id): id is string => id !== null)
     project.setup.camera = [camIds[0], camIds[1], camIds[2]]
     project.setup.fx = FX_ORDER.filter((id) => selectedFx['layer-1']?.[id] ?? false)
+    // TODO: Day61 - setup.fx をレイヤー別に保存する形式に拡張予定
 
     presetStore.add(name, project)
     setPresetNames(presetStore.getNames())

@@ -111,6 +111,15 @@ export class LayerManager {
     }
   }
 
+  applyFxSetupPerLayer(fxPerLayer: Record<string, string[]>): void {
+    for (const layer of this.layers) {
+      const composer = this.composers.get(layer.id)
+      if (!composer) continue
+      const enabledIds = fxPerLayer[layer.id] ?? []
+      layer.fxStack.applySetup(enabledIds, composer)
+    }
+  }
+
   /**
    * Camera Plugin をレイヤーにアサインする。
    * spec: docs/spec/camera-plugin.spec.md §5-B

@@ -327,6 +327,10 @@ export class Engine {
     layerManager.applyFxSetup(enabledIds)
   }
 
+  applyFxSetupPerLayer(fxPerLayer: Record<string, string[]>): void {
+    layerManager.applyFxSetupPerLayer(fxPerLayer)
+  }
+
   applyGeometrySetup(selectedIds: string[]): void {
     const layers = layerManager.getLayers()
     layers.forEach((layer, index) => {

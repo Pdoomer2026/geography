@@ -1,0 +1,7 @@
+refactor: applyFxSetup をレイヤー別独立対応に（Day60追加）
+
+- feat(layerManager): applyFxSetupPerLayer() 新設
+  各レイヤーに異なる FX enabled セットを適用できるよう
+- feat(engine): applyFxSetupPerLayer() を公開 API として追加
+- fix(ui): PreferencesPanel の applyToEngine() をレイヤー別 FX に対応
+  FX L1/L2/L3 タブの設定が各レイヤーに独立して反映されるように
