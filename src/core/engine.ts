@@ -148,6 +148,23 @@ export class Engine {
   }
 
   /**
+   * Camera Plugin を TransportRegistry に登録する
+   * setCameraPlugin() 時・initTransportRegistry() 時に呼ばれる
+   */
+  registerCameraToTransportRegistry(layerId: string): void {
+    const cam = layerManager.getCameraPlugin(layerId)
+    if (!cam) return
+    const enriched = cam.getParameters().map((p) => ({
+      ...p,
+      layerId,
+      pluginId: cam.id,
+      ccNumber: ccMapService.getCcNumber(cam.id, p.id),
+      value: cam.params[p.id]?.value ?? p.min,
+    }))
+    transportRegistry.register(enriched, `${layerId}:camera`)
+  }
+
+  /**
    * Plugin 切り替え時に展開先から呼ばれる Registry 登録 API
    * GeometrySimpleWindow の onPluginApply から履歴する。
    * ccMapService を使う唯一の公開 API。
@@ -181,8 +198,12 @@ export class Engine {
       }))
       transportRegistry.register(enriched, `${layerId}:geometry`)
     })
-    // FX: 'layer-N:fx' をキーに登録（Geometry と共存できる）
+    // Camera: 'layer-N:camera' をキーに登録
     const layerIds = ['layer-1', 'layer-2', 'layer-3'] as const
+    layerIds.forEach((layerId) => {
+      this.registerCameraToTransportRegistry(layerId)
+    })
+    // FX: 'layer-N:fx' をキーに登録（Geometry と共存できる）
     layerIds.forEach((layerId) => {
       const fxPlugins = layerManager.getLayers()
         .find((l) => l.id === layerId)?.fxStack.getOrdered() ?? []
@@ -615,6 +636,8 @@ export class Engine {
     if (!base) return
     const plugin = { ...base, params: structuredClone(base.params) }
     layerManager.setCameraPlugin(layerId, plugin, undefined, true)
+    // Registry を更新（ccMapService 依存は engine 内のみ）
+    this.registerCameraToTransportRegistry(layerId)
   }
 
   getCameraPlugin(layerId: string): CameraPlugin | null {
