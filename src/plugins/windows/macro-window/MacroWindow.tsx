@@ -1,17 +1,15 @@
 /**
- * MacroKnobPanel — Macro Knob Manager のデフォルト UI
+ * MacroWindow — Macro Knob の Window Plugin
  *
- * spec: docs/spec/macro-knob.spec.md
- *
- * Day52 追加:
- * - KnobCell に onDrop 受け口（DragPayload を受け取る）
- * - AssignDialog（min/max 設定 → engine.addMacroAssign()）
- * - アサイン済みノブは弧が紫で点灯（簡易版）
+ * Day61: MacroKnobPanel を plugins/windows に格下げ
+ * - engine への依存を除去
+ * - macroKnobManager / transportManager に直接アクセス
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { engine } from '../../../core/engine'
-import { useDraggable } from '../../useDraggable'
+import { macroKnobManager } from '../../../core/macroKnob'
+import { transportManager } from '../../../core/transportManager'
+import { useDraggable } from '../../../ui/useDraggable'
 import type { DragPayload, MacroAssign, MacroKnobConfig } from '../../../types'
 
 const COLS = 8
@@ -31,14 +29,12 @@ interface KnobCellProps {
 
 function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps) {
   const [isDragOver, setIsDragOver] = useState(false)
-  // ローカル表示値（ドラッグ中にリアルタイムで動かすため）
   const [localValue, setLocalValue] = useState(value)
 
-  // 200ms ポーリングで来る value を、ドラッグ中でなければ追従させる
   const isDraggingRef = useRef(false)
   const dragStartYRef = useRef(0)
   const dragStartValueRef = useRef(0)
-  const movedRef = useRef(false)  // クリック判定用
+  const movedRef = useRef(false)
 
   useEffect(() => {
     if (!isDraggingRef.current) {
@@ -63,24 +59,22 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
   const y2 = cy + r * Math.sin(endRad)
   const largeArc = displayValue > 0.5 ? 1 : 0
 
-  // ── ノブドラッグ操作 ──────────────────────────────────────
   function handleMouseDown(e: React.MouseEvent) {
     if (e.button !== 0) return
     e.preventDefault()
-    e.stopPropagation()  // useDraggable（パネルヘッダー）へのバブリングを止める
+    e.stopPropagation()
     isDraggingRef.current = true
     movedRef.current = false
     dragStartYRef.current = e.clientY
     dragStartValueRef.current = localValue
 
     function onMouseMove(ev: MouseEvent) {
-      const deltaY = dragStartYRef.current - ev.clientY  // 上が正
-      const sensitivity = 200  // 200px で 0.0〜1.0
+      const deltaY = dragStartYRef.current - ev.clientY
+      const sensitivity = 200
       const delta = deltaY / sensitivity
-      if (Math.abs(deltaY) >= 1) movedRef.current = true  // 1px で移動判定
+      if (Math.abs(deltaY) >= 1) movedRef.current = true
       const next = Math.min(1, Math.max(0, dragStartValueRef.current + delta))
       setLocalValue(next)
-      // assigns がある場合は移動中もリアルタイムに engine へ流す
       if (movedRef.current) {
         onKnobChange(config.id, next)
       }
@@ -90,19 +84,15 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
       isDraggingRef.current = false
-
       if (!movedRef.current) {
-        // 移動量ゼロ = クリック → EditDialog を開く
         onEdit(config.id)
       }
-      // ドラッグ確定時は onMouseMove 内で既に流している
     }
 
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
   }
 
-  // ── HTML D&D ドロップ受け口 ───────────────────────────────
   function handleDragOver(e: React.DragEvent) {
     if (isFull) return
     if (!e.dataTransfer.types.includes('application/geography-param')) return
@@ -140,7 +130,7 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
       style={{
         width: 48,
         minHeight: 64,
-        cursor: isDraggingRef.current ? 'ns-resize' : 'ns-resize',
+        cursor: 'ns-resize',
         borderColor: isDragOver ? '#7878ff' : isFull ? '#3a3a5e' : undefined,
         background: isDragOver ? '#1a1a4e' : undefined,
         userSelect: 'none',
@@ -148,7 +138,6 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
       title={`${config.id}${config.name ? ` — ${config.name}` : ''}${hasMidi ? ` | CC${config.midiCC}` : ''}${isFull ? ' (FULL)' : ''} | 上下ドラッグで操作`}
     >
       <svg width={32} height={32} viewBox="0 0 32 32">
-        {/* ベース弧（暗い） */}
         <circle
           cx={cx} cy={cy} r={r}
           fill="none"
@@ -159,7 +148,6 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
           strokeLinecap="round"
           transform={`rotate(-90 ${cx} ${cy})`}
         />
-        {/* 値に応じた弧（アサイン済みは紫・未アサインは暗い青紫） */}
         {displayValue > 0.001 && (
           <path
             d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`}
@@ -169,27 +157,18 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
             strokeLinecap="round"
           />
         )}
-        {/* 中心点 */}
         <circle
           cx={cx} cy={cy} r={2.5}
           fill={isAssigned ? '#b0b0ff' : '#4a4a6e'}
         />
-        {/* MIDI CC 割り当て済みインジケーター */}
         {hasMidi && (
           <circle cx={26} cy={6} r={2} fill="#ff7878" />
         )}
-        {/* アサイン数バッジ */}
         {isAssigned && (
-          <text
-            x={6} y={9}
-            fontSize={7}
-            fill="#7878cc"
-            textAnchor="middle"
-          >
+          <text x={6} y={9} fontSize={7} fill="#7878cc" textAnchor="middle">
             {config.assigns.length}
           </text>
         )}
-        {/* ドラッグオーバー時のリング */}
         {isDragOver && (
           <circle
             cx={cx} cy={cy} r={14}
@@ -214,7 +193,7 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
 }
 
 // ============================================================
-// EditDialog — ノブ名・MIDI CC 編集（v1簡易版）
+// EditDialog
 // ============================================================
 
 interface EditDialogProps {
@@ -319,7 +298,7 @@ function EditDialog({ config, onSave, onRemoveAssign, onClose }: EditDialogProps
 }
 
 // ============================================================
-// AssignDialog — D&D ドロップ後の min/max 設定ダイアログ（Day52 新設）
+// AssignDialog
 // ============================================================
 
 interface AssignDialogProps {
@@ -438,24 +417,22 @@ function AssignDialog({ knobId, payload, onAssign, onClose }: AssignDialogProps)
 }
 
 // ============================================================
-// MacroKnobPanel — メインコンポーネント
+// MacroWindow — メインコンポーネント
 // ============================================================
 
-export function MacroKnobPanel() {
+export function MacroWindow() {
   const [knobs, setKnobs] = useState<MacroKnobConfig[]>([])
   const [values, setValues] = useState<number[]>(new Array(32).fill(0))
   const [editingId, setEditingId] = useState<string | null>(null)
-
-  // D&D アサイン用 state
   const [assignTarget, setAssignTarget] = useState<{ knobId: string; payload: DragPayload } | null>(null)
 
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth / 2 - 200, y: 16 })
 
   useEffect(() => {
     const sync = () => {
-      const configs = engine.getMacroKnobs()
+      const configs = macroKnobManager.getKnobs()
       setKnobs([...configs])
-      setValues(configs.map((k) => engine.getMacroKnobValue(k.id)))
+      setValues(configs.map((k) => macroKnobManager.getValue(k.id)))
     }
     sync()
     const timer = window.setInterval(sync, 200)
@@ -468,30 +445,27 @@ export function MacroKnobPanel() {
 
   const handleSave = useCallback((name: string, midiCC: number) => {
     if (!editingId) return
-    const current = engine.getMacroKnobs().find((k) => k.id === editingId)
+    const current = macroKnobManager.getKnobs().find((k) => k.id === editingId)
     if (!current) return
-    engine.setMacroKnob(editingId, { ...current, name, midiCC })
+    macroKnobManager.setKnob(editingId, { ...current, name, midiCC })
     setEditingId(null)
   }, [editingId])
 
   const handleRemoveAssign = useCallback((paramId: string) => {
     if (!editingId) return
-    engine.removeMacroAssign(editingId, paramId)
-    // EditDialog 内の表示を即座に更新するため knobs を再取得
-    setKnobs([...engine.getMacroKnobs()])
+    macroKnobManager.removeAssign(editingId, paramId)
+    setKnobs([...macroKnobManager.getKnobs()])
   }, [editingId])
 
   const handleClose = useCallback(() => setEditingId(null), [])
 
-  // KnobCell にドロップされたとき → AssignDialog を開く
   const handleDrop = useCallback((knobId: string, payload: DragPayload) => {
     setAssignTarget({ knobId, payload })
   }, [])
 
-  // AssignDialog で [ASSIGN] が押されたとき
   const handleAssign = useCallback((assign: MacroAssign) => {
     if (!assignTarget) return
-    engine.addMacroAssign(assignTarget.knobId, assign)
+    macroKnobManager.addAssign(assignTarget.knobId, assign)
     setAssignTarget(null)
   }, [assignTarget])
 
@@ -506,20 +480,18 @@ export function MacroKnobPanel() {
                    text-white font-mono select-none"
         style={{ left: pos.x, top: pos.y, padding: '10px 12px' }}
       >
-        {/* ヘッダー */}
         <div
           onMouseDown={handleMouseDown}
           className="text-[9px] text-[#5a5a88] mb-2 tracking-widest flex items-center gap-2"
           style={{ cursor: 'grab' }}
         >
-          <span>MACRO KNOB PANEL</span>
+          <span>MACRO WINDOW</span>
           <span className="text-[#3a3a5e]">32 × MIDI</span>
           <span className="ml-auto text-[#3a3a5e]">
             {knobs.filter(k => k.assigns.length > 0).length} ASSIGNED
           </span>
         </div>
 
-        {/* 8×4 グリッド */}
         <div
           style={{
             display: 'grid',
@@ -540,13 +512,8 @@ export function MacroKnobPanel() {
                   onEdit={handleEdit}
                   onDrop={handleDrop}
                   onKnobChange={(knobId, val) => {
-                    const knob = knobs.find(k => k.id === knobId)
-                    if (!knob) return
-                    // MacroKnobManager.setValue で表示用キャッシュを更新
-                    engine.setMacroKnobValue(knobId, val)
-                    // assigns ごとに rangeMap してから handleMidiCC ではなく
-                    // receiveMidiModulation（knobId 基準）で流す
-                    engine.receiveMidiModulation(knobId, val)
+                    macroKnobManager.setValue(knobId, val)
+                    transportManager.receiveModulation(knobId, val)
                   }}
                 />
               )
@@ -555,7 +522,6 @@ export function MacroKnobPanel() {
         </div>
       </div>
 
-      {/* ノブ名・MIDI CC 編集ダイアログ */}
       {editingConfig && (
         <EditDialog
           config={editingConfig}
@@ -565,7 +531,6 @@ export function MacroKnobPanel() {
         />
       )}
 
-      {/* D&D アサインダイアログ */}
       {assignTarget && (
         <AssignDialog
           knobId={assignTarget.knobId}

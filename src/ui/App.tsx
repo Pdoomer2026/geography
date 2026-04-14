@@ -4,10 +4,8 @@ import { transportRegistry } from '../core/transportRegistry'
 import { midiInputWrapper } from '../drivers/input/MidiInputWrapper'
 import { projectManager } from '../core/projectManager'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
-import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
-import { SimpleWindowPlugin } from '../plugins/windows/simple-window'
-import { FxWindowPlugin } from '../plugins/windows/fx-window'
-import { CameraWindowPlugin } from '../plugins/windows/camera-window'
+import { MacroWindow } from '../plugins/windows/macro-window'
+import { GeometrySimpleWindow, CameraSimpleWindow, FxSimpleWindow } from '../plugins/windows/simple-window'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 
@@ -17,12 +15,12 @@ export default function App() {
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
 
-  /** Plugin Apply 時に transportRegistry を更新するヘルパー（SimpleWindowPlugin に渡す） */
+  /** Plugin Apply 時に transportRegistry を更新するヘルパー（GeometrySimpleWindow に渡す） */
   const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
     engine.registerPluginToTransportRegistry(layerId, pluginId)
   }, [])
 
-  /** Plugin Remove 時に transportRegistry をクリアするヘルパー（SimpleWindowPlugin に渡す） */
+  /** Plugin Remove 時に transportRegistry をクリアするヘルパー（GeometrySimpleWindow に渡す） */
   const removePluginFromRegistry = useCallback((layerId: string) => {
     transportRegistry.clear(`${layerId}:geometry`)
   }, [])
@@ -126,20 +124,20 @@ export default function App() {
 
       <PreferencesPanel open={prefsOpen} onClose={() => setPrefsOpen(false)} />
 
-      {uiVisible.macro && <MacroKnobPanel />}
+      {uiVisible.macro && <MacroWindow />}
 
-      {uiVisible.fx && <FxWindowPlugin />}
+      {uiVisible.fx && <FxSimpleWindow />}
 
       {uiVisible.mixer && <MixerSimpleWindow />}
 
       {uiVisible.geometry && (
-        <SimpleWindowPlugin
+        <GeometrySimpleWindow
           onPluginApply={applyPluginToRegistry}
           onPluginRemove={removePluginFromRegistry}
         />
       )}
 
-      {uiVisible.camera && <CameraWindowPlugin />}
+      {uiVisible.camera && <CameraSimpleWindow />}
 
       {isRecording && (
         <div

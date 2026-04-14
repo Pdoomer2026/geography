@@ -1,2 +1,5 @@
-export { SimpleWindowPlugin } from './SimpleWindowPlugin'
-export type { SimpleWindowPluginProps } from './SimpleWindowPlugin'
+export { GeometrySimpleWindow } from './GeometrySimpleWindow'
+export type { GeometrySimpleWindowProps } from './GeometrySimpleWindow'
+export { CameraSimpleWindow } from './CameraSimpleWindow'
+export { FxSimpleWindow } from './FxSimpleWindow'
+export type { FxGroup } from './FxSimpleWindow'

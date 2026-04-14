@@ -1,21 +1,18 @@
 /**
- * FxWindowPlugin
+ * FxSimpleWindow
  * spec: docs/spec/plugin-manager.spec.md §4-2
  *
- * FX Plugin 専用 UI（Day59 自律化・統一パターン適用）
+ * FX Plugin 用 Simple Window（Day61 改名: FxWindowPlugin → FxSimpleWindow）
  *
- * 設計原則（Geometry・Camera と統一）:
+ * 設計原則:
  *   - transportRegistry.onChanged() を購読 → params を更新
  *   - 初回 useEffect → Registry から filter して初期表示
- *   - params は全て transportRegistry.getAll() から取得
  *   - L1/L2/L3 タブで activeLayer を切り替える
  *   - props なし（自律動作）
  *
  * FX 固有仕様:
  *   - enabled フラグが存在する（ON/OFF トグル）
  *   - engine.onFxChanged() を購読 → enabled 変化を検知
- *   - enabled は engine.getFxPlugins() から取得
- *   - fxGroups = params（Registry）+ enabled（engine）の合成
  *
  * 含めないもの:
  *   - RangeSlider（可動域制約）
@@ -42,20 +39,16 @@ export interface FxGroup {
   params: RegisteredParameterWithCC[]
 }
 
-export interface FxWindowPluginProps {}
-
 // ============================================================
-// FxWindowPlugin
+// FxSimpleWindow
 // ============================================================
 
-export function FxWindowPlugin() {
+export function FxSimpleWindow() {
   const [collapsed, setCollapsed] = useState(false)
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
   const [fxGroups, setFxGroups] = useState<FxGroup[]>([])
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 300, y: 16 })
 
-  // fxGroups を組み立てるヘルパー
-  // params は Registry から・enabled は engine から取得（FX 固有）
   const buildFxGroups = useCallback((lid: string): FxGroup[] => {
     return engine.getFxPlugins(lid).map((fx) => ({
       pluginId: fx.id,
@@ -67,19 +60,16 @@ export function FxWindowPlugin() {
     }))
   }, [])
 
-  // 初回同期・レイヤー切り替え時（Geometry・Camera と同じパターン）
   useEffect(() => {
     setFxGroups(buildFxGroups(activeLayer))
   }, [activeLayer, buildFxGroups])
 
-  // transportRegistry の変化を購読 → params を更新
   useEffect(() => {
     transportRegistry.onChanged(() => {
       setFxGroups(buildFxGroups(activeLayer))
     })
   }, [activeLayer, buildFxGroups])
 
-  // FX enabled 変化を購読（FX 固有・Sequencer 対応前倒し）
   useEffect(() => {
     engine.onFxChanged(() => {
       setFxGroups(buildFxGroups(activeLayer))
@@ -88,7 +78,6 @@ export function FxWindowPlugin() {
 
   function handleToggle(fxId: string, enabled: boolean) {
     engine.setFxEnabled(fxId, enabled, activeLayer)
-    // onFxChanged が発火して fxGroups が自動更新される
   }
 
   return (
@@ -98,7 +87,7 @@ export function FxWindowPlugin() {
         {/* ヘッダー */}
         <div onMouseDown={handleMouseDown} className="flex items-center justify-between mb-2" style={{ cursor: 'grab' }}>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-[#7878aa] tracking-widest">FX WINDOW</span>
+            <span className="text-[10px] text-[#7878aa] tracking-widest">FX SIMPLE WINDOW</span>
             <div className="flex gap-1">
               {LAYER_TABS.map((id, i) => (
                 <button
@@ -124,7 +113,6 @@ export function FxWindowPlugin() {
           </button>
         </div>
 
-        {/* FX グループ一覧 */}
         {!collapsed && (
           <div className="flex flex-col gap-3">
             {fxGroups.length === 0 && (
@@ -146,7 +134,7 @@ export function FxWindowPlugin() {
 }
 
 // ============================================================
-// FxGroupRow：1 FX Plugin の行（トグル + ParamRow 群）
+// FxGroupRow
 // ============================================================
 
 interface FxGroupRowProps {
@@ -158,7 +146,6 @@ interface FxGroupRowProps {
 function FxGroupRow({ group, layerId, onToggle }: FxGroupRowProps) {
   return (
     <div>
-      {/* FX 名 + ON/OFF トグル */}
       <div className="flex items-center justify-between mb-1">
         <span
           className="text-[11px]"
@@ -179,7 +166,6 @@ function FxGroupRow({ group, layerId, onToggle }: FxGroupRowProps) {
         </button>
       </div>
 
-      {/* パラメータ一覧（ON のときのみ表示） */}
       {group.enabled && group.params.length > 0 && (
         <div className="ml-2 flex flex-col gap-1">
           {group.params.map((param) => (
@@ -196,7 +182,7 @@ function FxGroupRow({ group, layerId, onToggle }: FxGroupRowProps) {
 }
 
 // ============================================================
-// ParamRow（Geometry・Camera と同一パターン）
+// ParamRow
 // ============================================================
 
 interface ParamRowProps {
@@ -223,14 +209,10 @@ function ParamRow({ param, layerId }: ParamRowProps) {
 
   return (
     <div className="flex items-center gap-1.5">
-      {/* CC番号 */}
       <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">
         CC{ccNumber}
       </span>
-
-      {/* ラベル */}
       <span className="text-[9px] text-[#5a5a8e] w-16 truncate shrink-0">{name}</span>
-
       {isBinary ? (
         <button
           onClick={() => handleChange(value >= 0.5 ? 0 : 1)}

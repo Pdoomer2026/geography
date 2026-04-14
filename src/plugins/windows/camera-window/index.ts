@@ -1,1 +1,0 @@
-export { CameraWindowPlugin } from './CameraWindowPlugin'
