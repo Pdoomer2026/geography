@@ -4,13 +4,15 @@ import { transportRegistry } from '../core/transportRegistry'
 import { midiInputWrapper } from '../drivers/input/MidiInputWrapper'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
+import { CameraSimpleWindow } from './CameraSimpleWindow'
+import { GeometrySimpleWindow } from './GeometrySimpleWindow'
 import { SimpleWindowPlugin } from '../plugins/windows/simple-window'
 import { FxWindowPlugin } from '../plugins/windows/fx-window'
-import { CameraWindowPlugin } from '../plugins/windows/camera-window'
 import type { FxGroup } from '../plugins/windows/fx-window'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 import type { GeoGraphyProject } from '../types'
+import type { MIDIRegistry } from '../types/midi-registry'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
@@ -19,39 +21,65 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false)
   const currentFilePathRef = useRef<string | null>(null)
 
-  // FxWindowPlugin 用の fxGroups（FxWindowPlugin はまだ App.tsx 経由）
-  const [fxTick, setFxTick] = useState(0)
+  // MIDI Registry state — transportRegistry の「鏡」（Day58 Step4）
+  const [midiRegistry, setMidiRegistry] = useState<MIDIRegistry>(() => ({
+    availableParameters: transportRegistry.getAll(),
+    bindings: new Map(),
+  }))
+
+  /** Plugin Apply 時に transportRegistry を更新するヘルパー */
+  const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
+    // engine.initTransportRegistry パターンで登録する
+    // GeometrySimpleWindow から Plugin 切り替え時に呼ばれる
+    engine.registerPluginToTransportRegistry(layerId, pluginId)
+  }, [])
+
+  /** Plugin をレイヤーから外した時に transportRegistry をクリアするヘルパー */
+  const removePluginFromRegistry = useCallback((layerId: string) => {
+    transportRegistry.clear(layerId)
+  }, [])
+
+  // transportRegistry の変化を購読して React state を更新（鏡）
+  useEffect(() => {
+    transportRegistry.onChanged(() => {
+      setMidiRegistry({
+        availableParameters: [...transportRegistry.getAll()],
+        bindings: new Map(),
+      })
+    })
+  }, [])
+
+  // Plugin → Window 逆流：engine.onParamChanged（Day58 Step3）
+  // flushParameterStore が syncValue を呼ぶので onChanged が発火 → UI 更新
+  useEffect(() => {
+    engine.onParamChanged(() => {
+      setMidiRegistry({
+        availableParameters: [...transportRegistry.getAll()],
+        bindings: new Map(),
+      })
+    })
+  }, [])
+
+  // FxGroup を組み立てる（layer-1 固定・v1）
+  // enabled は engine から取得・params は MIDIRegistry から取得（疎結合統一）
   const fxGroups: FxGroup[] = useMemo(() =>
     engine.getFxPlugins('layer-1').map((fx) => ({
       pluginId: fx.id,
       pluginName: fx.name,
       enabled: fx.enabled,
-      params: transportRegistry.getAll().filter(
+      params: midiRegistry.availableParameters.filter(
         (p) => p.pluginId === fx.id && p.layerId === 'layer-1'
       ),
     })),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [fxTick])
+  [midiRegistry])
 
-  // transportRegistry の変化で fxGroups を再構築
-  useEffect(() => {
-    transportRegistry.onChanged(() => setFxTick((t) => t + 1))
-  }, [])
-
-  // Plugin → Window 逆流：engine.onParamChanged で fxGroups を再構築
-  useEffect(() => {
-    engine.onParamChanged(() => setFxTick((t) => t + 1))
-  }, [])
-
-  /** Plugin Apply 時に transportRegistry を更新するヘルパー（SimpleWindowPlugin に渡す） */
-  const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
-    engine.registerPluginToTransportRegistry(layerId, pluginId)
-  }, [])
-
-  /** Plugin Remove 時に transportRegistry をクリアするヘルパー（SimpleWindowPlugin に渡す） */
-  const removePluginFromRegistry = useCallback((layerId: string) => {
-    transportRegistry.clear(`${layerId}:geometry`)
-  }, [])
+  // Geometry params を組み立てる（layer-1 固定・v1）
+  const geoPlugin = engine.getGeometryPlugin('layer-1')
+  const geoParams = useMemo(() =>
+    midiRegistry.availableParameters.filter(
+      (p) => p.layerId === 'layer-1' && geoPlugin && p.pluginId === geoPlugin.id
+    ),
+  [midiRegistry, geoPlugin])
 
   useAutosave()
 
@@ -66,6 +94,8 @@ export default function App() {
     const container = mountRef.current
     engine.initialize(container).then(() => {
       engine.start()
+      // Registry 登録は engine.initialize() 内の initTransportRegistry() が担当
+      // App.tsx は ccMapService を知らない（Day58 Step4）
     })
     return () => { engine.dispose() }
   }, [])
@@ -126,6 +156,7 @@ export default function App() {
   }
 
   // キーボードショートカット
+  // 1:MacroKnob 2:FX 3:Mixer 4:Camera 5:Geometry P:Prefs H:Hide S:Show F:全画面
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
@@ -180,7 +211,7 @@ export default function App() {
       <PreferencesPanel open={prefsOpen} onClose={() => setPrefsOpen(false)} />
 
       {uiVisible.macro && <MacroKnobPanel />}
-
+      {/* FxSimpleWindow → FxWindowPlugin に移行（Day56 Phase B）*/}
       {uiVisible.fx && (
         <FxWindowPlugin
           layerId="layer-1"
@@ -188,17 +219,23 @@ export default function App() {
           onToggle={(fxId, enabled) => engine.setFxEnabled(fxId, enabled, 'layer-1')}
         />
       )}
-
       {uiVisible.mixer && <MixerSimpleWindow />}
-
+      {uiVisible.camera && <CameraSimpleWindow />}
       {uiVisible.geometry && (
-        <SimpleWindowPlugin
+        <GeometrySimpleWindow
           onPluginApply={applyPluginToRegistry}
           onPluginRemove={removePluginFromRegistry}
         />
       )}
-
-      {uiVisible.camera && <CameraWindowPlugin />}
+      {/* SimpleWindowPlugin: layer-1 の Geometry 表示（Day56 Phase B）*/}
+      {uiVisible.geometry && geoPlugin && (
+        <SimpleWindowPlugin
+          layerId="layer-1"
+          pluginId={geoPlugin.id}
+          pluginName={geoPlugin.name}
+          params={geoParams}
+        />
+      )}
 
       {isRecording && (
         <div

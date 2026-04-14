@@ -1,0 +1,30 @@
+feat: SimpleWindowPlugin刷新・CameraWindowPlugin新規作成・Registry設計改善
+
+## 変更内容
+
+### SimpleWindowPlugin 刷新（Day59）
+- transportRegistry を直接購読（App.tsx から切り離し）
+- L1/L2/L3 タブ追加・activeLayer state 管理
+- props を { onPluginApply, onPluginRemove } のみに変更
+- RangeSlider・D&D・Preset を省いたシンプル実装
+
+### CameraWindowPlugin 新規作成
+- src/plugins/windows/camera-window/ に独立配置
+- L1/L2/L3 タブ・Camera ドロップダウン・スライダー
+- props なし（自律動作）
+
+### 旧 SimpleWindow 廃止
+- GeometrySimpleWindow.tsx → docs/archive にアーカイブ
+- CameraSimpleWindow.tsx → 廃止
+- App.tsx から旧 SimpleWindow の import・JSX を削除
+
+### Registry 設計改善（registrationKey 導入）
+- TransportRegistry の管理キーを layerId から registrationKey に変更
+- 'layer-N:geometry' / 'layer-N:fx' で独立したバケツ管理
+- Geometry と FX が同じ layerId で共存できるように
+
+### レイヤー間 CC番号衝突を解消
+- TransportEvent に layerId? を追加
+- source:'window' → layerId のレイヤーのみ parameterStore に書く
+- source:'midi' → Registry で全マッチのレイヤーに書く
+- flushParameterStore のキーを layerId:ccNumber に変更

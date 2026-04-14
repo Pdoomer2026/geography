@@ -17,6 +17,7 @@
  */
 
 import { rangeMap } from './macroKnob'
+import { transportRegistry } from './transportRegistry'
 import type { MacroKnobManager, TransportEvent } from '../types'
 import type { ParameterStore } from './parameterStore'
 
@@ -46,8 +47,20 @@ class TransportManagerImpl implements TransportManager {
   handle(event: TransportEvent): void {
     if (!this.store || !this.knobManager) return
 
-    // slot 番号をキーとして store に書く（MIDI 2.0 として厳密・変更なし）
-    this.store.set(String(event.slot), event.value)
+    // layerId がある（source:'window'）→ そのレイヤーのみに書く
+    // layerId がない（source:'midi'）→ Registry で全マッチに書く
+    if (event.layerId) {
+      this.store.set(`${event.layerId}:${event.slot}`, event.value)
+    } else {
+      const entries = transportRegistry.getAll().filter((p) => p.ccNumber === event.slot)
+      if (entries.length > 0) {
+        for (const entry of entries) {
+          this.store.set(`${entry.layerId}:${event.slot}`, event.value)
+        }
+      } else {
+        this.store.set(String(event.slot), event.value)
+      }
+    }
 
     const knobs = this.knobManager.getKnobs()
 
@@ -80,7 +93,15 @@ class TransportManagerImpl implements TransportManager {
     this.knobManager.setValue(knobId, value)
 
     for (const assign of knob.assigns) {
-      this.store.set(String(assign.ccNumber), value)
+      // Registry から ccNumber にマッチする全エントリを取得して layerId:ccNumber をキーに書く
+      const entries = transportRegistry.getAll().filter((p) => p.ccNumber === assign.ccNumber)
+      if (entries.length > 0) {
+        for (const entry of entries) {
+          this.store.set(`${entry.layerId}:${assign.ccNumber}`, value)
+        }
+      } else {
+        this.store.set(String(assign.ccNumber), value)
+      }
     }
   }
 }

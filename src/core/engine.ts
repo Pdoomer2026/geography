@@ -162,7 +162,7 @@ export class Engine {
       ccNumber: ccMapService.getCcNumber(plugin.id, p.id),
       value: plugin.params[p.id]?.value ?? p.min,
     }))
-    transportRegistry.register(enriched, layerId)
+    transportRegistry.register(enriched, `${layerId}:geometry`)
   }
 
   /**
@@ -170,7 +170,7 @@ export class Engine {
    * ccMapService を使う唯一の場所。App.tsx は ccMapService を知らない。
    */
   private initTransportRegistry(): void {
-    // Geometry
+    // Geometry: 'layer-N:geometry' をキーに登録
     this.getAllLayerPlugins().forEach(({ layerId, plugin }) => {
       const enriched = plugin.getParameters().map((p) => ({
         ...p,
@@ -179,9 +179,9 @@ export class Engine {
         ccNumber: ccMapService.getCcNumber(plugin.id, p.id),
         value: plugin.params[p.id]?.value ?? p.min,
       }))
-      transportRegistry.register(enriched, layerId)
+      transportRegistry.register(enriched, `${layerId}:geometry`)
     })
-    // FX
+    // FX: 'layer-N:fx' をキーに登録（Geometry と共存できる）
     const layerIds = ['layer-1', 'layer-2', 'layer-3'] as const
     layerIds.forEach((layerId) => {
       const fxPlugins = layerManager.getLayers()
@@ -200,7 +200,7 @@ export class Engine {
           value: param.value,
         }))
       )
-      transportRegistry.register(allFxParams, layerId)
+      transportRegistry.register(allFxParams, `${layerId}:fx`)
     })
   }
 
@@ -422,13 +422,12 @@ export class Engine {
     let changed = false
 
     for (const entry of entries) {
-      const storeValue = allValues.get(String(entry.ccNumber))
+      // layerId:ccNumber をキーに読む（Day59: レイヤー衝突解消）
+      const storeValue = allValues.get(`${entry.layerId}:${entry.ccNumber}`)
       if (storeValue === undefined) continue
 
-      // entry.min/max（rangeMin/Max を反映済み）で実際値に変換
       const actual = entry.min + storeValue * (entry.max - entry.min)
 
-      // plugin を特定して params に書く
       const layer = layerManager.getLayers().find((l) => l.id === entry.layerId)
       if (!layer) continue
 

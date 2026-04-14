@@ -230,6 +230,12 @@ export interface MacroAssign {
 export interface TransportEvent {
   slot: number
   value: number
+  /**
+   * 送信元レイヤー ID（source:'window' の場合のみ付与）
+   * source:'midi' / 'osc' の場合は undefined（外側の世界は layerId を知らない）
+   * spec: docs/spec/transport-architecture.spec.md §2
+   */
+  layerId?: string
   source?: 'window' | 'plugin' | 'midi' | 'osc'
   time?: number
 }
