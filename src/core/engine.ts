@@ -120,21 +120,28 @@ export class Engine {
     // 初期 SceneState
     const fxPlugins = layers[0]?.fxStack.getOrdered() ?? []
     const initialState: SceneState = {
-      layers: allPlugins.slice(0, 1).map((p) => ({
-        geometryId: p.id,
-        geometryParams: Object.fromEntries(
-          Object.entries(p.params).map(([k, v]) => [k, v.value])
-        ),
-        fxStack: fxPlugins.map((fx) => ({
-          fxId: fx.id,
-          params: Object.fromEntries(
-            Object.entries(fx.params).map(([k, v]) => [k, v.value])
+      layers: allPlugins.slice(0, 1).map((p) => {
+        const cam = layerManager.getCameraPlugin('layer-1')
+        return {
+          geometryId: p.id,
+          geometryParams: Object.fromEntries(
+            Object.entries(p.params).map(([k, v]) => [k, v.value])
           ),
-          enabled: fx.enabled,
-        })),
-        opacity: 1,
-        blendMode: 'normal',
-      })),
+          cameraId: cam?.id ?? 'static-camera',
+          cameraParams: cam
+            ? Object.fromEntries(Object.entries(cam.params).map(([k, v]) => [k, v.value]))
+            : {},
+          fxStack: fxPlugins.map((fx) => ({
+            fxId: fx.id,
+            params: Object.fromEntries(
+              Object.entries(fx.params).map(([k, v]) => [k, v.value])
+            ),
+            enabled: fx.enabled,
+          })),
+          opacity: 1,
+          blendMode: 'normal',
+        }
+      }),
     }
     programBus.load(initialState)
     previewBus.update(initialState)
@@ -349,11 +356,16 @@ export class Engine {
         .map((layer) => {
           const plugin = layer.plugin!
           const fxPlugins = layer.fxStack.getOrdered()
+          const cam = layerManager.getCameraPlugin(layer.id)
           return {
             geometryId: plugin.id,
             geometryParams: Object.fromEntries(
               Object.entries(plugin.params).map(([k, v]) => [k, v.value])
             ),
+            cameraId: cam?.id ?? 'static-camera',
+            cameraParams: cam
+              ? Object.fromEntries(Object.entries(cam.params).map(([k, v]) => [k, v.value]))
+              : {},
             fxStack: fxPlugins.map((fx) => ({
               fxId: fx.id,
               params: Object.fromEntries(
@@ -369,6 +381,22 @@ export class Engine {
   }
 
   loadSceneState(state: SceneState): void {
+    // カメラ params を engine で直接復元（programBus は camera を知らない）
+    state.layers.forEach((layerState, index) => {
+      const layerId = `layer-${index + 1}`
+      if (layerState.cameraId) {
+        const base = getCameraPlugin(layerState.cameraId)
+        if (base) {
+          const plugin = { ...base, params: structuredClone(base.params) }
+          // cameraParams で値を上書き
+          for (const [key, val] of Object.entries(layerState.cameraParams ?? {})) {
+            if (key in plugin.params) plugin.params[key].value = val
+          }
+          layerManager.setCameraPlugin(layerId, plugin, undefined, false)
+          this.registerCameraToTransportRegistry(layerId)
+        }
+      }
+    })
     programBus.load(state)
     previewBus.update(state)
   }

@@ -156,6 +156,8 @@ export interface FxState {
 export interface LayerState {
   geometryId: string
   geometryParams: Record<string, number>
+  cameraId: string                    // Day60: カメラ種別を保存
+  cameraParams: Record<string, number> // Day60: カメラパラメータ値を保存
   fxStack: FxState[]
   opacity: number
   blendMode: string
