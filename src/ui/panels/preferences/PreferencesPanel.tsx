@@ -237,8 +237,12 @@ function SetupTab({ onClose }: { onClose: () => void }) {
       .map((id) => (id === NONE_ID ? null : id))
       .filter((id): id is string => id !== null)
     project.setup.camera = [camIds[0], camIds[1], camIds[2]]
-    project.setup.fx = FX_ORDER.filter((id) => selectedFx['layer-1']?.[id] ?? false)
-    // TODO: Day61 - setup.fx をレイヤー別に保存する形式に拡張予定
+    project.setup.fx = Object.fromEntries(
+      LAYER_IDS.map((lid) => [
+        lid,
+        FX_ORDER.filter((id) => selectedFx[lid]?.[id] ?? false),
+      ])
+    )
 
     presetStore.add(name, project)
     setPresetNames(presetStore.getNames())
@@ -260,12 +264,20 @@ function SetupTab({ onClose }: { onClose: () => void }) {
     const newCamIds: [string, string, string] = preset.setup.camera ?? [
       'static-camera', 'static-camera', 'static-camera',
     ]
-    const enabledFx = new Set(preset.setup.fx)
-    const newFxL1 = Object.fromEntries(FX_ORDER.map((id) => [id, enabledFx.has(id)]))
+    const enabledFx = preset.setup.fx
+    // 新形式（Record<string, string[]>）と旧形式（string[]）の両方に対応
+    const getFxForLayer = (lid: string): Record<string, boolean> => {
+      if (Array.isArray(enabledFx)) {
+        // 旧形式: 全レイヤー同じ
+        return Object.fromEntries(FX_ORDER.map((id) => [id, (enabledFx as string[]).includes(id)]))
+      }
+      const ids = (enabledFx as Record<string, string[]>)[lid] ?? []
+      return Object.fromEntries(FX_ORDER.map((id) => [id, ids.includes(id)]))
+    }
     const newFx: Record<string, Record<string, boolean>> = {
-      'layer-1': newFxL1,
-      'layer-2': { ...newFxL1 },
-      'layer-3': { ...newFxL1 },
+      'layer-1': getFxForLayer('layer-1'),
+      'layer-2': getFxForLayer('layer-2'),
+      'layer-3': getFxForLayer('layer-3'),
     }
 
     setGeoIds(newGeoIds)

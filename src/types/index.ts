@@ -309,8 +309,8 @@ export interface GeoGraphyProject {
   name: string
   setup: {
     geometry: string[]
-    camera: [string, string, string]  // layer-1/2/3 のカメラ種別
-    fx: string[]
+    camera: [string, string, string]
+    fx: Record<string, string[]>  // layerId -> enabled FX ids（Day60）
   }
   sceneState: SceneState
   macroKnobAssigns: MacroKnobConfig[]

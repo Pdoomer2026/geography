@@ -413,9 +413,13 @@ export class Engine {
       layerManager.getCameraPlugin('layer-3')?.id ?? 'static-camera',
     ]
 
-    const enabledFxIds = this.getFxPlugins('layer-1')
-      .filter((fx) => fx.enabled)
-      .map((fx) => fx.id)
+    // FX: レイヤー別に enabled FX を保存
+    const fxPerLayer: Record<string, string[]> = {}
+    for (const layer of layers) {
+      fxPerLayer[layer.id] = layer.fxStack.getOrdered()
+        .filter((fx) => fx.enabled)
+        .map((fx) => fx.id)
+    }
 
     return {
       version: PROJECT_FILE_VERSION,
@@ -424,7 +428,7 @@ export class Engine {
       setup: {
         geometry: selectedGeometryIds,
         camera: cameraIds,
-        fx: enabledFxIds,
+        fx: fxPerLayer,
       },
       sceneState: this.getSceneState(),
       macroKnobAssigns: macroKnobManager.getKnobs(),
@@ -433,11 +437,77 @@ export class Engine {
   }
 
   restoreProject(project: GeoGraphyProject): void {
+    // 1. Geometry 差し替え
     this.applyGeometrySetup(project.setup.geometry)
+
+    // 2. Camera 差し替え
     if (project.setup.camera) {
       this.applyCameraSetup(project.setup.camera)
     }
-    this.loadSceneState(project.sceneState)
+
+    // 3. FX セットアップ（レイヤー別・旧形式互換性あり）
+    if (project.setup.fx) {
+      if (Array.isArray(project.setup.fx)) {
+        // 旧形式（string[]）: 全レイヤーに同じ FX を適用
+        this.applyFxSetup(project.setup.fx as unknown as string[])
+      } else {
+        // 新形式（Record<string, string[]>）: レイヤー別に適用
+        this.applyFxSetupPerLayer(project.setup.fx)
+      }
+    }
+
+    // 4. sceneState の完全反映
+    this.applySceneState(project.sceneState)
+
+    // 5. programBus / previewBus を更新
+    programBus.load(project.sceneState)
+    previewBus.update(project.sceneState)
+  }
+
+  /**
+   * SceneState を layerManager に完全反映する（Day60 新設）
+   * Geometry params / Camera params / FX params+enabled / opacity / blendMode
+   */
+  private applySceneState(state: SceneState): void {
+    state.layers.forEach((layerState, index) => {
+      const layerId = `layer-${index + 1}`
+      const layer = layerManager.getLayers().find((l) => l.id === layerId)
+      if (!layer) return
+
+      // Geometry params
+      if (layer.plugin?.id === layerState.geometryId) {
+        for (const [key, val] of Object.entries(layerState.geometryParams)) {
+          if (key in layer.plugin.params) {
+            layer.plugin.params[key].value = val
+          }
+        }
+      }
+
+      // Camera params
+      if (layerState.cameraId) {
+        const cam = layerManager.getCameraPlugin(layerId)
+        if (cam?.id === layerState.cameraId) {
+          for (const [key, val] of Object.entries(layerState.cameraParams ?? {})) {
+            if (key in cam.params) cam.params[key].value = val
+          }
+          this.registerCameraToTransportRegistry(layerId)
+        }
+      }
+
+      // FX params + enabled
+      for (const fxState of layerState.fxStack) {
+        const fx = layer.fxStack.getPlugin(fxState.fxId)
+        if (!fx) continue
+        fx.enabled = fxState.enabled
+        for (const [key, val] of Object.entries(fxState.params)) {
+          if (key in fx.params) fx.params[key].value = val
+        }
+      }
+
+      // opacity / blendMode
+      layerManager.setOpacity(layerId, layerState.opacity)
+      layerManager.setBlendMode(layerId, layerState.blendMode as import('../types').CSSBlendMode)
+    })
   }
 
   // --- レンダーループ ---

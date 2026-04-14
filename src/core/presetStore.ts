@@ -63,6 +63,12 @@ export type PresetStore = Record<string, GeoPreset>
 // DEFAULT_PRESETS
 // ----------------------------------------------------------------
 
+const DEFAULT_FX: Record<string, string[]> = {
+  'layer-1': [],
+  'layer-2': [],
+  'layer-3': [],
+}
+
 const DEFAULT_PRESETS: PresetStore = {
   'Default': {
     version: PROJECT_FILE_VERSION,
@@ -71,7 +77,7 @@ const DEFAULT_PRESETS: PresetStore = {
     setup: {
       geometry: ['icosphere', 'torus', 'contour'],
       camera:   ['orbit-camera', 'orbit-camera', 'static-camera'],
-      fx:       [],
+      fx:       { ...DEFAULT_FX },
     },
     sceneState: { layers: [] },
     macroKnobAssigns: [] as MacroKnobConfig[],
@@ -84,7 +90,7 @@ const DEFAULT_PRESETS: PresetStore = {
     setup: {
       geometry: ['icosphere', 'torusknot', 'torus'],
       camera:   ['orbit-camera', 'orbit-camera', 'orbit-camera'],
-      fx:       [],
+      fx:       { ...DEFAULT_FX },
     },
     sceneState: { layers: [] },
     macroKnobAssigns: [] as MacroKnobConfig[],
@@ -97,7 +103,7 @@ const DEFAULT_PRESETS: PresetStore = {
     setup: {
       geometry: ['hex-grid', 'contour', 'grid-wave'],
       camera:   ['aerial-camera', 'static-camera', 'static-camera'],
-      fx:       [],
+      fx:       { ...DEFAULT_FX },
     },
     sceneState: { layers: [] },
     macroKnobAssigns: [] as MacroKnobConfig[],
@@ -110,7 +116,7 @@ const DEFAULT_PRESETS: PresetStore = {
     setup: {
       geometry: ['grid-tunnel', 'icosphere', 'grid-wave'],
       camera:   ['static-camera', 'orbit-camera', 'static-camera'],
-      fx:       [],
+      fx:       { ...DEFAULT_FX },
     },
     sceneState: { layers: [] },
     macroKnobAssigns: [] as MacroKnobConfig[],

@@ -31,7 +31,7 @@ class ProjectManagerImpl {
       setup: {
         geometry: [],
         camera: ['static-camera', 'static-camera', 'static-camera'],
-        fx: [],
+        fx: { 'layer-1': [], 'layer-2': [], 'layer-3': [] },
       },
       sceneState: { layers: [] },
       macroKnobAssigns: [],
