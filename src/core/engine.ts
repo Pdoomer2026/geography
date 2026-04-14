@@ -375,6 +375,12 @@ export class Engine {
       .filter((l) => !l.mute && l.plugin !== null)
       .map((l) => l.plugin!.id)
 
+    const cameraIds: [string, string, string] = [
+      layerManager.getCameraPlugin('layer-1')?.id ?? 'static-camera',
+      layerManager.getCameraPlugin('layer-2')?.id ?? 'static-camera',
+      layerManager.getCameraPlugin('layer-3')?.id ?? 'static-camera',
+    ]
+
     const enabledFxIds = this.getFxPlugins('layer-1')
       .filter((fx) => fx.enabled)
       .map((fx) => fx.id)
@@ -385,6 +391,7 @@ export class Engine {
       name,
       setup: {
         geometry: selectedGeometryIds,
+        camera: cameraIds,
         fx: enabledFxIds,
       },
       sceneState: this.getSceneState(),
@@ -395,6 +402,9 @@ export class Engine {
 
   restoreProject(project: GeoGraphyProject): void {
     this.applyGeometrySetup(project.setup.geometry)
+    if (project.setup.camera) {
+      this.applyCameraSetup(project.setup.camera)
+    }
     this.loadSceneState(project.sceneState)
   }
 
@@ -696,12 +706,16 @@ export class Engine {
     if (pluginId === null) {
       layerManager.setPlugin(layerId, null)
       layerManager.setMute(layerId, true)
+      // Registry をクリア（Day60: Plugin 差し替えの唯一経路で Registry も更新）
+      transportRegistry.clear(`${layerId}:geometry`)
       return
     }
     const plugin = registry.get(pluginId)
     if (!plugin) return
     layerManager.setPlugin(layerId, plugin as GeometryPlugin)
     layerManager.setMute(layerId, false)
+    // Registry を更新（Day60: Plugin 差し替えの唯一経路で Registry も更新）
+    this.registerPluginToTransportRegistry(layerId, plugin.id)
   }
 }
 

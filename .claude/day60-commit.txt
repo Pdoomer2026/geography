@@ -1,0 +1,27 @@
+refactor: App薄い鏡化 + cc-mapping 5桁体系刷新 + Save/Load camera対応（Day60）
+
+- fix(engine): setLayerPlugin() で Registry を自動更新
+  Preference APPLY 後に SimpleWindowPlugin が反映されないバグを修正
+
+- feat(core): projectManager.ts 新設
+  New/Open/Save/SaveAs を App.tsx から分離・currentFilePath を管理
+
+- feat(core): presetStore.ts 新設
+  Preset CRUD + FX定数を PreferencesPanel から分離
+  GeoPreset を GeoGraphyProject の alias に整理
+
+- refactor(ui): App.tsx を薄い鏡に整理
+  onMenuEvents が projectManager.* を呼ぶだけに
+
+- refactor(ui): PreferencesPanel.tsx を UI描画のみに整理
+  FX セクションに L1/L2/L3 タブ追加
+  selectedFx をレイヤー別管理に変更
+
+- fix(types): GeoGraphyProject.setup に camera フィールドを追加
+- fix(engine): buildProject() でカメラ保存・restoreProject() でカメラ復元
+- fix(core): projectManager.newProject() に camera フィールド追加
+
+- fix(spec): cc-mapping.md を5桁番号体系に全面刷新（v0.4）
+  万の位=ライブラリ / 千の位=種別 / 百の位=セマンティック / 下2桁=連番
+  MIDI 1.0帯域（0〜127）との衝突を完全解消
+  Geometry・Camera・FX・Particle の種別分離で同一レイヤー内衝突を解消

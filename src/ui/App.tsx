@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../core/engine'
 import { transportRegistry } from '../core/transportRegistry'
 import { midiInputWrapper } from '../drivers/input/MidiInputWrapper'
+import { projectManager } from '../core/projectManager'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
 import { SimpleWindowPlugin } from '../plugins/windows/simple-window'
@@ -9,17 +10,12 @@ import { FxWindowPlugin } from '../plugins/windows/fx-window'
 import { CameraWindowPlugin } from '../plugins/windows/camera-window'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
-import type { GeoGraphyProject } from '../types'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
   const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true, camera: true, geometry: true })
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
-  const currentFilePathRef = useRef<string | null>(null)
-
-  // FxWindowPlugin は自律動作するため App.tsx での fxGroups 組み立ては不要（Day59）
-  // transportRegistry.onChanged() と engine.onFxChanged() を FxWindowPlugin が直接購読する
 
   /** Plugin Apply 時に transportRegistry を更新するヘルパー（SimpleWindowPlugin に渡す） */
   const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
@@ -53,31 +49,10 @@ export default function App() {
   useEffect(() => {
     if (!window.geoAPI) return
     window.geoAPI.onMenuEvents({
-      onNew: () => {
-        engine.restoreProject({
-          version: '1.0.0', name: 'untitled', savedAt: '',
-          setup: { geometry: [], fx: [] }, sceneState: { layers: [] },
-          macroKnobAssigns: [], presetRefs: {},
-        })
-        currentFilePathRef.current = null
-      },
-      onOpen: (filePath: string, data: string) => {
-        try {
-          const project = JSON.parse(data) as GeoGraphyProject
-          engine.restoreProject(project)
-          currentFilePathRef.current = filePath
-        } catch (e) {
-          console.warn('[GeoGraphy] プロジェクトの読み込みに失敗:', e)
-        }
-      },
-      onSave: async () => {
-        if (!window.geoAPI) return
-        const filePath = currentFilePathRef.current
-        if (!filePath) { window.geoAPI.onMenuEvents({ onSaveAs: handleSaveAs }); return }
-        const project = engine.buildProject(filePath.split('/').pop()?.replace(/\.geography$/, '') ?? 'untitled')
-        await window.geoAPI.saveProjectFile(filePath, JSON.stringify(project, null, 2))
-      },
-      onSaveAs: handleSaveAs,
+      onNew:        () => projectManager.newProject(),
+      onOpen:       (filePath: string, data: string) => projectManager.openProject(filePath, data),
+      onSave:       () => projectManager.save(),
+      onSaveAs:     (filePath: string) => projectManager.saveAs(filePath),
       onPreferences: () => setPrefsOpen((o) => !o),
       onToggleMixerWindow: () => setUiVisible((v) => ({ ...v, mixer: !v.mixer })),
       onToggleFxWindow: () => setUiVisible((v) => ({ ...v, fx: !v.fx })),
@@ -96,14 +71,6 @@ export default function App() {
     })
     return () => { window.geoAPI?.removeMenuListeners() }
   }, [])
-
-  async function handleSaveAs(filePath: string) {
-    if (!window.geoAPI) return
-    const name = filePath.split('/').pop()?.replace(/\.geography$/, '') ?? 'untitled'
-    const project = engine.buildProject(name)
-    await window.geoAPI.saveProjectFile(filePath, JSON.stringify(project, null, 2))
-    currentFilePathRef.current = filePath
-  }
 
   // キーボードショートカット
   useEffect(() => {

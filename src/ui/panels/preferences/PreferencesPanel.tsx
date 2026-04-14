@@ -4,13 +4,18 @@
  *
  * 画面左上の ⚙ ボタンクリック / P キーで開閉するプリファレンスパネル。
  * タブ: Setup / Project / Plugins / Audio / MIDI / Output
+ *
+ * Day60: Preset CRUD ロジックを presetStore.ts に移動
+ *        FX 定数を presetStore.ts から import
+ *        このファイルは UI state + 描画のみを担当する
  */
 
 import { useState, useEffect } from 'react'
 import { engine } from '../../../core/engine'
 import { registry } from '../../../core/registry'
-import type { GeometryPlugin, GeoGraphyProject, MacroKnobConfig } from '../../../types'
-import { PROJECT_FILE_VERSION } from '../../../types'
+import { presetStore, FX_LABELS, FX_DEFAULTS, FX_ORDER } from '../../../core/presetStore'
+import type { GeoPreset } from '../../../core/presetStore'
+import type { GeometryPlugin } from '../../../types'
 
 // ----------------------------------------------------------------
 // 型定義
@@ -26,148 +31,10 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'output',  label: 'Output'  },
 ]
 
-const FX_LABELS: Record<string, string> = {
-  'after-image':   'AfterImage',
-  'feedback':      'Feedback',
-  'bloom':         'Bloom',
-  'kaleidoscope':  'Kaleidoscope',
-  'mirror':        'Mirror',
-  'zoom-blur':     'Zoom Blur',
-  'rgb-shift':     'RGB Shift',
-  'crt':           'CRT',
-  'glitch':        'Glitch',
-  'color-grading': 'Color Grading',
-}
-
-const FX_DEFAULTS: Record<string, boolean> = {
-  'after-image':   true,
-  'feedback':      false,
-  'bloom':         true,
-  'kaleidoscope':  false,
-  'mirror':        false,
-  'zoom-blur':     false,
-  'rgb-shift':     true,
-  'crt':           false,
-  'glitch':        false,
-  'color-grading': true,
-}
-
-const FX_ORDER = [
-  'after-image', 'feedback', 'bloom', 'kaleidoscope', 'mirror',
-  'zoom-blur', 'rgb-shift', 'crt', 'glitch', 'color-grading',
-]
-
 const CAMERA_LABELS: Record<string, string> = {
   'orbit-camera':  'Orbit',
   'aerial-camera': 'Aerial',
   'static-camera': 'Static',
-}
-
-// ----------------------------------------------------------------
-// Preset 型（GeoGraphyProject を camera フィールドで拡張）
-// ----------------------------------------------------------------
-
-interface GeoPreset extends GeoGraphyProject {
-  setup: GeoGraphyProject['setup'] & {
-    camera: [string, string, string]
-  }
-}
-
-// ----------------------------------------------------------------
-// Preset Store
-// ----------------------------------------------------------------
-
-const PRESET_STORE_KEY = 'geography:presets-v1'
-type PresetStore = Record<string, GeoPreset>
-
-/** デフォルトプリセット（localStorage が空のときに自動投入） */
-const DEFAULT_PRESETS: PresetStore = {
-  'Default': {
-    version: PROJECT_FILE_VERSION,
-    savedAt: '2026-04-08T00:00:00.000Z',
-    name: 'Default',
-    setup: {
-      geometry: ['icosphere', 'torus', 'contour'],
-      camera:   ['orbit-camera', 'orbit-camera', 'static-camera'],
-      fx:       [],
-    },
-    sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
-    presetRefs: {},
-  },
-  'Orbit Scene': {
-    version: PROJECT_FILE_VERSION,
-    savedAt: '2026-04-08T00:00:00.000Z',
-    name: 'Orbit Scene',
-    setup: {
-      geometry: ['icosphere', 'torusknot', 'torus'],
-      camera:   ['orbit-camera', 'orbit-camera', 'orbit-camera'],
-      fx:       [],
-    },
-    sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
-    presetRefs: {},
-  },
-  'Aerial Scene': {
-    version: PROJECT_FILE_VERSION,
-    savedAt: '2026-04-08T00:00:00.000Z',
-    name: 'Aerial Scene',
-    setup: {
-      geometry: ['hex-grid', 'contour', 'grid-wave'],
-      camera:   ['aerial-camera', 'static-camera', 'static-camera'],
-      fx:       [],
-    },
-    sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
-    presetRefs: {},
-  },
-  'Tunnel': {
-    version: PROJECT_FILE_VERSION,
-    savedAt: '2026-04-08T00:00:00.000Z',
-    name: 'Tunnel',
-    setup: {
-      geometry: ['grid-tunnel', 'icosphere', 'grid-wave'],
-      camera:   ['static-camera', 'orbit-camera', 'static-camera'],
-      fx:       [],
-    },
-    sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
-    presetRefs: {},
-  },
-}
-
-function loadPresetStore(): PresetStore {
-  try {
-    const raw = localStorage.getItem(PRESET_STORE_KEY)
-    if (!raw) {
-      // 初回：デフォルトプリセットを保存して返す
-      localStorage.setItem(PRESET_STORE_KEY, JSON.stringify(DEFAULT_PRESETS))
-      return { ...DEFAULT_PRESETS }
-    }
-    const stored = JSON.parse(raw) as PresetStore
-    // デフォルトプリセットが欠けていればマージして補完する
-    let merged = false
-    for (const [name, preset] of Object.entries(DEFAULT_PRESETS)) {
-      if (!stored[name]) {
-        stored[name] = preset
-        merged = true
-      }
-    }
-    if (merged) {
-      localStorage.setItem(PRESET_STORE_KEY, JSON.stringify(stored))
-    }
-    return stored
-  } catch {
-    return { ...DEFAULT_PRESETS }
-  }
-}
-
-function savePresetStore(store: PresetStore): void {
-  try {
-    localStorage.setItem(PRESET_STORE_KEY, JSON.stringify(store))
-  } catch {
-    // ignore
-  }
 }
 
 // ----------------------------------------------------------------
@@ -187,14 +54,15 @@ function resolveCamId(geoId: string | undefined): string {
 function applyToEngine(
   geoIds: [string, string, string],
   camIds: [string, string, string],
-  selectedFx: Record<string, boolean>,
+  selectedFx: Record<string, Record<string, boolean>>,
 ): void {
   const selectedGeoIds = geoIds
     .map((id) => (id === NONE_ID ? null : id))
     .filter((id): id is string => id !== null)
   engine.applyGeometrySetup(selectedGeoIds)
   engine.applyCameraSetup([camIds[0], camIds[1], camIds[2]])
-  const enabledFxIds = FX_ORDER.filter((id) => selectedFx[id] ?? false)
+  // layer-1 の FX 設定を全レイヤーに適用（現状は共通 FX スタック）
+  const enabledFxIds = FX_ORDER.filter((id) => selectedFx['layer-1']?.[id] ?? false)
   engine.applyFxSetup(enabledFxIds)
 }
 
@@ -283,21 +151,25 @@ function SetupTab({ onClose }: { onClose: () => void }) {
     [false, false, false]
   )
 
-  const [selectedFx, setSelectedFx] = useState<Record<string, boolean>>(() => {
-    const currentFx = engine.getFxPlugins('layer-1')
-    if (currentFx.length > 0) {
-      return Object.fromEntries(currentFx.map((fx) => [fx.id, fx.enabled]))
+  const [selectedFx, setSelectedFx] = useState<Record<string, Record<string, boolean>>>(() => {
+    const result: Record<string, Record<string, boolean>> = {}
+    for (const lid of LAYER_IDS) {
+      const currentFx = engine.getFxPlugins(lid)
+      if (currentFx.length > 0) {
+        result[lid] = Object.fromEntries(currentFx.map((fx) => [fx.id, fx.enabled]))
+      } else {
+        result[lid] = { ...FX_DEFAULTS }
+      }
     }
-    return { ...FX_DEFAULTS }
+    return result
   })
+  const [activeFxLayer, setActiveFxLayer] = useState<typeof LAYER_IDS[number]>('layer-1')
 
-  // ── Preset state ───────────────────────────────────────────────
-  const [presets, setPresets] = useState<PresetStore>(() => loadPresetStore())
+  // ── Preset state（presetStore から取得）───────────────────────
+  const [presetNames, setPresetNames] = useState<string[]>(() => presetStore.getNames())
   const [selectedPreset, setSelectedPreset] = useState<string>('')
   const [presetName, setPresetName] = useState<string>('')
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
-
-  const presetNames = Object.keys(presets).sort()
 
   function flash(msg: string) {
     setStatusMsg(msg)
@@ -346,7 +218,10 @@ function SetupTab({ onClose }: { onClose: () => void }) {
   }
 
   function toggleFx(id: string) {
-    setSelectedFx((prev) => ({ ...prev, [id]: !prev[id] }))
+    setSelectedFx((prev) => ({
+      ...prev,
+      [activeFxLayer]: { ...prev[activeFxLayer], [id]: !prev[activeFxLayer][id] },
+    }))
   }
 
   // ── Preset: Save As ────────────────────────────────────────────
@@ -354,19 +229,15 @@ function SetupTab({ onClose }: { onClose: () => void }) {
     const name = presetName.trim()
     if (!name) { flash('⚠ Name required'); return }
 
-    // engine.buildProject() で全シーンステートを収集
     const project = engine.buildProject(name) as GeoPreset
-
-    // UI 側の Geo/Cam/FX state で上書き（APPLY 前でも最新選択を保存）
     project.setup.geometry = geoIds
       .map((id) => (id === NONE_ID ? null : id))
       .filter((id): id is string => id !== null)
     project.setup.camera = [camIds[0], camIds[1], camIds[2]]
-    project.setup.fx = FX_ORDER.filter((id) => selectedFx[id] ?? false)
+    project.setup.fx = FX_ORDER.filter((id) => selectedFx['layer-1']?.[id] ?? false)
 
-    const next = { ...presets, [name]: project }
-    setPresets(next)
-    savePresetStore(next)
+    presetStore.add(name, project)
+    setPresetNames(presetStore.getNames())
     setSelectedPreset(name)
     setPresetName('')
     flash(`✓ Saved: "${name}"`)
@@ -374,10 +245,8 @@ function SetupTab({ onClose }: { onClose: () => void }) {
 
   // ── Preset: Load → 即 engine 反映（APPLY 不要）────────────────
   function handleLoad() {
-    if (!selectedPreset || !presets[selectedPreset]) {
-      flash('⚠ Select a preset'); return
-    }
-    const preset = presets[selectedPreset]
+    const preset = presetStore.get(selectedPreset)
+    if (!preset) { flash('⚠ Select a preset'); return }
 
     const newGeoIds: [string, string, string] = [
       preset.setup.geometry[0] ?? NONE_ID,
@@ -388,37 +257,33 @@ function SetupTab({ onClose }: { onClose: () => void }) {
       'static-camera', 'static-camera', 'static-camera',
     ]
     const enabledFx = new Set(preset.setup.fx)
-    const newFx = Object.fromEntries(FX_ORDER.map((id) => [id, enabledFx.has(id)]))
+    const newFxL1 = Object.fromEntries(FX_ORDER.map((id) => [id, enabledFx.has(id)]))
+    const newFx: Record<string, Record<string, boolean>> = {
+      'layer-1': newFxL1,
+      'layer-2': { ...newFxL1 },
+      'layer-3': { ...newFxL1 },
+    }
 
-    // UI state 更新
     setGeoIds(newGeoIds)
     setCamIds(newCamIds)
-    setCamOverridden([true, true, true]) // Preset 優先 → 自動連動を抑制
+    setCamOverridden([true, true, true])
     setSelectedFx(newFx)
 
-    // engine に即時反映（APPLY 不要）
     applyToEngine(newGeoIds, newCamIds, newFx)
-
     flash(`✓ Loaded: "${selectedPreset}"`)
-    // パネルは閉じずに現状を表示したままにする
   }
 
   // ── Preset: Delete ─────────────────────────────────────────────
   function handleDelete() {
-    if (!selectedPreset || !presets[selectedPreset]) {
-      flash('⚠ Select a preset'); return
-    }
-    // デフォルトプリセットも削除可能（ユーザーが管理）
-    const next = { ...presets }
-    delete next[selectedPreset]
-    setPresets(next)
-    savePresetStore(next)
+    if (!presetStore.get(selectedPreset)) { flash('⚠ Select a preset'); return }
+    presetStore.remove(selectedPreset)
+    setPresetNames(presetStore.getNames())
     const deleted = selectedPreset
     setSelectedPreset('')
     flash(`✓ Deleted: "${deleted}"`)
   }
 
-  // ── APPLY（手動で engine に反映したいとき用に残す）───────────
+  // ── APPLY（手動で engine に反映したいとき用）──────────────────
   function handleApply() {
     applyToEngine(geoIds, camIds, selectedFx)
     onClose()
@@ -438,7 +303,6 @@ function SetupTab({ onClose }: { onClose: () => void }) {
       <section>
         <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">PRESETS</div>
 
-        {/* プリセット選択 + Load / Delete */}
         <div className="flex items-center gap-2 mb-2">
           <select
             value={selectedPreset}
@@ -463,7 +327,6 @@ function SetupTab({ onClose }: { onClose: () => void }) {
           >Delete</button>
         </div>
 
-        {/* 名前入力 + Save As */}
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -542,14 +405,32 @@ function SetupTab({ onClose }: { onClose: () => void }) {
 
       {/* ── FX ── */}
       <section>
-        <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">FX</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[10px] text-[#7878aa] tracking-widest">FX</div>
+          <div className="flex gap-1">
+            {LAYER_IDS.map((id, i) => (
+              <button
+                key={id}
+                onClick={() => setActiveFxLayer(id)}
+                className="text-[9px] rounded px-1.5 py-0.5 border transition-colors"
+                style={{
+                  background: activeFxLayer === id ? '#2a2a6e' : '#1a1a2e',
+                  borderColor: activeFxLayer === id ? '#5a5aaa' : '#2a2a4e',
+                  color: activeFxLayer === id ? '#aaaaee' : '#4a4a6e',
+                }}
+              >
+                L{i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-1.5">
           {FX_ORDER.map((fxId) => (
             <CheckItem
               key={fxId}
               id={fxId}
               label={FX_LABELS[fxId] ?? fxId}
-              checked={selectedFx[fxId] ?? false}
+              checked={selectedFx[activeFxLayer]?.[fxId] ?? false}
               onChange={() => toggleFx(fxId)}
             />
           ))}
