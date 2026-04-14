@@ -1,0 +1,26 @@
+feat: FxWindowPlugin 自律化・旧 SimpleWindow 全廃止
+
+## 変更内容
+
+### FxWindowPlugin 自律化
+- transportRegistry.onChanged() を購読 → params を更新
+- engine.onFxChanged() を購読 → enabled 変化を検知（Sequencer 対応前倒し）
+- L1/L2/L3 タブ追加・activeLayer state で管理
+- props なし（自律動作）
+- fxGroups = params（Registry）+ enabled（engine）の合成
+
+### engine.onFxChanged() 新設
+- setFxEnabled() 時に fxChangedCallback を発火
+- initialize() 完了時にも発火（初期表示）
+- 将来の Sequencer / LFO からの FX ON/OFF に対応
+
+### 旧 SimpleWindow 全廃止（アーカイブ）
+- FxSimpleWindow.tsx → docs/archive
+- CameraSimpleWindow.tsx → docs/archive
+- GeometrySimpleWindow.tsx → docs/archive
+
+### 全 WindowPlugin が統一パターンに
+- transportRegistry.onChanged() を直接購読
+- L1/L2/L3 タブで activeLayer を内部管理
+- engine.handleMidiCC() に layerId を付与
+- App.tsx は表示/非表示のみ管理

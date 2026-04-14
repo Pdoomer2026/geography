@@ -53,6 +53,8 @@ export class Engine {
 
   /** Plugin → Window 逆流コールバック（Day58 Step3）*/
   private paramChangedCallback: (() => void) | null = null
+  /** FX enabled 変化コールバック（Day59 新設・Sequencer 対応前倒し）*/
+  private fxChangedCallback: (() => void) | null = null
 
   constructor() {
     this.parameterStore = new ParameterStore()
@@ -65,6 +67,15 @@ export class Engine {
    */
   onParamChanged(cb: () => void): void {
     this.paramChangedCallback = cb
+  }
+
+  /**
+   * FX の enabled 状態が変化したとき呼ばれるコールバックを登録する。
+   * FxWindowPlugin が購読するために使う。
+   * 将来の Sequencer / LFO からの FX ON/OFF にも対応する。
+   */
+  onFxChanged(cb: () => void): void {
+    this.fxChangedCallback = cb
   }
 
   // --- 初期化 ---
@@ -145,6 +156,8 @@ export class Engine {
 
     // 起動時に Registry を一括登録（Day58 Step4: engine が ccMapService を使う唯一の場所）
     this.initTransportRegistry()
+    // 初期化完了を FxWindowPlugin に通知（enabled の初期状態を反映）
+    this.fxChangedCallback?.()
   }
 
   /**
@@ -299,6 +312,7 @@ export class Engine {
   setFxEnabled(fxId: string, enabled: boolean, layerId: string = 'layer-1'): void {
     const layer = layerManager.getLayers().find((l) => l.id === layerId)
     layer?.fxStack.setEnabled(fxId, enabled)
+    this.fxChangedCallback?.()
   }
 
   setFxParam(fxId: string, paramKey: string, value: number, layerId: string = 'layer-1'): void {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../core/engine'
 import { transportRegistry } from '../core/transportRegistry'
 import { midiInputWrapper } from '../drivers/input/MidiInputWrapper'
@@ -7,7 +7,6 @@ import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
 import { SimpleWindowPlugin } from '../plugins/windows/simple-window'
 import { FxWindowPlugin } from '../plugins/windows/fx-window'
 import { CameraWindowPlugin } from '../plugins/windows/camera-window'
-import type { FxGroup } from '../plugins/windows/fx-window'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 import type { GeoGraphyProject } from '../types'
@@ -19,29 +18,8 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false)
   const currentFilePathRef = useRef<string | null>(null)
 
-  // FxWindowPlugin 用の fxGroups（FxWindowPlugin はまだ App.tsx 経由）
-  const [fxTick, setFxTick] = useState(0)
-  const fxGroups: FxGroup[] = useMemo(() =>
-    engine.getFxPlugins('layer-1').map((fx) => ({
-      pluginId: fx.id,
-      pluginName: fx.name,
-      enabled: fx.enabled,
-      params: transportRegistry.getAll().filter(
-        (p) => p.pluginId === fx.id && p.layerId === 'layer-1'
-      ),
-    })),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [fxTick])
-
-  // transportRegistry の変化で fxGroups を再構築
-  useEffect(() => {
-    transportRegistry.onChanged(() => setFxTick((t) => t + 1))
-  }, [])
-
-  // Plugin → Window 逆流：engine.onParamChanged で fxGroups を再構築
-  useEffect(() => {
-    engine.onParamChanged(() => setFxTick((t) => t + 1))
-  }, [])
+  // FxWindowPlugin は自律動作するため App.tsx での fxGroups 組み立ては不要（Day59）
+  // transportRegistry.onChanged() と engine.onFxChanged() を FxWindowPlugin が直接購読する
 
   /** Plugin Apply 時に transportRegistry を更新するヘルパー（SimpleWindowPlugin に渡す） */
   const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
@@ -66,6 +44,8 @@ export default function App() {
     const container = mountRef.current
     engine.initialize(container).then(() => {
       engine.start()
+      // 初期化完了後に FxWindowPlugin に通知して fxGroups を描画させる
+      engine.setFxEnabled('after-image', engine.getFxPlugins('layer-1').find(f => f.id === 'after-image')?.enabled ?? false, 'layer-1')
     })
     return () => { engine.dispose() }
   }, [])
@@ -181,13 +161,7 @@ export default function App() {
 
       {uiVisible.macro && <MacroKnobPanel />}
 
-      {uiVisible.fx && (
-        <FxWindowPlugin
-          layerId="layer-1"
-          fxGroups={fxGroups}
-          onToggle={(fxId, enabled) => engine.setFxEnabled(fxId, enabled, 'layer-1')}
-        />
-      )}
+      {uiVisible.fx && <FxWindowPlugin />}
 
       {uiVisible.mixer && <MixerSimpleWindow />}
 

@@ -2,29 +2,37 @@
  * FxWindowPlugin
  * spec: docs/spec/plugin-manager.spec.md §4-2
  *
- * FX Plugin 専用 UI。
- * v1 最小実装:
- *   ① FX ON/OFF トグル（props で enabled を受け取る・engine を直接知らない）
- *   ② params → ParamRow 動的生成（MIDIRegistry 経由・SimpleWindowPlugin と統一）
- *   ③ engine.handleMidiCC() でパラメータ変更
+ * FX Plugin 専用 UI（Day59 自律化・統一パターン適用）
  *
- * コントリビューター向け設計原則:
- *   - params は props から受け取るだけ（ccMapService を知らない）
- *   - enabled / onToggle は props から受け取るだけ（engine を直接呼ばない）
- *   - SimpleWindowPlugin と同じパターンで実装できる
+ * 設計原則（Geometry・Camera と統一）:
+ *   - transportRegistry.onChanged() を購読 → params を更新
+ *   - 初回 useEffect → Registry から filter して初期表示
+ *   - params は全て transportRegistry.getAll() から取得
+ *   - L1/L2/L3 タブで activeLayer を切り替える
+ *   - props なし（自律動作）
  *
- * v1 に含めないもの:
+ * FX 固有仕様:
+ *   - enabled フラグが存在する（ON/OFF トグル）
+ *   - engine.onFxChanged() を購読 → enabled 変化を検知
+ *   - enabled は engine.getFxPlugins() から取得
+ *   - fxGroups = params（Registry）+ enabled（engine）の合成
+ *
+ * 含めないもの:
  *   - RangeSlider（可動域制約）
  *   - D&D ハンドル（MacroKnob アサイン）
  */
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { engine } from '../../../core/engine'
+import { transportRegistry } from '../../../core/transportRegistry'
 import { useDraggable } from '../../../ui/useDraggable'
 import type { RegisteredParameterWithCC } from '../../../types/midi-registry'
 
+const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
+type LayerId = (typeof LAYER_TABS)[number]
+
 // ============================================================
-// Props
+// 型定義
 // ============================================================
 
 export interface FxGroup {
@@ -34,19 +42,54 @@ export interface FxGroup {
   params: RegisteredParameterWithCC[]
 }
 
-export interface FxWindowPluginProps {
-  layerId: string
-  fxGroups: FxGroup[]
-  onToggle: (fxId: string, enabled: boolean) => void
-}
+export interface FxWindowPluginProps {}
 
 // ============================================================
 // FxWindowPlugin
 // ============================================================
 
-export function FxWindowPlugin({ layerId, fxGroups, onToggle }: FxWindowPluginProps) {
+export function FxWindowPlugin() {
   const [collapsed, setCollapsed] = useState(false)
+  const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
+  const [fxGroups, setFxGroups] = useState<FxGroup[]>([])
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 300, y: 16 })
+
+  // fxGroups を組み立てるヘルパー
+  // params は Registry から・enabled は engine から取得（FX 固有）
+  const buildFxGroups = useCallback((lid: string): FxGroup[] => {
+    return engine.getFxPlugins(lid).map((fx) => ({
+      pluginId: fx.id,
+      pluginName: fx.name,
+      enabled: fx.enabled,
+      params: transportRegistry.getAll().filter(
+        (p) => p.pluginId === fx.id && p.layerId === lid
+      ),
+    }))
+  }, [])
+
+  // 初回同期・レイヤー切り替え時（Geometry・Camera と同じパターン）
+  useEffect(() => {
+    setFxGroups(buildFxGroups(activeLayer))
+  }, [activeLayer, buildFxGroups])
+
+  // transportRegistry の変化を購読 → params を更新
+  useEffect(() => {
+    transportRegistry.onChanged(() => {
+      setFxGroups(buildFxGroups(activeLayer))
+    })
+  }, [activeLayer, buildFxGroups])
+
+  // FX enabled 変化を購読（FX 固有・Sequencer 対応前倒し）
+  useEffect(() => {
+    engine.onFxChanged(() => {
+      setFxGroups(buildFxGroups(activeLayer))
+    })
+  }, [activeLayer, buildFxGroups])
+
+  function handleToggle(fxId: string, enabled: boolean) {
+    engine.setFxEnabled(fxId, enabled, activeLayer)
+    // onFxChanged が発火して fxGroups が自動更新される
+  }
 
   return (
     <div className="fixed z-50 font-mono text-xs select-none" style={{ left: pos.x, top: pos.y, width: 280 }}>
@@ -56,7 +99,22 @@ export function FxWindowPlugin({ layerId, fxGroups, onToggle }: FxWindowPluginPr
         <div onMouseDown={handleMouseDown} className="flex items-center justify-between mb-2" style={{ cursor: 'grab' }}>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-[#7878aa] tracking-widest">FX WINDOW</span>
-            <span className="text-[9px] text-[#3a3a6e]">{layerId}</span>
+            <div className="flex gap-1">
+              {LAYER_TABS.map((id, i) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveLayer(id)}
+                  className="text-[9px] rounded px-1.5 py-0.5 border transition-colors"
+                  style={{
+                    background: activeLayer === id ? '#2a2a6e' : '#1a1a2e',
+                    borderColor: activeLayer === id ? '#5a5aaa' : '#2a2a4e',
+                    color: activeLayer === id ? '#aaaaee' : '#4a4a6e',
+                  }}
+                >
+                  L{i + 1}
+                </button>
+              ))}
+            </div>
           </div>
           <button
             onClick={() => setCollapsed((c) => !c)}
@@ -74,9 +132,10 @@ export function FxWindowPlugin({ layerId, fxGroups, onToggle }: FxWindowPluginPr
             )}
             {fxGroups.map((group) => (
               <FxGroupRow
-                key={`${layerId}-${group.pluginId}`}
+                key={`${activeLayer}-${group.pluginId}`}
                 group={group}
-                onToggle={onToggle}
+                layerId={activeLayer}
+                onToggle={handleToggle}
               />
             ))}
           </div>
@@ -92,10 +151,11 @@ export function FxWindowPlugin({ layerId, fxGroups, onToggle }: FxWindowPluginPr
 
 interface FxGroupRowProps {
   group: FxGroup
+  layerId: string
   onToggle: (fxId: string, enabled: boolean) => void
 }
 
-function FxGroupRow({ group, onToggle }: FxGroupRowProps) {
+function FxGroupRow({ group, layerId, onToggle }: FxGroupRowProps) {
   return (
     <div>
       {/* FX 名 + ON/OFF トグル */}
@@ -126,6 +186,7 @@ function FxGroupRow({ group, onToggle }: FxGroupRowProps) {
             <ParamRow
               key={`${group.pluginId}-${param.id}`}
               param={param}
+              layerId={layerId}
             />
           ))}
         </div>
@@ -135,14 +196,15 @@ function FxGroupRow({ group, onToggle }: FxGroupRowProps) {
 }
 
 // ============================================================
-// ParamRow
+// ParamRow（Geometry・Camera と同一パターン）
 // ============================================================
 
 interface ParamRowProps {
   param: RegisteredParameterWithCC
+  layerId: string
 }
 
-function ParamRow({ param }: ParamRowProps) {
+function ParamRow({ param, layerId }: ParamRowProps) {
   const { name, min, max, step, ccNumber } = param
   const [value, setValue] = useState(param.value)
 
@@ -151,7 +213,12 @@ function ParamRow({ param }: ParamRowProps) {
   function handleChange(raw: number) {
     setValue(raw)
     const normalized = max > min ? (raw - min) / (max - min) : 0
-    engine.handleMidiCC({ slot: ccNumber, value: Math.min(1, Math.max(0, normalized)), source: 'window' })
+    engine.handleMidiCC({
+      slot: ccNumber,
+      value: Math.min(1, Math.max(0, normalized)),
+      source: 'window',
+      layerId,
+    })
   }
 
   return (
