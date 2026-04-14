@@ -250,13 +250,14 @@ export interface MacroKnobConfig {
 }
 
 /**
- * MacroKnobManager — 32ノブのUI設定管理
+ * AssignRegistry — CC → パラメータのアサイン定義の SSoT
  * spec: docs/spec/macro-knob.spec.md §3
  *
- * ノブの名前・MIDI CC番号・アサイン設定・現在値キャッシュを管理する。
- * CC入力の処理は TransportManager が担当する（Day58 昇格）。
+ * アサイン設定・現在値キャッシュを管理する。
+ * CC入力の解決は TransportManager が担当し、このRegistryを参照する。
+ * Day61: MacroKnobManager → AssignRegistry に改名
  */
-export interface MacroKnobManager {
+export interface AssignRegistry {
   getKnobs(): MacroKnobConfig[]
   setKnob(id: string, config: MacroKnobConfig): void
   addAssign(knobId: string, assign: MacroAssign): void
@@ -277,7 +278,7 @@ export interface MacroKnobManager {
  * engine.handleMidiCC(TransportEvent) 経由でここに流れ込む。
  */
 export interface TransportManager {
-  init(store: { set(paramId: string, value: number): void }, knobManager: MacroKnobManager): void
+  init(store: { set(paramId: string, value: number): void }, knobManager: AssignRegistry): void
   handle(event: TransportEvent): void
   receiveModulation(knobId: string, value: number): void
 }
@@ -313,7 +314,7 @@ export interface GeoGraphyProject {
     fx: Record<string, string[]>  // layerId -> enabled FX ids（Day60）
   }
   sceneState: SceneState
-  macroKnobAssigns: MacroKnobConfig[]
+  assignRegistryState: MacroKnobConfig[]
   presetRefs: Record<string, string>
 }
 

@@ -1,14 +1,18 @@
 /**
- * MacroKnobManager
+ * AssignRegistry
  * spec: docs/spec/macro-knob.spec.md
  *
- * 32個のマクロノブのUI設定管理。
- * ノブの名前・MIDI CC番号・アサイン設定・現在値キャッシュを管理する。
- * CC入力の処理（handleMidiCC / receiveModulation）は MidiManager に移管（Day50）。
+ * CC → パラメータのアサイン定義を管理する SSoT。
+ * - 32スロットのアサイン設定（名前・midiCC・assigns）
+ * - 現在値キャッシュ（TransportManager が書く・MacroWindow が読む）
+ *
+ * Day61: MacroKnobManager → AssignRegistry に改名
+ *   MacroWindow 化により「32個の仮想ノブ UI」の責務は MacroWindow に移転。
+ *   残った本質 = CC入力 → アサイン解決 → パラメータ変調のマッピング定義。
  */
 
 import { MACRO_KNOB_COUNT, MACRO_KNOB_MAX_ASSIGNS } from './config'
-import type { MacroAssign, MacroKnobConfig, MacroKnobManager } from '../types'
+import type { MacroAssign, MacroKnobConfig, AssignRegistry } from '../types'
 
 // ============================================================
 // ヘルパー関数（spec §4）
@@ -22,17 +26,17 @@ export const normalize = (midi: number, min: number, max: number): number =>
 
 /**
  * 0.0〜1.0 の値を min/max の範囲に変換する（spec §4 rangeMap）
- * MidiManager が使用する。
+ * TransportManager が使用する。
  */
 export const rangeMap = (v: number, min: number, max: number): number =>
   min + v * (max - min)
 
 // ============================================================
-// MacroKnobManagerImpl
+// AssignRegistryImpl
 // ============================================================
 
-class MacroKnobManagerImpl implements MacroKnobManager {
-  /** 各ノブの現在値（0.0〜1.0 正規化済み）をキャッシュ */
+class AssignRegistryImpl implements AssignRegistry {
+  /** 各スロットの現在値（0.0〜1.0 正規化済み）キャッシュ */
   private currentValues: Map<string, number> = new Map()
   private knobs: MacroKnobConfig[]
 
@@ -52,22 +56,22 @@ class MacroKnobManagerImpl implements MacroKnobManager {
   setKnob(id: string, config: MacroKnobConfig): void {
     if (config.assigns.length > MACRO_KNOB_MAX_ASSIGNS) {
       throw new Error(
-        `MacroKnob "${id}": assigns は最大 ${MACRO_KNOB_MAX_ASSIGNS} 個までです（指定: ${config.assigns.length}）`
+        `AssignRegistry "${id}": assigns は最大 ${MACRO_KNOB_MAX_ASSIGNS} 個までです（指定: ${config.assigns.length}）`
       )
     }
     const index = this.knobs.findIndex((k) => k.id === id)
     if (index === -1) {
-      throw new Error(`MacroKnob "${id}" が存在しません`)
+      throw new Error(`AssignRegistry "${id}" が存在しません`)
     }
     this.knobs[index] = { ...config }
   }
 
   addAssign(knobId: string, assign: MacroAssign): void {
     const knob = this.knobs.find((k) => k.id === knobId)
-    if (!knob) throw new Error(`MacroKnob "${knobId}" が存在しません`)
+    if (!knob) throw new Error(`AssignRegistry "${knobId}" が存在しません`)
     if (knob.assigns.length >= MACRO_KNOB_MAX_ASSIGNS) {
       throw new Error(
-        `MacroKnob "${knobId}": assigns は最大 ${MACRO_KNOB_MAX_ASSIGNS} 個までです`
+        `AssignRegistry "${knobId}": assigns は最大 ${MACRO_KNOB_MAX_ASSIGNS} 個までです`
       )
     }
     knob.assigns.push({ ...assign })
@@ -75,7 +79,7 @@ class MacroKnobManagerImpl implements MacroKnobManager {
 
   removeAssign(knobId: string, paramId: string): void {
     const knob = this.knobs.find((k) => k.id === knobId)
-    if (!knob) throw new Error(`MacroKnob "${knobId}" が存在しません`)
+    if (!knob) throw new Error(`AssignRegistry "${knobId}" が存在しません`)
     knob.assigns = knob.assigns.filter((a) => a.paramId !== paramId)
   }
 
@@ -83,7 +87,7 @@ class MacroKnobManagerImpl implements MacroKnobManager {
     return this.currentValues.get(knobId) ?? 0
   }
 
-  /** MidiManager から書かれる現在値キャッシュの更新（Day50 新設） */
+  /** TransportManager から書かれる現在値キャッシュの更新 */
   setValue(knobId: string, value: number): void {
     this.currentValues.set(knobId, value)
   }
@@ -93,4 +97,4 @@ class MacroKnobManagerImpl implements MacroKnobManager {
 // シングルトン
 // ============================================================
 
-export const macroKnobManager = new MacroKnobManagerImpl()
+export const assignRegistry = new AssignRegistryImpl()

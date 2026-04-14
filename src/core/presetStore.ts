@@ -80,7 +80,7 @@ const DEFAULT_PRESETS: PresetStore = {
       fx:       { ...DEFAULT_FX },
     },
     sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
+    assignRegistryState: [] as MacroKnobConfig[],
     presetRefs: {},
   },
   'Orbit Scene': {
@@ -93,7 +93,7 @@ const DEFAULT_PRESETS: PresetStore = {
       fx:       { ...DEFAULT_FX },
     },
     sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
+    assignRegistryState: [] as MacroKnobConfig[],
     presetRefs: {},
   },
   'Aerial Scene': {
@@ -106,7 +106,7 @@ const DEFAULT_PRESETS: PresetStore = {
       fx:       { ...DEFAULT_FX },
     },
     sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
+    assignRegistryState: [] as MacroKnobConfig[],
     presetRefs: {},
   },
   'Tunnel': {
@@ -119,7 +119,7 @@ const DEFAULT_PRESETS: PresetStore = {
       fx:       { ...DEFAULT_FX },
     },
     sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
+    assignRegistryState: [] as MacroKnobConfig[],
     presetRefs: {},
   },
 }

@@ -16,9 +16,9 @@
  *   - plugin.params への書き込み（engine.flushParameterStore が担当）
  */
 
-import { rangeMap } from './macroKnob'
+import { rangeMap } from './assignRegistry'
 import { transportRegistry } from './transportRegistry'
-import type { MacroKnobManager, TransportEvent } from '../types'
+import type { AssignRegistry, TransportEvent } from '../types'
 import type { ParameterStore } from './parameterStore'
 
 // ============================================================
@@ -26,7 +26,7 @@ import type { ParameterStore } from './parameterStore'
 // ============================================================
 
 export interface TransportManager {
-  init(store: ParameterStore, knobManager: MacroKnobManager): void
+  init(store: ParameterStore, knobManager: AssignRegistry): void
   handle(event: TransportEvent): void
   receiveModulation(knobId: string, value: number): void
 }
@@ -37,9 +37,9 @@ export interface TransportManager {
 
 class TransportManagerImpl implements TransportManager {
   private store: ParameterStore | null = null
-  private knobManager: MacroKnobManager | null = null
+  private knobManager: AssignRegistry | null = null
 
-  init(store: ParameterStore, knobManager: MacroKnobManager): void {
+  init(store: ParameterStore, knobManager: AssignRegistry): void {
     this.store = store
     this.knobManager = knobManager
   }

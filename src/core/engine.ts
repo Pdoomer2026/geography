@@ -10,7 +10,7 @@ import { createFxPlugins } from '../plugins/fx'
 import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
-import { macroKnobManager } from './macroKnob'
+import { assignRegistry } from './assignRegistry'
 import { transportManager } from './transportManager'
 import { transportRegistry } from './transportRegistry'
 import { ccMapService } from './ccMapService'
@@ -85,7 +85,7 @@ export class Engine {
     layerManager.initialize(container)
 
     // TransportManager を初期化（Day58 Step4: midiManager → transportManager に昇格）
-    transportManager.init(this.parameterStore, macroKnobManager)
+    transportManager.init(this.parameterStore, assignRegistry)
     // ccMapService は engine.initialize 内でのみ使用（App.tsx から完全に分離）
     await ccMapService.init()
 
@@ -255,37 +255,37 @@ export class Engine {
 
   /** MacroKnob の設定一覧を返す（MacroKnobPanel 表示用） */
   getMacroKnobs(): MacroKnobConfig[] {
-    return macroKnobManager.getKnobs()
+    return assignRegistry.getKnobs()
   }
 
   /** MacroKnob の設定を更新する（MacroKnobPanel 編集用） */
   setMacroKnob(id: string, config: MacroKnobConfig): void {
-    macroKnobManager.setKnob(id, config)
+    assignRegistry.setKnob(id, config)
   }
 
   /** MacroKnob の現在値を返す（MacroKnobPanel 表示用・0.0〜1.0） */
   getMacroKnobValue(knobId: string): number {
-    return macroKnobManager.getValue(knobId)
+    return assignRegistry.getValue(knobId)
   }
 
   /** MacroKnob の表示用キャッシュを更新する（MacroKnobPanel UI ドラッグ用・Day52 新設） */
   setMacroKnobValue(knobId: string, value: number): void {
-    macroKnobManager.setValue(knobId, value)
+    assignRegistry.setValue(knobId, value)
   }
 
   /** MacroKnob にアサインを追加する（D&D アサイン UI 用・Day52 新設） */
   addMacroAssign(knobId: string, assign: import('../types').MacroAssign): void {
-    macroKnobManager.addAssign(knobId, assign)
+    assignRegistry.addAssign(knobId, assign)
   }
 
   /** MacroKnob からアサインを解除する（D&D アサイン UI 用・Day52 新設） */
   removeMacroAssign(knobId: string, paramId: string): void {
-    macroKnobManager.removeAssign(knobId, paramId)
+    assignRegistry.removeAssign(knobId, paramId)
   }
 
   /** 指定 paramId にアサインされている全ノブを返す（右クリックメニュー用・Day52 新設） */
   getAssignsForParam(paramId: string): { knobId: string; assign: import('../types').MacroAssign }[] {
-    return macroKnobManager.getKnobs().flatMap((k) =>
+    return assignRegistry.getKnobs().flatMap((k) =>
       k.assigns
         .filter((a) => a.paramId === paramId)
         .map((a) => ({ knobId: k.id, assign: a }))
@@ -431,7 +431,7 @@ export class Engine {
         fx: fxPerLayer,
       },
       sceneState: this.getSceneState(),
-      macroKnobAssigns: macroKnobManager.getKnobs(),
+      assignRegistryState: assignRegistry.getKnobs(),
       presetRefs: {},
     }
   }
@@ -458,6 +458,9 @@ export class Engine {
 
     // 4. sceneState の完全反映
     this.applySceneState(project.sceneState)
+
+    const restoreAssigns = project.assignRegistryState ?? (project as unknown as { macroKnobAssigns?: MacroKnobConfig[] }).macroKnobAssigns ?? []
+    restoreAssigns.forEach((config) => assignRegistry.setKnob(config.id, config))
 
     // 5. programBus / previewBus を更新
     programBus.load(project.sceneState)

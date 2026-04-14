@@ -34,7 +34,7 @@ class ProjectManagerImpl {
         fx: { 'layer-1': [], 'layer-2': [], 'layer-3': [] },
       },
       sceneState: { layers: [] },
-      macroKnobAssigns: [],
+      assignRegistryState: [],
       presetRefs: {},
     })
     this.currentFilePath = null
