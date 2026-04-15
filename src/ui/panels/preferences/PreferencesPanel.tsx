@@ -490,6 +490,7 @@ function SetupTab({ onClose, windowMode, onWindowModeChange }: { onClose: () => 
             >
               <option value="none">— none —</option>
               <option value="macro-window">MacroWindow</option>
+              <option value="macro-8-window">Macro 8</option>
             </select>
           </div>
           <div className="flex items-center gap-3">

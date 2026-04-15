@@ -4,7 +4,7 @@
  */
 
 export type GeoWindowMode = 'none' | 'simple' | 'simple-dnd' | 'standard'
-export type MacroWindowMode = 'none' | 'macro-window'
+export type MacroWindowMode = 'none' | 'macro-window' | 'macro-8-window'
 export type MixerWindowMode = 'none' | 'mixer-simple'
 
 export interface WindowMode {

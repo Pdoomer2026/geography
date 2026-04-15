@@ -1,9 +1,13 @@
 /**
- * MacroWindow — Macro Knob の Window Plugin
+ * Macro8Window — 8ノブ版 MacroWindow
  *
- * Day61: MacroKnobPanel を plugins/windows に格下げ
- * - engine への依存を除去
- * - macroKnobManager / transportManager に直接アクセス
+ * MacroWindow の8ノブ・大型版（96px）。
+ * 可動域（lo/hi）は将来実装。現在はシンプルなノブのみ。
+ *
+ * MacroWindow との差分:
+ *   - 8ノブのみ（macro-1 〜 macro-8）
+ *   - ノブサイズ 96px（MacroWindow は 48px）
+ *   - 1行横並び
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
@@ -11,11 +15,12 @@ import { engine } from '../../../core/engine'
 import { useDraggable } from '../../../ui/useDraggable'
 import type { DragPayload, MacroAssign, MacroKnobConfig } from '../../../types'
 
-const COLS = 8
-const ROWS = 4
+const KNOB_COUNT = 8
+const KNOB_SIZE = 70
+const COLS = 4
 
 // ============================================================
-// KnobCell — 1ノブのUI（ドロップ受け口付き）
+// KnobCell — 大型ノブ UI（ドロップ受け口付き）
 // ============================================================
 
 interface KnobCellProps {
@@ -36,9 +41,7 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
   const movedRef = useRef(false)
 
   useEffect(() => {
-    if (!isDraggingRef.current) {
-      setLocalValue(value)
-    }
+    if (!isDraggingRef.current) setLocalValue(value)
   }, [value])
 
   const isAssigned = config.assigns.length > 0
@@ -46,17 +49,47 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
   const isFull = config.assigns.length >= 3
 
   const displayValue = localValue
-  const angle = -135 + displayValue * 270
-  const cx = 16
-  const cy = 16
-  const r = 11
-  const startRad = (-135 * Math.PI) / 180
-  const endRad = (angle * Math.PI) / 180
-  const x1 = cx + r * Math.cos(startRad)
-  const y1 = cy + r * Math.sin(startRad)
-  const x2 = cx + r * Math.cos(endRad)
-  const y2 = cy + r * Math.sin(endRad)
-  const largeArc = displayValue > 0.5 ? 1 : 0
+  const cx = KNOB_SIZE / 2
+  const cy = KNOB_SIZE / 2
+
+  // 3重リング設定（外→内の順にアサイン1・2・3）
+  const rings = [
+    { r: KNOB_SIZE / 2 - 6,  assignIndex: 0 },
+    { r: KNOB_SIZE / 2 - 14, assignIndex: 1 },
+    { r: KNOB_SIZE / 2 - 22, assignIndex: 2 },
+  ]
+
+  // 隙間を下側に（270度アーク、隙間が真下）
+  // startAngle = 135deg（左下）, endAngle = 45deg（右下）
+  function arcPath(r: number, value: number) {
+    const startDeg = 135
+    const totalDeg = 270
+    const clampedValue = Math.min(Math.max(value, 0.0001), 0.9999)
+    const sweepDeg = totalDeg * clampedValue
+    const endDeg = startDeg + sweepDeg
+    const startRad = (startDeg * Math.PI) / 180
+    const endRad = (endDeg * Math.PI) / 180
+    const x1 = cx + r * Math.cos(startRad)
+    const y1 = cy + r * Math.sin(startRad)
+    const x2 = cx + r * Math.cos(endRad)
+    const y2 = cy + r * Math.sin(endRad)
+    // sweepDeg > 180 のとき large-arc-flag=1（SVG arc の正しい判定）
+    const largeArc = sweepDeg > 180 ? 1 : 0
+    return { x1, y1, x2, y2, largeArc }
+  }
+
+  function trackPath(r: number) {
+    // 270度のベーストラック（隙間下側）
+    const startDeg = 135
+    const endDeg = 135 + 270
+    const startRad = (startDeg * Math.PI) / 180
+    const endRad = (endDeg * Math.PI) / 180
+    const x1 = cx + r * Math.cos(startRad)
+    const y1 = cy + r * Math.sin(startRad)
+    const x2 = cx + r * Math.cos(endRad)
+    const y2 = cy + r * Math.sin(endRad)
+    return `M ${x1} ${y1} A ${r} ${r} 0 1 1 ${x2} ${y2}`
+  }
 
   function handleMouseDown(e: React.MouseEvent) {
     if (e.button !== 0) return
@@ -69,23 +102,19 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
 
     function onMouseMove(ev: MouseEvent) {
       const deltaY = dragStartYRef.current - ev.clientY
-      const sensitivity = 200
+      const sensitivity = 300
       const delta = deltaY / sensitivity
       if (Math.abs(deltaY) >= 1) movedRef.current = true
       const next = Math.min(1, Math.max(0, dragStartValueRef.current + delta))
       setLocalValue(next)
-      if (movedRef.current) {
-        onKnobChange(config.id, next)
-      }
+      if (movedRef.current) onKnobChange(config.id, next)
     }
 
     function onMouseUp() {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
       isDraggingRef.current = false
-      if (!movedRef.current) {
-        onEdit(config.id)
-      }
+      if (!movedRef.current) onEdit(config.id)
     }
 
     window.addEventListener('mousemove', onMouseMove)
@@ -100,9 +129,7 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
     setIsDragOver(true)
   }
 
-  function handleDragLeave() {
-    setIsDragOver(false)
-  }
+  function handleDragLeave() { setIsDragOver(false) }
 
   function handleDrop(e: React.DragEvent) {
     setIsDragOver(false)
@@ -112,9 +139,7 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
     try {
       const payload = JSON.parse(raw) as DragPayload
       onDrop(config.id, payload)
-    } catch {
-      // malformed payload は無視
-    }
+    } catch { /* malformed payload は無視 */ }
   }
 
   return (
@@ -123,12 +148,11 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="group flex flex-col items-center gap-0.5 p-1 rounded
+      className="group flex flex-col items-center gap-1 p-2 rounded
                  hover:bg-[#1e1e3e] transition-colors duration-100
                  border border-transparent hover:border-[#3a3a5e]"
       style={{
-        width: 48,
-        minHeight: 64,
+        width: KNOB_SIZE + 16,
         cursor: 'ns-resize',
         borderColor: isDragOver ? '#7878ff' : isFull ? '#3a3a5e' : undefined,
         background: isDragOver ? '#1a1a4e' : undefined,
@@ -136,63 +160,77 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
       }}
       title={`${config.id}${config.name ? ` — ${config.name}` : ''}${hasMidi ? ` | CC${config.midiCC}` : ''}${isFull ? ' (FULL)' : ''} | 上下ドラッグで操作`}
     >
-      <svg width={32} height={32} viewBox="0 0 32 32">
-        <circle
-          cx={cx} cy={cy} r={r}
-          fill="none"
-          stroke="#2a2a4e"
-          strokeWidth={2.5}
-          strokeDasharray={`${(270 / 360) * 2 * Math.PI * r} ${2 * Math.PI * r}`}
-          strokeDashoffset={`${-(45 / 360) * 2 * Math.PI * r}`}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
-        />
-        {displayValue > 0.001 && (
-          <path
-            d={`M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`}
-            fill="none"
-            stroke={isAssigned ? '#9090ff' : '#4a4a7e'}
-            strokeWidth={2.5}
-            strokeLinecap="round"
-          />
-        )}
-        <circle
-          cx={cx} cy={cy} r={2.5}
-          fill={isAssigned ? '#b0b0ff' : '#4a4a6e'}
-        />
-        {hasMidi && (
-          <circle cx={26} cy={6} r={2} fill="#ff7878" />
-        )}
-        {isAssigned && (
-          <text x={6} y={9} fontSize={7} fill="#7878cc" textAnchor="middle">
-            {config.assigns.length}
-          </text>
-        )}
+      <svg width={KNOB_SIZE} height={KNOB_SIZE} viewBox={`0 0 ${KNOB_SIZE} ${KNOB_SIZE}`}>
+        {/* 3重リング */}
+        {rings.map(({ r, assignIndex }) => {
+          const assign = config.assigns[assignIndex]
+          const ringValue = assignIndex === 0 ? displayValue : (assign ? displayValue : 0)
+          const arc = arcPath(r, ringValue)
+          const hasAssign = !!assign
+          const strokeColor =
+            assignIndex === 0 ? (isAssigned ? '#9090ff' : '#4a4a7e')
+            : assignIndex === 1 ? '#70d0aa'
+            : '#ffaa55'
+          return (
+            <g key={assignIndex}>
+              {/* ベーストラック */}
+              <path
+                d={trackPath(r)}
+                fill="none"
+                stroke="#1e1e3e"
+                strokeWidth={assignIndex === 0 ? 3.5 : 2.5}
+                strokeLinecap="round"
+              />
+              {/* 値アーク */}
+              {(hasAssign || assignIndex === 0) && ringValue > 0.001 && (
+                <path
+                  d={`M ${arc.x1} ${arc.y1} A ${r} ${r} 0 ${arc.largeArc} 1 ${arc.x2} ${arc.y2}`}
+                  fill="none"
+                  stroke={strokeColor}
+                  strokeWidth={assignIndex === 0 ? 3.5 : 2.5}
+                  strokeLinecap="round"
+                />
+              )}
+            </g>
+          )
+        })}
+        {/* 中心点 */}
+        <circle cx={cx} cy={cy} r={4} fill={isAssigned ? '#b0b0ff' : '#4a4a6e'} />
+        {/* MIDI インジケーター */}
+        {hasMidi && <circle cx={KNOB_SIZE - 8} cy={8} r={4} fill="#ff7878" />}
+        {/* ドラッグオーバー枠 */}
         {isDragOver && (
-          <circle
-            cx={cx} cy={cy} r={14}
-            fill="none"
-            stroke="#7878ff"
-            strokeWidth={1}
-            strokeDasharray="3 2"
-          />
+          <circle cx={cx} cy={cy} r={KNOB_SIZE / 2 - 2} fill="none" stroke="#7878ff" strokeWidth={1.5} strokeDasharray="4 3" />
         )}
       </svg>
 
-      <span className="text-[8px] text-[#8888bb] group-hover:text-[#aaaaf0]
+      {/* 名前 */}
+      <span className="text-[10px] text-[#8888bb] group-hover:text-[#aaaaf0]
                        truncate w-full text-center leading-tight tracking-widest">
         {config.name || config.id.replace('macro-', '#')}
       </span>
 
-      <span className="text-[7px] text-[#5a5a7e] group-hover:text-[#7a7aaa]">
+      {/* 値 */}
+      <span className="text-[10px] text-[#5a5a7e] group-hover:text-[#7a7aaa] tabular-nums">
         {displayValue.toFixed(2)}
       </span>
+
+      {/* アサイン一覧（ホバー時） */}
+      {isAssigned && (
+        <div className="w-full mt-0.5">
+          {config.assigns.map((a, i) => (
+            <div key={i} className="text-[8px] text-[#4a4a7e] truncate text-center">
+              {a.layerId} · {a.paramId}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 // ============================================================
-// EditDialog
+// EditDialog（MacroWindow と同じ）
 // ============================================================
 
 interface EditDialogProps {
@@ -246,9 +284,7 @@ function EditDialog({ config, onSave, onRemoveAssign, onClose }: EditDialogProps
             type="number"
             value={cc}
             onChange={(e) => setCc(e.target.value)}
-            min={0}
-            max={127}
-            placeholder="—"
+            min={0} max={127} placeholder="—"
             className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5
                        text-[#aaaaf0] text-xs outline-none focus:border-[#5555aa]"
           />
@@ -260,36 +296,21 @@ function EditDialog({ config, onSave, onRemoveAssign, onClose }: EditDialogProps
             {config.assigns.map((a, i) => (
               <div key={i} className="flex items-center justify-between py-0.5 group">
                 <span className="text-[#5555aa] text-[9px]">
-                  CC{a.ccNumber} · {a.paramId} [{a.min}…{a.max}]
+                  {a.layerId} · CC{a.ccNumber} · {a.paramId}
                 </span>
                 <button
                   onClick={() => onRemoveAssign(a.paramId)}
                   className="text-[8px] text-[#3a3a5e] hover:text-[#cc4444]
                              transition-colors ml-2 px-1 opacity-0 group-hover:opacity-100"
-                  title={`${a.paramId} のアサインを解除`}
-                >
-                  ×
-                </button>
+                >×</button>
               </div>
             ))}
           </div>
         )}
 
         <div className="flex gap-2 justify-end">
-          <button
-            onClick={onClose}
-            className="px-3 py-1 text-[10px] text-[#6666aa] border border-[#2a2a4e]
-                       rounded hover:border-[#4a4a7e] transition-colors"
-          >
-            CANCEL
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-3 py-1 text-[10px] text-[#aaaaf0] border border-[#4a4a8e]
-                       rounded hover:bg-[#1a1a4e] transition-colors"
-          >
-            SAVE
-          </button>
+          <button onClick={onClose} className="px-3 py-1 text-[10px] text-[#6666aa] border border-[#2a2a4e] rounded hover:border-[#4a4a7e] transition-colors">CANCEL</button>
+          <button onClick={handleSave} className="px-3 py-1 text-[10px] text-[#aaaaf0] border border-[#4a4a8e] rounded hover:bg-[#1a1a4e] transition-colors">SAVE</button>
         </div>
       </div>
     </div>
@@ -297,7 +318,7 @@ function EditDialog({ config, onSave, onRemoveAssign, onClose }: EditDialogProps
 }
 
 // ============================================================
-// AssignDialog
+// AssignDialog（MacroWindow と同じ）
 // ============================================================
 
 interface AssignDialogProps {
@@ -313,10 +334,7 @@ function AssignDialog({ knobId, payload, onAssign, onClose }: AssignDialogProps)
   const [error, setError] = useState<string | null>(null)
 
   function handleAssign() {
-    if (minVal >= maxVal) {
-      setError('min は max より小さくしてください')
-      return
-    }
+    if (minVal >= maxVal) { setError('min は max より小さくしてください'); return }
     const assign: MacroAssign = {
       paramId: payload.id,
       ccNumber: payload.ccNumber,
@@ -356,60 +374,30 @@ function AssignDialog({ knobId, payload, onAssign, onClose }: AssignDialogProps)
         </div>
 
         <label className="block mb-3">
-          <span className="text-[#6666aa] text-[9px] tracking-wider block mb-1">
-            MIN <span className="text-[#4a4a6e]">({payload.min})</span>
-          </span>
+          <span className="text-[#6666aa] text-[9px] tracking-wider block mb-1">MIN <span className="text-[#4a4a6e]">({payload.min})</span></span>
           <div className="flex items-center gap-2">
-            <input
-              type="range"
-              min={payload.min}
-              max={payload.max}
-              step={step}
-              value={minVal}
+            <input type="range" min={payload.min} max={payload.max} step={step} value={minVal}
               onChange={(e) => setMinVal(parseFloat(e.target.value))}
-              className="flex-1 accent-[#5a5aff] h-1"
-            />
+              className="flex-1 accent-[#5a5aff] h-1" />
             <span className="w-12 text-right text-[#aaaaf0] tabular-nums">{minVal.toFixed(2)}</span>
           </div>
         </label>
 
         <label className="block mb-4">
-          <span className="text-[#6666aa] text-[9px] tracking-wider block mb-1">
-            MAX <span className="text-[#4a4a6e]">({payload.max})</span>
-          </span>
+          <span className="text-[#6666aa] text-[9px] tracking-wider block mb-1">MAX <span className="text-[#4a4a6e]">({payload.max})</span></span>
           <div className="flex items-center gap-2">
-            <input
-              type="range"
-              min={payload.min}
-              max={payload.max}
-              step={step}
-              value={maxVal}
+            <input type="range" min={payload.min} max={payload.max} step={step} value={maxVal}
               onChange={(e) => setMaxVal(parseFloat(e.target.value))}
-              className="flex-1 accent-[#5a5aff] h-1"
-            />
+              className="flex-1 accent-[#5a5aff] h-1" />
             <span className="w-12 text-right text-[#aaaaf0] tabular-nums">{maxVal.toFixed(2)}</span>
           </div>
         </label>
 
-        {error && (
-          <div className="text-[#cc4444] text-[9px] mb-3">{error}</div>
-        )}
+        {error && <div className="text-[#cc4444] text-[9px] mb-3">{error}</div>}
 
         <div className="flex gap-2 justify-end">
-          <button
-            onClick={onClose}
-            className="px-3 py-1 text-[10px] text-[#6666aa] border border-[#2a2a4e]
-                       rounded hover:border-[#4a4a7e] transition-colors"
-          >
-            CANCEL
-          </button>
-          <button
-            onClick={handleAssign}
-            className="px-3 py-1 text-[10px] text-[#aaaaf0] border border-[#4a4a8e]
-                       rounded hover:bg-[#1a1a4e] transition-colors"
-          >
-            ASSIGN
-          </button>
+          <button onClick={onClose} className="px-3 py-1 text-[10px] text-[#6666aa] border border-[#2a2a4e] rounded hover:border-[#4a4a7e] transition-colors">CANCEL</button>
+          <button onClick={handleAssign} className="px-3 py-1 text-[10px] text-[#aaaaf0] border border-[#4a4a8e] rounded hover:bg-[#1a1a4e] transition-colors">ASSIGN</button>
         </div>
       </div>
     </div>
@@ -417,20 +405,20 @@ function AssignDialog({ knobId, payload, onAssign, onClose }: AssignDialogProps)
 }
 
 // ============================================================
-// MacroWindow — メインコンポーネント
+// Macro8Window — メインコンポーネント
 // ============================================================
 
-export function MacroWindow() {
+export function Macro8Window() {
   const [knobs, setKnobs] = useState<MacroKnobConfig[]>([])
-  const [values, setValues] = useState<number[]>(new Array(32).fill(0))
+  const [values, setValues] = useState<number[]>(new Array(KNOB_COUNT).fill(0))
   const [editingId, setEditingId] = useState<string | null>(null)
   const [assignTarget, setAssignTarget] = useState<{ knobId: string; payload: DragPayload } | null>(null)
 
-  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth / 2 - 200, y: 16 })
+  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth / 2 - 440, y: 16 })
 
   useEffect(() => {
     const sync = () => {
-      const configs = engine.getMacroKnobs()
+      const configs = engine.getMacroKnobs().slice(0, KNOB_COUNT)
       setKnobs([...configs])
       setValues(configs.map((k) => engine.getMacroKnobValue(k.id)))
     }
@@ -439,9 +427,7 @@ export function MacroWindow() {
     return () => window.clearInterval(timer)
   }, [])
 
-  const handleEdit = useCallback((id: string) => {
-    setEditingId(id)
-  }, [])
+  const handleEdit = useCallback((id: string) => setEditingId(id), [])
 
   const handleSave = useCallback((name: string, midiCC: number) => {
     if (!editingId) return
@@ -454,7 +440,7 @@ export function MacroWindow() {
   const handleRemoveAssign = useCallback((paramId: string) => {
     if (!editingId) return
     engine.removeMacroAssign(editingId, paramId)
-    setKnobs([...engine.getMacroKnobs()])
+    setKnobs([...engine.getMacroKnobs().slice(0, KNOB_COUNT)])
   }, [editingId])
 
   const handleClose = useCallback(() => setEditingId(null), [])
@@ -482,11 +468,11 @@ export function MacroWindow() {
       >
         <div
           onMouseDown={handleMouseDown}
-          className="text-[9px] text-[#5a5a88] mb-2 tracking-widest flex items-center gap-2"
+          className="text-[9px] text-[#5a5a88] mb-3 tracking-widest flex items-center gap-2"
           style={{ cursor: 'grab' }}
         >
-          <span>MACRO WINDOW</span>
-          <span className="text-[#3a3a5e]">32 × MIDI</span>
+          <span>MACRO 8</span>
+          <span className="text-[#3a3a5e]">8 × MIDI</span>
           <span className="ml-auto text-[#3a3a5e]">
             {knobs.filter(k => k.assigns.length > 0).length} ASSIGNED
           </span>
@@ -495,30 +481,23 @@ export function MacroWindow() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(${COLS}, 48px)`,
-            gap: '2px',
+            gridTemplateColumns: `repeat(${COLS}, ${KNOB_SIZE + 16}px)`,
+            gap: '4px',
           }}
         >
-          {Array.from({ length: ROWS }, (_, row) =>
-            Array.from({ length: COLS }, (_, col) => {
-              const index = row * COLS + col
-              const knob = knobs[index]
-              if (!knob) return null
-              return (
-                <KnobCell
-                  key={knob.id}
-                  config={knob}
-                  value={values[index] ?? 0}
-                  onEdit={handleEdit}
-                  onDrop={handleDrop}
-                  onKnobChange={(knobId, val) => {
-                    engine.setMacroKnobValue(knobId, val)
-                    engine.receiveMidiModulation(knobId, val)
-                  }}
-                />
-              )
-            })
-          )}
+          {knobs.map((knob, index) => (
+            <KnobCell
+              key={knob.id}
+              config={knob}
+              value={values[index] ?? 0}
+              onEdit={handleEdit}
+              onDrop={handleDrop}
+              onKnobChange={(knobId, val) => {
+                engine.setMacroKnobValue(knobId, val)
+                engine.receiveMidiModulation(knobId, val)
+              }}
+            />
+          ))}
         </div>
       </div>
 

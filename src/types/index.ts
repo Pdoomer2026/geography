@@ -214,6 +214,8 @@ export interface MacroAssign {
    * spec: docs/spec/cc-mapping.spec.md §9
    */
   ccNumber: number
+  /** アサイン元のレイヤー ID（'layer-1' 等）。全レイヤー同時書き込みを防ぐ */
+  layerId: string
   min: number
   max: number
   curve: CurveType

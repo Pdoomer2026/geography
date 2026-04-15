@@ -4,6 +4,7 @@ import { midiInputWrapper } from '../drivers/input/MidiInputWrapper'
 import { projectManager } from '../core/projectManager'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroWindow } from '../plugins/windows/macro-window'
+import { Macro8Window } from '../plugins/windows/macro-8-window'
 import { GeometrySimpleWindow, CameraSimpleWindow, FxSimpleWindow } from '../plugins/windows/simple-window'
 import { GeometryStandardWindow, CameraStandardWindow, FxStandardWindow } from '../plugins/windows/standard-window'
 import { GeometrySimpleDnDWindow, CameraSimpleDnDWindow, FxSimpleDnDWindow } from '../plugins/windows/simple-dnd-window'
@@ -130,7 +131,8 @@ export default function App() {
       />
 
       {/* Macro */}
-      {windowMode.macro === 'macro-window' && <MacroWindow />}
+      {windowMode.macro === 'macro-window'   && <MacroWindow />}
+      {windowMode.macro === 'macro-8-window' && <Macro8Window />}
 
       {/* Mixer */}
       {windowMode.mixer === 'mixer-simple' && <MixerSimpleWindow />}
