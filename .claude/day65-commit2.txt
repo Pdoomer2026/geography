@@ -1,0 +1,7 @@
+feat: StandardD&D Window + Macro8Window リング個別同期の完成
+
+- RangeSlider: valFrac を lo〜hi 基準に変更し、Macro との座標系を統一
+- RangeSlider: input の min/max を lo/hi に変更し handleChange を簡略化
+- Macro8Window: 各リングが対応するアサインの実際の値を個別表示するよう修正
+- Macro8Window: ポーリングで assignValuesList を計算し KnobCell に渡す
+- 全リングを assignValues で統一（外側リングも displayValue から移行）

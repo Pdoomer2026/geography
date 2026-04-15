@@ -26,12 +26,13 @@ const COLS = 4
 interface KnobCellProps {
   config: MacroKnobConfig
   value: number
+  assignValues: number[]  // 各アサインの正規化済みリング値（0〜1）
   onEdit: (id: string) => void
   onDrop: (knobId: string, payload: DragPayload) => void
   onKnobChange: (knobId: string, value: number) => void
 }
 
-function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps) {
+function KnobCell({ config, value, assignValues, onEdit, onDrop, onKnobChange }: KnobCellProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [localValue, setLocalValue] = useState(value)
 
@@ -164,7 +165,7 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
         {/* 3重リング */}
         {rings.map(({ r, assignIndex }) => {
           const assign = config.assigns[assignIndex]
-          const ringValue = assignIndex === 0 ? displayValue : (assign ? displayValue : 0)
+          const ringValue = assign ? (assignValues[assignIndex] ?? 0) : (assignIndex === 0 ? displayValue : 0)
           const arc = arcPath(r, ringValue)
           const hasAssign = !!assign
           const strokeColor =
@@ -412,6 +413,7 @@ function AssignDialog({ knobId, payload, onAssign, onClose }: AssignDialogProps)
 export function Macro8Window() {
   const [knobs, setKnobs] = useState<MacroKnobConfig[]>([])
   const [values, setValues] = useState<number[]>(new Array(KNOB_COUNT).fill(0))
+  const [assignValuesList, setAssignValuesList] = useState<number[][]>(new Array(KNOB_COUNT).fill([]))
   const [editingId, setEditingId] = useState<string | null>(null)
   const [assignTarget, setAssignTarget] = useState<{ knobId: string; payload: DragPayload } | null>(null)
 
@@ -422,6 +424,21 @@ export function Macro8Window() {
       const configs = engine.getMacroKnobs().slice(0, KNOB_COUNT)
       setKnobs([...configs])
       setValues(configs.map((k) => engine.getMacroKnobValue(k.id)))
+      // 各ノブの各アサインのリング値を計算
+      const liveParams = engine.getParametersLive()
+      const newAssignValuesList = configs.map((k) =>
+        k.assigns.map((assign) => {
+          const entry = liveParams.find(
+            (p) => p.ccNumber === assign.ccNumber && p.layerId === assign.layerId
+          )
+          if (!entry) return 0
+          const entryRange = entry.max - entry.min || 1
+          const normalized = (entry.value - entry.min) / entryRange
+          const assignRange = assign.max - assign.min || 1
+          return Math.min(1, Math.max(0, (normalized - assign.min) / assignRange))
+        })
+      )
+      setAssignValuesList(newAssignValuesList)
     }
     sync()
     const timer = window.setInterval(sync, 200)
@@ -491,6 +508,7 @@ export function Macro8Window() {
               key={knob.id}
               config={knob}
               value={values[index] ?? 0}
+              assignValues={assignValuesList[index] ?? []}
               onEdit={handleEdit}
               onDrop={handleDrop}
               onKnobChange={(knobId, val) => {

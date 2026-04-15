@@ -41,7 +41,8 @@ export function RangeSlider({ min, max, lo, hi, value, step, onLoHiChange, onCha
   // 0〜1 の位置に変換
   const loFrac = (lo - min) / range
   const hiFrac = (hi - min) / range
-  const valFrac = (value - min) / range
+  const loHiRange = hi - lo || 1
+  const valFrac = Math.min(1, Math.max(0, (value - lo) / loHiRange))
 
   // ドラッグ中に生値を計算
   const fractionFromEvent = useCallback((e: MouseEvent): number => {
@@ -170,8 +171,8 @@ export function RangeSlider({ min, max, lo, hi, value, step, onLoHiChange, onCha
         />
         <input
           type="range"
-          min={min}
-          max={max}
+          min={lo}
+          max={hi}
           step={step}
           value={value}
           onChange={(e) => handleValueChange(parseFloat(e.target.value))}

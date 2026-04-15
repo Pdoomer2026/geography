@@ -187,10 +187,7 @@ function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange
 
   function handleChange(raw: number) {
     setValue(raw)
-    const fullRange = max - min || 1
-    const t = (raw - min) / fullRange
-    const remapped = lo + t * (hi - lo)
-    const normalized = Math.min(1, Math.max(0, (remapped - min) / fullRange))
+    const normalized = Math.min(1, Math.max(0, (raw - min) / (max - min || 1)))
     engine.handleMidiCC({ slot: ccNumber, value: normalized, source: 'window', layerId })
   }
 
