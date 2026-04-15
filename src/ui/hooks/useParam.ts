@@ -57,7 +57,8 @@ export function useParam(
 
 /**
  * TransportRegistry に登録されている全パラメータをリアルタイムで返す。
- * layerId でフィルタしたい場合は結果を filter して使う。
+ * 値の変化は 100ms ポーリングで検知する（毎フレーム notify を避けるため）。
+ * 構造変化（register/clear）は onRegistryChanged で即時反映する。
  *
  * @param layerId  省略時は全レイヤー。指定するとそのレイヤーのみ。
  */
@@ -66,12 +67,20 @@ export function useAllParams(layerId?: string): RegisteredParameterWithCC[] {
     engine.getParameters(layerId)
   )
 
+  // 構造変化（register / clear）は即時反映
   useEffect(() => {
     setParams(engine.getParameters(layerId))
-
     return engine.onRegistryChanged(() => {
       setParams(engine.getParameters(layerId))
     })
+  }, [layerId])
+
+  // 値の変化は 100ms ポーリングで検知（flushParameterStore は毎フレーム走るため）
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setParams(engine.getParameters(layerId))
+    }, 100)
+    return () => window.clearInterval(timer)
   }, [layerId])
 
   return params
