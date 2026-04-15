@@ -5,12 +5,13 @@ import { projectManager } from '../core/projectManager'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroWindow } from '../plugins/windows/macro-window'
 import { GeometrySimpleWindow, CameraSimpleWindow, FxSimpleWindow } from '../plugins/windows/simple-window'
+import { GeoMonitorWindow } from '../plugins/windows/geo-monitor'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
-  const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true, camera: true, geometry: true })
+  const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true, camera: true, geometry: true, monitor: false })
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
 
@@ -54,8 +55,8 @@ export default function App() {
       onToggleMixerWindow: () => setUiVisible((v) => ({ ...v, mixer: !v.mixer })),
       onToggleFxWindow: () => setUiVisible((v) => ({ ...v, fx: !v.fx })),
       onToggleMacroKnobWindow: () => setUiVisible((v) => ({ ...v, macro: !v.macro })),
-      onHideAllWindows: () => setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false }),
-      onShowAllWindows: () => setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true }),
+      onHideAllWindows: () => setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false, monitor: false }),
+      onShowAllWindows: () => setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true, monitor: false }),
       onStartRecording: () => { engine.startRecording(); setIsRecording(true) },
       onStopRecording: async () => {
         const blob = await engine.stopRecording()
@@ -80,22 +81,23 @@ export default function App() {
       if (e.key === '3') setUiVisible((v) => ({ ...v, mixer: !v.mixer }))
       if (e.key === '4') setUiVisible((v) => ({ ...v, camera: !v.camera }))
       if (e.key === '5') setUiVisible((v) => ({ ...v, geometry: !v.geometry }))
+      if (e.key === '6') setUiVisible((v) => ({ ...v, monitor: !v.monitor }))
       if (e.key === 'p' || e.key === 'P') setPrefsOpen((o) => !o)
       if (e.key === 'f' || e.key === 'F') {
-        setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false })
+        setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false, monitor: false })
         setPrefsOpen(false)
         document.documentElement.requestFullscreen?.().catch(() => {})
       }
       if (e.key === 'h' || e.key === 'H') {
-        setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false })
+        setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false, monitor: false })
       }
       if (e.key === 's' || e.key === 'S') {
-        setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true })
+        setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true, monitor: false })
       }
     }
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
-        setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true })
+        setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true, monitor: false })
       }
     }
     window.addEventListener('keydown', handleKey)
@@ -138,6 +140,8 @@ export default function App() {
 
       {uiVisible.camera && <CameraSimpleWindow />}
 
+      {uiVisible.monitor && <GeoMonitorWindow />}
+
       {isRecording && (
         <div
           className="fixed top-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono select-none pointer-events-none"
@@ -151,7 +155,7 @@ export default function App() {
         className="fixed bottom-1 right-2 text-[9px] text-[#3a3a5e] select-none pointer-events-none"
         style={{ zIndex: 100 }}
       >
-        P:Prefs 1:MacroKnob 2:FX 3:Mixer 4:Camera 5:Geometry | H:Hide S:Show F:全非表示+全画面
+        P:Prefs 1:MacroKnob 2:FX 3:Mixer 4:Camera 5:Geometry 6:Monitor | H:Hide S:Show F:全非表示+全画面
       </div>
     </>
   )

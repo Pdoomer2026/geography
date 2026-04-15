@@ -1,0 +1,21 @@
+feat(sdk): add useParam hook and GeoMonitorWindow
+
+SDK v2.2 §3.3 Minimal Glue Hooks + §4.1 GeoMonitor implementation.
+
+useParam / useAllParams (src/ui/hooks/useParam.ts):
+  - useParam(layerId, pluginId): subscribe to a single plugin's params
+  - useAllParams(layerId?): subscribe to all registered params
+  - Both return unsubscribe via engine.onRegistryChanged() cleanup
+
+GeoMonitorWindow (src/plugins/windows/geo-monitor/):
+  - Real-time view of all TransportRegistry entries
+  - Layer filter (ALL / L1 / L2 / L3) + text search
+  - Value bar per param, grouped by layerId·pluginId
+  - Toggle with keyboard shortcut '6'
+
+App.tsx:
+  - Import GeoMonitorWindow, add monitor to uiVisible state
+  - Key '6' toggles monitor
+  - monitor: false on H/S/F shortcuts
+
+Baseline: 127 tests, zero tsc errors.
