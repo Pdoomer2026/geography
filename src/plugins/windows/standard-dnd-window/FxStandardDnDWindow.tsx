@@ -4,7 +4,7 @@
  * FxStandardWindow（lo/hi RangeSlider）に D&D ハンドル（≡）を追加した Window。
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../../../core/engine'
 import { useDraggable } from '../../../ui/useDraggable'
 import type { RegisteredParameterWithCC } from '../../../types/midi-registry'
@@ -26,6 +26,7 @@ export function FxStandardDnDWindow() {
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
   const [fxGroups, setFxGroups] = useState<FxGroup[]>([])
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 320, y: 200 })
+  const loHiMapRef = useRef<Map<number, { lo: number; hi: number }>>(new Map())
 
   const buildFxGroups = useCallback((lid: string): FxGroup[] => {
     return engine.getFxPlugins(lid).map((fx) => ({
@@ -106,6 +107,7 @@ export function FxStandardDnDWindow() {
                 group={group}
                 layerId={activeLayer}
                 onToggle={handleToggle}
+                loHiMapRef={loHiMapRef}
               />
             ))}
           </div>
@@ -123,9 +125,10 @@ interface FxGroupRowProps {
   group: FxGroup
   layerId: string
   onToggle: (fxId: string, enabled: boolean) => void
+  loHiMapRef: React.RefObject<Map<number, { lo: number; hi: number }>>
 }
 
-function FxGroupRow({ group, layerId, onToggle }: FxGroupRowProps) {
+function FxGroupRow({ group, layerId, onToggle, loHiMapRef }: FxGroupRowProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
@@ -147,14 +150,22 @@ function FxGroupRow({ group, layerId, onToggle }: FxGroupRowProps) {
 
       {group.enabled && group.params.length > 0 && (
         <div className="ml-2 flex flex-col gap-2.5">
-          {group.params.map((param) => (
-            <ParamRow
-              key={`${group.pluginId}-${param.id}`}
-              param={param}
-              layerId={layerId}
-              pluginId={group.pluginId}
-            />
-          ))}
+          {group.params.map((param) => {
+            const saved = loHiMapRef.current?.get(param.ccNumber)
+            return (
+              <ParamRow
+                key={`${group.pluginId}-${param.id}`}
+                param={param}
+                layerId={layerId}
+                pluginId={group.pluginId}
+                initialLo={saved?.lo ?? param.min}
+                initialHi={saved?.hi ?? param.max}
+                onLoHiChange={(lo, hi) => {
+                  loHiMapRef.current?.set(param.ccNumber, { lo, hi })
+                }}
+              />
+            )
+          })}
         </div>
       )}
     </div>
@@ -169,13 +180,16 @@ interface ParamRowProps {
   param: RegisteredParameterWithCC
   layerId: string
   pluginId: string
+  initialLo: number
+  initialHi: number
+  onLoHiChange: (lo: number, hi: number) => void
 }
 
-function ParamRow({ param, layerId, pluginId }: ParamRowProps) {
+function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange }: ParamRowProps) {
   const { name, min, max, step, ccNumber } = param
   const [value, setValue] = useState(param.value)
-  const [lo, setLo] = useState(min)
-  const [hi, setHi] = useState(max)
+  const [lo, setLo] = useState(initialLo)
+  const [hi, setHi] = useState(initialHi)
   const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => { setValue(param.value) }, [param.value])
@@ -184,16 +198,14 @@ function ParamRow({ param, layerId, pluginId }: ParamRowProps) {
 
   function handleChange(raw: number) {
     setValue(raw)
-    const fullRange = max - min || 1
-    const t = (raw - min) / fullRange
-    const remapped = lo + t * (hi - lo)
-    const normalized = Math.min(1, Math.max(0, (remapped - min) / fullRange))
+    const normalized = Math.min(1, Math.max(0, (raw - min) / (max - min || 1)))
     engine.handleMidiCC({ slot: ccNumber, value: normalized, source: 'window', layerId })
   }
 
   function handleLoHiChange(newLo: number, newHi: number) {
     setLo(newLo)
     setHi(newHi)
+    onLoHiChange(newLo, newHi)
   }
 
   function handleDragStart(e: React.DragEvent) {

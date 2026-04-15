@@ -4,7 +4,7 @@
  * CameraStandardWindow（lo/hi RangeSlider）に D&D ハンドル（≡）を追加した Window。
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../../../core/engine'
 import { useDraggable } from '../../../ui/useDraggable'
 import type { CameraPlugin } from '../../../types'
@@ -22,6 +22,7 @@ export function CameraStandardDnDWindow() {
   const [params, setParams] = useState<RegisteredParameterWithCC[]>([])
   const [availableCameras, setAvailableCameras] = useState<CameraPlugin[]>([])
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 620, y: 200 })
+  const loHiMapRef = useRef<Map<number, { lo: number; hi: number }>>(new Map())
 
   const getParamsFromRegistry = useCallback((layerId: LayerId, camId: string) => {
     return engine.getParameters(layerId).filter((p) => p.pluginId === camId)
@@ -53,8 +54,9 @@ export function CameraStandardDnDWindow() {
       if (!cam) return
       if (cam.id !== cameraId) {
         setCameraId(cam.id)
-        setParams(getParamsFromRegistry(activeLayer, cam.id))
       }
+      const live = engine.getParametersLive(activeLayer).filter((p) => p.pluginId === cam.id)
+      setParams(live)
     }, 200)
     return () => window.clearInterval(timer)
   }, [activeLayer, cameraId, getParamsFromRegistry])
@@ -120,14 +122,22 @@ export function CameraStandardDnDWindow() {
               {params.length === 0 && (
                 <div className="text-[#3a3a5e] text-[10px] py-2 text-center">— no params —</div>
               )}
-              {params.map((param) => (
-                <ParamRow
-                  key={param.ccNumber}
-                  param={param}
-                  layerId={activeLayer}
-                  pluginId={cameraId}
-                />
-              ))}
+              {params.map((param) => {
+                const saved = loHiMapRef.current.get(param.ccNumber)
+                return (
+                  <ParamRow
+                    key={param.ccNumber}
+                    param={param}
+                    layerId={activeLayer}
+                    pluginId={cameraId}
+                    initialLo={saved?.lo ?? param.min}
+                    initialHi={saved?.hi ?? param.max}
+                    onLoHiChange={(lo, hi) => {
+                      loHiMapRef.current.set(param.ccNumber, { lo, hi })
+                    }}
+                  />
+                )
+              })}
             </div>
           </div>
         )}
@@ -144,13 +154,16 @@ interface ParamRowProps {
   param: RegisteredParameterWithCC
   layerId: string
   pluginId: string
+  initialLo: number
+  initialHi: number
+  onLoHiChange: (lo: number, hi: number) => void
 }
 
-function ParamRow({ param, layerId, pluginId }: ParamRowProps) {
+function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange }: ParamRowProps) {
   const { name, min, max, step, ccNumber } = param
   const [value, setValue] = useState(param.value)
-  const [lo, setLo] = useState(min)
-  const [hi, setHi] = useState(max)
+  const [lo, setLo] = useState(initialLo)
+  const [hi, setHi] = useState(initialHi)
   const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => { setValue(param.value) }, [param.value])
@@ -159,16 +172,14 @@ function ParamRow({ param, layerId, pluginId }: ParamRowProps) {
 
   function handleChange(raw: number) {
     setValue(raw)
-    const fullRange = max - min || 1
-    const t = (raw - min) / fullRange
-    const remapped = lo + t * (hi - lo)
-    const normalized = Math.min(1, Math.max(0, (remapped - min) / fullRange))
+    const normalized = Math.min(1, Math.max(0, (raw - min) / (max - min || 1)))
     engine.handleMidiCC({ slot: ccNumber, value: normalized, source: 'window', layerId })
   }
 
   function handleLoHiChange(newLo: number, newHi: number) {
     setLo(newLo)
     setHi(newHi)
+    onLoHiChange(newLo, newHi)
   }
 
   function handleDragStart(e: React.DragEvent) {

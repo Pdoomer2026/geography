@@ -112,17 +112,13 @@ export class FxStack implements IFxStack {
       c.passes.push(p)
     }
 
-    // Step 3 & 4: enabledIds のプラグインだけ FX_STACK_ORDER 順で create()
+    // Step 3 & 4: 全FXをcreate()して pass を維持し、enabled だけ制御
     const enabledSet = new Set(enabledIds)
     for (const id of FX_STACK_ORDER) {
       const plugin = this.plugins.get(id)
       if (!plugin) continue
-      if (enabledSet.has(id)) {
-        plugin.enabled = true
-        plugin.create(composer)
-      } else {
-        plugin.enabled = false
-      }
+      plugin.create(composer)
+      plugin.enabled = enabledSet.has(id)
     }
 
     console.debug(
