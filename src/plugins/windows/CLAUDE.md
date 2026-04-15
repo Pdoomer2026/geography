@@ -1,71 +1,59 @@
-# src/plugins/windows - CLAUDE.md v2
+# src/plugins/windows - CLAUDE.md v3
 
 ## 役割
 
-Window Plugin（各 Plugin へのカスタム UI）を管理する。
-コントリビューターが開発・PR で追加できる領域。
+GeoGraphy の全 Window を管理する。
+Simple Window（複雑な機構を持たないデフォルト UI）から将来のカスタム Window まで、全てここに集約される。
 
 spec: `docs/spec/window-plugin.spec.md`
 
-**v1 では空（Window Plugin なし）。v2 から本格導入。**
-
 ---
 
-## Window と Simple Window の違い
+## Window 分類体系（Day61 確定）
 
-| 名称 | 定義 | v1 |
+| 分類 | 定義 | 状態 |
 |---|---|---|
-| **Simple Window** | 各 Plugin に付属するデフォルト最小 UI | ✅ 実装済み |
-| **Window Plugin** | 各 Plugin へのカスタム UI・事前にデータ渡し先を宣言 | v2〜 |
-
-Simple Window は `src/ui/` または `src/plugins/mixers/` に置く。
-Window Plugin は `src/plugins/windows/` に置く。
-
----
-
-## Window Plugin の定義
-
-```typescript
-interface WindowPlugin {
-  id: string
-  name: string
-  renderer: string
-  enabled: boolean
-  targetPluginId: string   // データを渡す対象 Plugin の ID（事前に宣言）
-  component: React.FC<WindowPluginProps>
-}
-```
+| **Simple Window** | 複雑な機構を持たないデフォルト最小 UI | ✅ 実装済み |
+| **Macro Window** | AssignRegistry へのノブ UI | ✅ 実装済み |
+| **Standard Window** | スライダーの稼働幅を持つ Window | 将来 |
+| **DnD Window** | D&D 機能を持つ Window | 将来 |
 
 ---
 
-## フォールバック動作
-
-```
-Window Plugin が有効（enabled=true）？
-  → YES: 対応する Simple Window を非表示にする
-  → NO:  対応する Simple Window を表示する（フォールバック）
-```
-
----
-
-## ディレクトリ構成（v2〜）
+## ディレクトリ構成（Day61 確定）
 
 ```
 src/plugins/windows/
 ├── CLAUDE.md
-└── [plugin-name]/
-    ├── index.ts                 ← Window Plugin 登録エントリー
-    ├── [Name]Window.tsx         ← カスタム UI コンポーネント
-    ├── CLAUDE.md
-    └── README.md                ← データ渡し先の宣言（MUST）
+├── simple-window/               ← Simple Window の格納場所
+│   ├── GeometrySimpleWindow.tsx   ← Geometry 用（旧 SimpleWindowPlugin）
+│   ├── CameraSimpleWindow.tsx     ← Camera 用（旧 CameraWindowPlugin）
+│   ├── FxSimpleWindow.tsx         ← FX 用（旧 FxWindowPlugin）
+│   └── index.ts
+├── macro-window/                ← AssignRegistry のノブ UI
+│   ├── MacroWindow.tsx
+│   ├── index.ts
+│   └── CLAUDE.md
+├── standard-window/             ← 将来（スライダー稼働幅あり）
+└── dnd-window/                  ← 将来（D&D 機能あり）
+```
+
+---
+
+## Simple Window の命名規則
+
+```
+[Domain]SimpleWindow.tsx
+  Geometry・Camera・FX などドメイン名をプレフィックスに付ける
+  例: GeometrySimpleWindow / CameraSimpleWindow / FxSimpleWindow
 ```
 
 ---
 
 ## MUST ルール
 
-- MUST: Window Plugin は `targetPluginId` を必ず宣言すること
-- MUST: `README.md` にデータ渡し先を明記すること
-- MUST: Window Plugin が有効なとき、対応する Simple Window は非表示にすること
-- MUST: エンジン API を通じてのみ Parameter Store を操作すること
+- MUST: Simple Window は `simple-window/` に置くこと
+- MUST: MacroWindow は engine を import しない（assignRegistry / transportManager に直接アクセス）
+- MUST: Simple Window は engine 経由でパラメータ変更（engine.handleMidiCC）
 - MUST: `<form>` タグを使用しないこと
+- MUST: App.tsx の import は全て `plugins/windows/` 配下から

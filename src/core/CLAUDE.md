@@ -1,8 +1,8 @@
-# src/core - CLAUDE.md v6
+# src/core - CLAUDE.md v7
 
 ## 役割
 
-GeoGraphy のエンジンコア。レンダーループ・Plugin Registry・Parameter Store・Command パターン・LayerManager・Program/Preview バス・MacroKnobManager・TransportManager・TransportRegistry を管理する。
+GeoGraphy のエンジンコア。レンダーループ・Plugin Registry・Parameter Store・Command パターン・LayerManager・Program/Preview バス・AssignRegistry・TransportManager・TransportRegistry を管理する。
 
 **engine.ts は App.tsx に依存してはいけない・単体で動作できること。**
 
@@ -25,16 +25,19 @@ src/core/
 ├── layerManager.ts         ← レイヤー管理（CSS 合成）
 ├── clock.ts                ← BPM クロック・beat 値
 ├── registry.ts             ← Plugin Registry（自動登録）
-├── parameterStore.ts       ← パラメーター一元管理（Command 経由）
-├── commandHistory.ts       ← Command パターン・アンドゥ履歴
-├── macroKnob.ts            ← MacroKnobManager（32ノブUI設定管理）
+├── parameterStore.ts       ← パラメーター一元管理
+├── command.ts              ← Command パターン・アンドゥ履歴
+├── assignRegistry.ts       ← AssignRegistry（CC→パラメータのアサイン定義 SSoT・Day61 改名）
 ├── transportManager.ts     ← TransportManager（プロトコル非依存・Day58 昇格）
 ├── transportRegistry.ts    ← TransportRegistry（コアシングルトン・Day58 新設）
-├── midiManager.ts          ← 旧 MidiManager（後方互換用・将来削除予定）
 ├── ccMapService.ts         ← CC Map Service（engine.initialize 内でのみ使用）
 ├── programBus.ts           ← Program バス（フルサイズ Three.js Scene）
 ├── previewBus.ts           ← Preview バス（SceneState + 小キャンバス）
-└── config.ts               ← 定数（MAX_LAYERS / MAX_UNDO_HISTORY など）
+├── projectManager.ts       ← New/Open/Save/SaveAs ロジック（Day60 新設）
+├── presetStore.ts          ← Preset CRUD + FX 定数 SSoT（Day60 新設）
+├── fxStack.ts              ← FX スタック管理
+├── midiRegistry.ts         ← MIDI Registry 型定義
+└── config.ts               ← 定数（MAX_LAYERS / MACRO_KNOB_COUNT など）
 ```
 
 ---
@@ -45,17 +48,17 @@ src/core/
 |---|---|---|
 | Parameter Store | 全パラメーターの一元管理 | MUST: Command 経由のみ |
 | Plugin Registry | Plugin の登録・切り替え・list() | 自動登録（import.meta.glob）のみ |
-| Command パターン | アンドゥ・リドゥ | commandHistory.ts 経由 |
+| Command パターン | アンドゥ・リドゥ | command.ts 経由 |
 | レンダリングループ | requestAnimationFrame・delta・beat の供給 | engine.ts 内部のみ |
 | BPM クロック | BPM・beat 値の管理 | Tempo Driver 経由のみ |
-| MacroKnobManager | 32ノブのUI設定管理（名前・CC番号・アサイン・現在値キャッシュ） | src/core/macroKnob.ts・直接改変禁止 |
-| TransportManager | 全入力の唯一の通路（プロトコル非依存・旧 MidiManager） | src/core/transportManager.ts・直接改変禁止 |
+| AssignRegistry | CC→パラメータのアサイン定義 SSoT（Day61 改名） | src/core/assignRegistry.ts・直接改変禁止 |
+| TransportManager | 全入力の唯一の通路（プロトコル非依存） | src/core/transportManager.ts・直接改変禁止 |
 | TransportRegistry | slot→paramId 対応表・コアシングルトン（Day58 新設） | src/core/transportRegistry.ts・直接改変禁止 |
 | メニューバー | GeoGraphy / File / View の定義 | Electron main.js に集約 |
 
 ---
 
-## コア層のアーキテクチャ（Day58 確定）
+## コア層のアーキテクチャ（Day61 確定）
 
 ```
 【外側の世界】
@@ -64,12 +67,12 @@ src/core/
     → engine.handleMidiCC(event)
 
 【UI層】（全部同列・engine 経由・TransportEvent で統一）
-GeometrySimpleWindow  CameraSimpleWindow  FxSimpleWindow  MacroKnobPanel
+GeometrySimpleWindow  CameraSimpleWindow  FxSimpleWindow  MacroWindow
         ↓                     ↓                 ↓               ↓
         engine.handleMidiCC(TransportEvent)  ← 全UIの唯一の入り口
                               ↓
                     TransportManager（transportManager.ts）
-                              ↓ MacroKnobManager のアサイン設定を参照（読み取りのみ）
+                              ↓ AssignRegistry のアサイン設定を参照（読み取りのみ）
                               ↓ rangeMap(value, min, max)
                         ParameterStore（slot番号をキーとして保持）
                               ↓
@@ -77,17 +80,13 @@ GeometrySimpleWindow  CameraSimpleWindow  FxSimpleWindow  MacroKnobPanel
                               ↓ transportRegistry.getAll() で slot→param を解決
                               ↓
                     ModulatablePlugin.params.value
-
-【UI層（鏡）】
-  App.tsx
-    → transportRegistry.onChanged() を購読
-    → engine.onParamChanged() を購読
-    → setMidiRegistry({ availableParameters: [...transportRegistry.getAll()] })
 ```
 
-### MacroKnobManager（macroKnob.ts）
-- 32ノブのUI設定管理（名前・MIDI CC番号・アサイン・現在値キャッシュ）
+### AssignRegistry（assignRegistry.ts・Day61 改名）
+- CC → パラメータのアサイン定義の SSoT
+- スロットの設定（名前・MIDI CC番号・アサイン）と現在値キャッシュを管理
 - `getKnobs()` / `setKnob()` / `addAssign()` / `removeAssign()` / `getValue()` / `setValue()`
+- UI 責務は MacroWindow に移転済み。残った本質 = CC入力→アサイン解決→パラメータ変調のマッピング定義
 
 ### TransportManager（transportManager.ts・Day58 昇格）
 - 旧 MidiManager。プロトコル非依存に昇格。
@@ -99,12 +98,12 @@ GeometrySimpleWindow  CameraSimpleWindow  FxSimpleWindow  MacroKnobPanel
 - `register()` / `clear()` / `resolve()` / `getAll()` / `onChanged()` / `syncValue()`
 - App.tsx は `onChanged` で購読するだけ（鏡）
 
-### engine の公開 API（UI層が使う）
+### engine の公開 API（Window 層が使う）
 ```typescript
-engine.handleMidiCC(event)                          // 全UIの唯一の入り口
-engine.getMacroKnobs()                              // MacroKnobPanel 表示用
-engine.setMacroKnob(id, config)                     // MacroKnobPanel 編集用
-engine.getMacroKnobValue(knobId)                    // MacroKnobPanel 値取得用
+engine.handleMidiCC(event)                          // 全Windowの唯一の入り口
+engine.getMacroKnobs()                              // MacroWindow 表示用
+engine.setMacroKnob(id, config)                     // MacroWindow 編集用
+engine.getMacroKnobValue(knobId)                    // MacroWindow 値取得用
 engine.receiveMidiModulation(knobId, value)         // Sequencer / LFO 用（将来）
 engine.registerPluginToTransportRegistry(layerId, pluginId)  // Plugin 切り替え時
 engine.onParamChanged(cb)                           // UI 逆流購読
