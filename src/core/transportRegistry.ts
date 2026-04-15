@@ -4,12 +4,13 @@
  *
  * Registry をコアシングルトンとして独立させる（Day58 Step4）。
  * Day59: registrationKey 導入（layerId 単位の上書き問題を解消）
+ * Day62: onChanged を複数購読対応（Set<listener> + unsubscribe 返却）
  *
  * 責務:
  *   - slot → pluginId:paramId の対応表を保持
  *   - availableParameters の実体を管理
  *   - Plugin Apply / Remove 時に更新される
- *   - UI 層は onChanged コールバックで変化を購読する（鏡）
+ *   - UI 層は onChanged コールバックで変化を購読する（複数購読可・鏡）
  *
  * 責務外:
  *   - 値の変換（transform は UI の責務）
@@ -31,7 +32,8 @@ import type { RegisteredParameterWithCC } from '../types/midi-registry'
 class TransportRegistryImpl {
   /** registrationKey → params の対応表 */
   private buckets: Map<string, RegisteredParameterWithCC[]> = new Map()
-  private onChangedCallback: (() => void) | null = null
+  /** 複数購読対応リスナーセット（Day62）*/
+  private listeners: Set<() => void> = new Set()
 
   /**
    * 指定 registrationKey のパラメータを登録する（Plugin Apply 時）
@@ -42,7 +44,7 @@ class TransportRegistryImpl {
    */
   register(params: RegisteredParameterWithCC[], registrationKey: string): void {
     this.buckets.set(registrationKey, params)
-    this.onChangedCallback?.()
+    this.notify()
   }
 
   /**
@@ -52,7 +54,7 @@ class TransportRegistryImpl {
    */
   clear(registrationKey: string): void {
     this.buckets.delete(registrationKey)
-    this.onChangedCallback?.()
+    this.notify()
   }
 
   /**
@@ -79,11 +81,26 @@ class TransportRegistryImpl {
   }
 
   /**
-   * Registry が変化したときのコールバックを登録する
-   * App.tsx / WindowPlugin が購読するために使う
+   * Registry が変化したときのコールバックを登録する（複数購読対応・Day62）
+   * App.tsx / WindowPlugin が購読するために使う。
+   * 返り値は unsubscribe 関数。useEffect の return で呼ぶことを推奨。
+   *
+   * @example
+   *   useEffect(() => {
+   *     return transportRegistry.onChanged(() => { ... })
+   *   }, [...])
    */
-  onChanged(cb: () => void): void {
-    this.onChangedCallback = cb
+  onChanged(cb: () => void): () => void {
+    this.listeners.add(cb)
+    return () => this.listeners.delete(cb)
+  }
+
+  /**
+   * 全リスナーに変化を通知する。
+   * スナップショットコピーで再入安全（リスナー内で add/delete しても安全）。
+   */
+  private notify(): void {
+    for (const cb of [...this.listeners]) cb()
   }
 
   /**
