@@ -18,7 +18,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { engine } from '../../../core/engine'
-import { transportRegistry } from '../../../core/transportRegistry'
 import { useDraggable } from '../../../ui/useDraggable'
 import type { CameraPlugin } from '../../../types'
 import type { RegisteredParameterWithCC } from '../../../types/midi-registry'
@@ -39,13 +38,11 @@ export function CameraSimpleWindow() {
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 600, y: 16 })
 
   const getParamsFromRegistry = useCallback((layerId: LayerId, camId: string) => {
-    return transportRegistry.getAll().filter(
-      (p) => p.layerId === layerId && p.pluginId === camId
-    )
+    return engine.getParameters(layerId).filter((p) => p.pluginId === camId)
   }, [])
 
   useEffect(() => {
-    return transportRegistry.onChanged(() => {
+    return engine.onRegistryChanged(() => {
       const cam = engine.getCameraPlugin(activeLayer)
       if (!cam) return
       setParams(getParamsFromRegistry(activeLayer, cam.id))

@@ -21,7 +21,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { engine } from '../../../core/engine'
-import { transportRegistry } from '../../../core/transportRegistry'
 import { useDraggable } from '../../../ui/useDraggable'
 import type { RegisteredParameterWithCC } from '../../../types/midi-registry'
 
@@ -54,9 +53,7 @@ export function FxSimpleWindow() {
       pluginId: fx.id,
       pluginName: fx.name,
       enabled: fx.enabled,
-      params: transportRegistry.getAll().filter(
-        (p) => p.pluginId === fx.id && p.layerId === lid
-      ),
+      params: engine.getParameters(lid).filter((p) => p.pluginId === fx.id),
     }))
   }, [])
 
@@ -65,7 +62,7 @@ export function FxSimpleWindow() {
   }, [activeLayer, buildFxGroups])
 
   useEffect(() => {
-    return transportRegistry.onChanged(() => {
+    return engine.onRegistryChanged(() => {
       setFxGroups(buildFxGroups(activeLayer))
     })
   }, [activeLayer, buildFxGroups])

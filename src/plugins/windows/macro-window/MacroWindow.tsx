@@ -7,8 +7,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { assignRegistry } from '../../../core/assignRegistry'
-import { transportManager } from '../../../core/transportManager'
+import { engine } from '../../../core/engine'
 import { useDraggable } from '../../../ui/useDraggable'
 import type { DragPayload, MacroAssign, MacroKnobConfig } from '../../../types'
 
@@ -430,9 +429,9 @@ export function MacroWindow() {
 
   useEffect(() => {
     const sync = () => {
-      const configs = assignRegistry.getKnobs()
+      const configs = engine.getMacroKnobs()
       setKnobs([...configs])
-      setValues(configs.map((k) => assignRegistry.getValue(k.id)))
+      setValues(configs.map((k) => engine.getMacroKnobValue(k.id)))
     }
     sync()
     const timer = window.setInterval(sync, 200)
@@ -445,16 +444,16 @@ export function MacroWindow() {
 
   const handleSave = useCallback((name: string, midiCC: number) => {
     if (!editingId) return
-    const current = assignRegistry.getKnobs().find((k) => k.id === editingId)
+    const current = engine.getMacroKnobs().find((k) => k.id === editingId)
     if (!current) return
-    assignRegistry.setKnob(editingId, { ...current, name, midiCC })
+    engine.setMacroKnob(editingId, { ...current, name, midiCC })
     setEditingId(null)
   }, [editingId])
 
   const handleRemoveAssign = useCallback((paramId: string) => {
     if (!editingId) return
-    assignRegistry.removeAssign(editingId, paramId)
-    setKnobs([...assignRegistry.getKnobs()])
+    engine.removeMacroAssign(editingId, paramId)
+    setKnobs([...engine.getMacroKnobs()])
   }, [editingId])
 
   const handleClose = useCallback(() => setEditingId(null), [])
@@ -465,7 +464,7 @@ export function MacroWindow() {
 
   const handleAssign = useCallback((assign: MacroAssign) => {
     if (!assignTarget) return
-    assignRegistry.addAssign(assignTarget.knobId, assign)
+    engine.addMacroAssign(assignTarget.knobId, assign)
     setAssignTarget(null)
   }, [assignTarget])
 
@@ -512,8 +511,8 @@ export function MacroWindow() {
                   onEdit={handleEdit}
                   onDrop={handleDrop}
                   onKnobChange={(knobId, val) => {
-                    assignRegistry.setValue(knobId, val)
-                    transportManager.receiveModulation(knobId, val)
+                    engine.setMacroKnobValue(knobId, val)
+                    engine.receiveMidiModulation(knobId, val)
                   }}
                 />
               )

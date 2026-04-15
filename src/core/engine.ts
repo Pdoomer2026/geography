@@ -253,6 +253,36 @@ export class Engine {
 
   // --- AssignRegistry 公開 API ---
 
+  // --- TransportRegistry ファサード API（Day62: SDK 境界確定）---
+
+  /**
+   * 登録済みパラメータ一覧を返す（Window が transportRegistry を直接触らないための窓口）
+   * layerId を指定するとそのレイヤーのみにフィルタする。
+   * unsubscribe 関数を返す。useEffect の return で呼ぶこと。
+   */
+  getParameters(layerId?: string): import('../types/midi-registry').RegisteredParameterWithCC[] {
+    const all = transportRegistry.getAll()
+    return layerId ? all.filter((p) => p.layerId === layerId) : all
+  }
+
+  /**
+   * Registry が変化したときのコールバックを登録する（Window 購読用ファサード）
+   * transportRegistry.onChanged() のパススルー。unsubscribe 関数を返す。
+   */
+  onRegistryChanged(cb: () => void): () => void {
+    return transportRegistry.onChanged(cb)
+  }
+
+  /**
+   * Geometry Plugin の Registry エントリを削除する（Plugin Remove 時）
+   * App.tsx が transportRegistry を直接触らないための窓口。
+   */
+  removePluginFromRegistry(layerId: string): void {
+    transportRegistry.clear(`${layerId}:geometry`)
+  }
+
+  // --- AssignRegistry 公開 API ---
+
   /** アサイン設定一覧を返す（MacroWindow 表示用） */
   getMacroKnobs(): MacroKnobConfig[] {
     return assignRegistry.getKnobs()

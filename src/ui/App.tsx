@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../core/engine'
-import { transportRegistry } from '../core/transportRegistry'
 import { midiInputWrapper } from '../drivers/input/MidiInputWrapper'
 import { projectManager } from '../core/projectManager'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
@@ -22,7 +21,7 @@ export default function App() {
 
   /** Plugin Remove 時に transportRegistry をクリアするヘルパー（GeometrySimpleWindow に渡す） */
   const removePluginFromRegistry = useCallback((layerId: string) => {
-    transportRegistry.clear(`${layerId}:geometry`)
+    engine.removePluginFromRegistry(layerId)
   }, [])
 
   useAutosave()

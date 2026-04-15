@@ -18,7 +18,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../../../core/engine'
-import { transportRegistry } from '../../../core/transportRegistry'
 import { useDraggable } from '../../../ui/useDraggable'
 import type { RegisteredParameterWithCC } from '../../../types/midi-registry'
 
@@ -47,13 +46,11 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 560, y: 16 })
 
   const getParamsFromRegistry = useCallback((layerId: LayerId, geoId: string) => {
-    return transportRegistry.getAll().filter(
-      (p) => p.layerId === layerId && p.pluginId === geoId
-    )
+    return engine.getParameters(layerId).filter((p) => p.pluginId === geoId)
   }, [])
 
   useEffect(() => {
-    return transportRegistry.onChanged(() => {
+    return engine.onRegistryChanged(() => {
       const geo = engine.getGeometryPlugin(activeLayer)
       if (!geo) {
         setParams([])
