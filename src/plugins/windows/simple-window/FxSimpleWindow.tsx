@@ -65,7 +65,7 @@ export function FxSimpleWindow() {
   }, [activeLayer, buildFxGroups])
 
   useEffect(() => {
-    transportRegistry.onChanged(() => {
+    return transportRegistry.onChanged(() => {
       setFxGroups(buildFxGroups(activeLayer))
     })
   }, [activeLayer, buildFxGroups])

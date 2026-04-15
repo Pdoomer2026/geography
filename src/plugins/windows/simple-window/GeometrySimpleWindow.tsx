@@ -53,7 +53,7 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
   }, [])
 
   useEffect(() => {
-    transportRegistry.onChanged(() => {
+    return transportRegistry.onChanged(() => {
       const geo = engine.getGeometryPlugin(activeLayer)
       if (!geo) {
         setParams([])

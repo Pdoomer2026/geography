@@ -45,7 +45,7 @@ export function CameraSimpleWindow() {
   }, [])
 
   useEffect(() => {
-    transportRegistry.onChanged(() => {
+    return transportRegistry.onChanged(() => {
       const cam = engine.getCameraPlugin(activeLayer)
       if (!cam) return
       setParams(getParamsFromRegistry(activeLayer, cam.id))
