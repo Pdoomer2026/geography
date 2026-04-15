@@ -3,7 +3,7 @@
  * ⚠️  自動生成ファイル — 手動編集禁止
  *
  * 生成元: docs/spec/cc-mapping.md
- * 生成日: 2026-04-15T03:08:27.901Z
+ * 生成日: 2026-04-15T04:26:43.907Z
  * 生成コマンド: pnpm gen:types
  *
  * pluginId + paramId → CC番号・min/max を実行時に参照するための定数マップ。
@@ -384,158 +384,158 @@ export const GEO_CC_MAP = {
       blockName: 'Position Y',
     },
   },
-  'bloom': {
+  'bloom（X=1）': {
     'strength': {
-      ccNumber: 14101,
+      ccNumber: 14111,
       pluginMin: 0,
       pluginMax: 3,
       block: 'EXISTENCE',
       blockName: 'Primary Amount',
     },
     'radius': {
-      ccNumber: 14603,
+      ccNumber: 14613,
       pluginMin: 0,
       pluginMax: 1,
       block: 'EDGE',
       blockName: 'Sharpness/Blur',
     },
     'threshold': {
-      ccNumber: 14701,
+      ccNumber: 14711,
       pluginMin: 0,
       pluginMax: 1,
       block: 'BLEND',
       blockName: 'Blend Amount',
     },
   },
-  'after-image': {
+  'after-image（X=2）': {
     'damp': {
-      ccNumber: 14702,
+      ccNumber: 14722,
       pluginMin: 0,
       pluginMax: 1,
       block: 'BLEND',
       blockName: 'Feedback Amount',
     },
   },
-  'feedback': {
+  'feedback（X=3）': {
     'amount': {
-      ccNumber: 14702,
+      ccNumber: 14732,
       pluginMin: 0,
       pluginMax: 0.95,
       block: 'BLEND',
       blockName: 'Feedback Amount',
     },
     'decay': {
-      ccNumber: 14703,
+      ccNumber: 14733,
       pluginMin: 0.9,
       pluginMax: 1,
       block: 'BLEND',
       blockName: 'Feedback Scale',
     },
     'offsetX': {
-      ccNumber: 14501,
+      ccNumber: 14531,
       pluginMin: -0.05,
       pluginMax: 0.05,
       block: 'SPACE',
       blockName: 'Position X',
     },
     'offsetY': {
-      ccNumber: 14502,
+      ccNumber: 14532,
       pluginMin: -0.05,
       pluginMax: 0.05,
       block: 'SPACE',
       blockName: 'Position Y',
     },
   },
-  'color-grading': {
+  'color-grading（X=4）': {
     'saturation': {
-      ccNumber: 14401,
+      ccNumber: 14441,
       pluginMin: 0,
       pluginMax: 2,
       block: 'COLOR',
       blockName: 'Saturation',
     },
     'brightness': {
-      ccNumber: 14402,
+      ccNumber: 14442,
       pluginMin: 0,
       pluginMax: 2,
       block: 'COLOR',
       blockName: 'Brightness',
     },
     'contrast': {
-      ccNumber: 14403,
+      ccNumber: 14443,
       pluginMin: 0,
       pluginMax: 2,
       block: 'COLOR',
       blockName: 'Contrast',
     },
   },
-  'glitch': {
+  'glitch（X=5）': {
     'goWild': {
-      ccNumber: 14101,
+      ccNumber: 14151,
       pluginMin: 0,
       pluginMax: 1,
       block: 'EXISTENCE',
       blockName: 'Primary Amount',
     },
     'interval': {
-      ccNumber: 14302,
+      ccNumber: 14352,
       pluginMin: 10,
       pluginMax: 240,
       block: 'MOTION',
       blockName: 'Randomness',
     },
   },
-  'kaleidoscope': {
+  'kaleidoscope（X=6）': {
     'segments': {
-      ccNumber: 14201,
+      ccNumber: 14261,
       pluginMin: 2,
       pluginMax: 16,
       block: 'FORM',
       blockName: 'Symmetry/Repeat',
     },
     'angle': {
-      ccNumber: 14301,
+      ccNumber: 14361,
       pluginMin: 0,
       pluginMax: 6.28,
       block: 'MOTION',
       blockName: 'Phase/Offset',
     },
   },
-  'rgb-shift': {
+  'rgb-shift（X=7）': {
     'amount': {
-      ccNumber: 14101,
+      ccNumber: 14171,
       pluginMin: 0,
       pluginMax: 0.05,
       block: 'EXISTENCE',
       blockName: 'Primary Amount',
     },
     'angle': {
-      ccNumber: 14301,
+      ccNumber: 14371,
       pluginMin: 0,
       pluginMax: 6.28,
       block: 'MOTION',
       blockName: 'Phase/Offset',
     },
   },
-  'zoom-blur': {
+  'zoom-blur（X=8）': {
     'strength': {
-      ccNumber: 14101,
+      ccNumber: 14181,
       pluginMin: 0,
       pluginMax: 2,
       block: 'EXISTENCE',
       blockName: 'Primary Amount',
     },
   },
-  'mirror': {
+  'mirror（X=9）': {
     'horizontal': {
-      ccNumber: 14201,
+      ccNumber: 14291,
       pluginMin: 0,
       pluginMax: 1,
       block: 'FORM',
       blockName: 'Symmetry/Repeat',
     },
   },
-  'crt': {
+  'crt（X=0）': {
     'scanlineIntensity': {
       ccNumber: 14601,
       pluginMin: 0,
@@ -551,7 +551,7 @@ export const GEO_CC_MAP = {
       blockName: 'Vignette',
     },
   },
-  'film': {
+  'film（X=0）': {
     'intensity': {
       ccNumber: 14101,
       pluginMin: 0,
@@ -567,7 +567,7 @@ export const GEO_CC_MAP = {
       blockName: 'Saturation',
     },
   },
-  'frei-chen': {
+  'frei-chen（X=0）': {
     'width': {
       ccNumber: 14601,
       pluginMin: 64,

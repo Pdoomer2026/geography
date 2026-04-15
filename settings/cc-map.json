@@ -1,6 +1,6 @@
 {
   "version": "0.2",
-  "generatedAt": "2026-04-15T03:08:27.571Z",
+  "generatedAt": "2026-04-15T04:26:43.547Z",
   "generatedFrom": "docs/spec/cc-mapping.md",
   "mappings": [
     {
@@ -691,11 +691,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "bloom",
+      "pluginId": "bloom（X=1）",
       "params": [
         {
           "paramId": "strength",
-          "ccNumber": 14101,
+          "ccNumber": 14111,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0,
@@ -706,7 +706,7 @@
         },
         {
           "paramId": "radius",
-          "ccNumber": 14603,
+          "ccNumber": 14613,
           "block": "EDGE",
           "blockName": "Sharpness/Blur",
           "pluginMin": 0,
@@ -717,7 +717,7 @@
         },
         {
           "paramId": "threshold",
-          "ccNumber": 14701,
+          "ccNumber": 14711,
           "block": "BLEND",
           "blockName": "Blend Amount",
           "pluginMin": 0,
@@ -730,11 +730,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "after-image",
+      "pluginId": "after-image（X=2）",
       "params": [
         {
           "paramId": "damp",
-          "ccNumber": 14702,
+          "ccNumber": 14722,
           "block": "BLEND",
           "blockName": "Feedback Amount",
           "pluginMin": 0,
@@ -747,11 +747,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "feedback",
+      "pluginId": "feedback（X=3）",
       "params": [
         {
           "paramId": "amount",
-          "ccNumber": 14702,
+          "ccNumber": 14732,
           "block": "BLEND",
           "blockName": "Feedback Amount",
           "pluginMin": 0,
@@ -762,7 +762,7 @@
         },
         {
           "paramId": "decay",
-          "ccNumber": 14703,
+          "ccNumber": 14733,
           "block": "BLEND",
           "blockName": "Feedback Scale",
           "pluginMin": 0.9,
@@ -773,7 +773,7 @@
         },
         {
           "paramId": "offsetX",
-          "ccNumber": 14501,
+          "ccNumber": 14531,
           "block": "SPACE",
           "blockName": "Position X",
           "pluginMin": -0.05,
@@ -784,7 +784,7 @@
         },
         {
           "paramId": "offsetY",
-          "ccNumber": 14502,
+          "ccNumber": 14532,
           "block": "SPACE",
           "blockName": "Position Y",
           "pluginMin": -0.05,
@@ -797,11 +797,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "color-grading",
+      "pluginId": "color-grading（X=4）",
       "params": [
         {
           "paramId": "saturation",
-          "ccNumber": 14401,
+          "ccNumber": 14441,
           "block": "COLOR",
           "blockName": "Saturation",
           "pluginMin": 0,
@@ -812,7 +812,7 @@
         },
         {
           "paramId": "brightness",
-          "ccNumber": 14402,
+          "ccNumber": 14442,
           "block": "COLOR",
           "blockName": "Brightness",
           "pluginMin": 0,
@@ -823,7 +823,7 @@
         },
         {
           "paramId": "contrast",
-          "ccNumber": 14403,
+          "ccNumber": 14443,
           "block": "COLOR",
           "blockName": "Contrast",
           "pluginMin": 0,
@@ -836,11 +836,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "glitch",
+      "pluginId": "glitch（X=5）",
       "params": [
         {
           "paramId": "goWild",
-          "ccNumber": 14101,
+          "ccNumber": 14151,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0,
@@ -851,7 +851,7 @@
         },
         {
           "paramId": "interval",
-          "ccNumber": 14302,
+          "ccNumber": 14352,
           "block": "MOTION",
           "blockName": "Randomness",
           "pluginMin": 10,
@@ -864,11 +864,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "kaleidoscope",
+      "pluginId": "kaleidoscope（X=6）",
       "params": [
         {
           "paramId": "segments",
-          "ccNumber": 14201,
+          "ccNumber": 14261,
           "block": "FORM",
           "blockName": "Symmetry/Repeat",
           "pluginMin": 2,
@@ -879,7 +879,7 @@
         },
         {
           "paramId": "angle",
-          "ccNumber": 14301,
+          "ccNumber": 14361,
           "block": "MOTION",
           "blockName": "Phase/Offset",
           "pluginMin": 0,
@@ -892,11 +892,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "rgb-shift",
+      "pluginId": "rgb-shift（X=7）",
       "params": [
         {
           "paramId": "amount",
-          "ccNumber": 14101,
+          "ccNumber": 14171,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0,
@@ -907,7 +907,7 @@
         },
         {
           "paramId": "angle",
-          "ccNumber": 14301,
+          "ccNumber": 14371,
           "block": "MOTION",
           "blockName": "Phase/Offset",
           "pluginMin": 0,
@@ -920,11 +920,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "zoom-blur",
+      "pluginId": "zoom-blur（X=8）",
       "params": [
         {
           "paramId": "strength",
-          "ccNumber": 14101,
+          "ccNumber": 14181,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0,
@@ -937,11 +937,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "mirror",
+      "pluginId": "mirror（X=9）",
       "params": [
         {
           "paramId": "horizontal",
-          "ccNumber": 14201,
+          "ccNumber": 14291,
           "block": "FORM",
           "blockName": "Symmetry/Repeat",
           "pluginMin": 0,
@@ -954,7 +954,7 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "crt",
+      "pluginId": "crt（X=0）",
       "params": [
         {
           "paramId": "scanlineIntensity",
@@ -982,7 +982,7 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "film",
+      "pluginId": "film（X=0）",
       "params": [
         {
           "paramId": "intensity",
@@ -1010,7 +1010,7 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "frei-chen",
+      "pluginId": "frei-chen（X=0）",
       "params": [
         {
           "paramId": "width",

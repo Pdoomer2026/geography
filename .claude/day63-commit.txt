@@ -1,0 +1,31 @@
+docs: cc-mapping v0.5 - X桁新設によるFX CC番号衝突解消
+
+[背景]
+bloom/glitch/rgb-shift/zoom-blur/film が全て CC14101 を共有しており、
+同一レイヤー内で FX を複数有効にした場合に CC番号が衝突していた。
+GeoMonitor（Day62実装）がこの衝突を可視化したことで判明。
+
+[変更内容]
+cc-mapping.md を v0.4 → v0.5 に改訂。
+番号体系を CC[L][T][S][PP]（5桁）から CC[L][T][S][X][P]（5桁・意味再定義）に変更。
+X桁（プラグイン内識別番号）を新設し、FX 12種に X=1〜9 / X=0 を割り当て。
+
+- bloom(X=1): CC14101→CC14111, CC14603→CC14613, CC14701→CC14711
+- after-image(X=2): CC14702→CC14722
+- feedback(X=3): CC14702→CC14732, CC14703→CC14733, CC14501→CC14531, CC14502→CC14532
+- color-grading(X=4): CC14401→CC14441, CC14402→CC14442, CC14403→CC14443
+- glitch(X=5): CC14101→CC14151, CC14302→CC14352
+- kaleidoscope(X=6): CC14201→CC14261, CC14301→CC14361
+- rgb-shift(X=7): CC14101→CC14171, CC14301→CC14371
+- zoom-blur(X=8): CC14101→CC14181
+- mirror(X=9): CC14201→CC14291
+- crt/film/frei-chen(X=0): セマンティック帯分離により変更なし
+
+[新規追加]
+docs/spec/cc-mapping-guide.md v1.0 を新設。
+CC番号の読み方・対応表の列の意味・X桁ルール・MIDI 2.0 AC枯渇防止ルール・
+新Plugin追加手順・衝突チェックリストを収録。
+
+[設計原則]
+MIDI 2.0 AC上限 32,767 に対して現行最大値 CC25999=25,999 で安全圏を確認済み。
+pnpm gen:all → 83 mappings・127 tests グリーン。
