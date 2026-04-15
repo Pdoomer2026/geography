@@ -6,6 +6,7 @@ import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWin
 import { MacroWindow } from '../plugins/windows/macro-window'
 import { GeometrySimpleWindow, CameraSimpleWindow, FxSimpleWindow } from '../plugins/windows/simple-window'
 import { GeometryStandardWindow, CameraStandardWindow, FxStandardWindow } from '../plugins/windows/standard-window'
+import { GeometrySimpleDnDWindow, CameraSimpleDnDWindow, FxSimpleDnDWindow } from '../plugins/windows/simple-dnd-window'
 import { GeoMonitorWindow } from '../plugins/windows/geo-monitor'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
@@ -141,14 +142,19 @@ export default function App() {
       {windowMode.geometry === 'standard' && (
         <GeometryStandardWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
       )}
+      {windowMode.geometry === 'simple-dnd' && (
+        <GeometrySimpleDnDWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
+      )}
 
       {/* Camera */}
-      {windowMode.camera === 'simple'   && <CameraSimpleWindow />}
-      {windowMode.camera === 'standard' && <CameraStandardWindow />}
+      {windowMode.camera === 'simple'      && <CameraSimpleWindow />}
+      {windowMode.camera === 'standard'    && <CameraStandardWindow />}
+      {windowMode.camera === 'simple-dnd'  && <CameraSimpleDnDWindow />}
 
       {/* FX */}
-      {windowMode.fx === 'simple'   && <FxSimpleWindow />}
-      {windowMode.fx === 'standard' && <FxStandardWindow />}
+      {windowMode.fx === 'simple'      && <FxSimpleWindow />}
+      {windowMode.fx === 'standard'    && <FxStandardWindow />}
+      {windowMode.fx === 'simple-dnd'  && <FxSimpleDnDWindow />}
 
       {/* Monitor */}
       {windowMode.monitor && <GeoMonitorWindow />}
