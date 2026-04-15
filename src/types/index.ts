@@ -358,4 +358,6 @@ export interface DragPayload {
   ccNumber: number  // CC Standard の番号
   min: number       // スライダー可動域 min
   max: number       // スライダー可動域 max
+  lo?: number       // StandardD&D からの場合のみ: lo/hi をアサイン初期値として渡す
+  hi?: number       // StandardD&D からの場合のみ
 }

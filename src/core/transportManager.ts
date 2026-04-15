@@ -92,16 +92,17 @@ class TransportManagerImpl implements TransportManager {
     this.knobManager.setValue(knobId, value)
 
     for (const assign of knob.assigns) {
+      const mapped = rangeMap(value, assign.min, assign.max)
       // assign.layerId で絞り込み（全レイヤー同時書き込みを防ぐ）
       const entries = transportRegistry.getAll().filter(
         (p) => p.ccNumber === assign.ccNumber && p.layerId === assign.layerId
       )
       if (entries.length > 0) {
         for (const entry of entries) {
-          this.store.set(`${entry.layerId}:${assign.ccNumber}`, value)
+          this.store.set(`${entry.layerId}:${assign.ccNumber}`, mapped)
         }
       } else {
-        this.store.set(String(assign.ccNumber), value)
+        this.store.set(String(assign.ccNumber), mapped)
       }
     }
   }

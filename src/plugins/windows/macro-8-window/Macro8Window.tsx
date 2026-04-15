@@ -329,18 +329,19 @@ interface AssignDialogProps {
 }
 
 function AssignDialog({ knobId, payload, onAssign, onClose }: AssignDialogProps) {
-  const [minVal, setMinVal] = useState(payload.min)
-  const [maxVal, setMaxVal] = useState(payload.max)
+  const [minVal, setMinVal] = useState(payload.lo ?? payload.min)
+  const [maxVal, setMaxVal] = useState(payload.hi ?? payload.max)
   const [error, setError] = useState<string | null>(null)
 
   function handleAssign() {
     if (minVal >= maxVal) { setError('min は max より小さくしてください'); return }
+    const fullRange = payload.max - payload.min || 1
     const assign: MacroAssign = {
       paramId: payload.id,
       ccNumber: payload.ccNumber,
       layerId: payload.layerId,
-      min: minVal,
-      max: maxVal,
+      min: (minVal - payload.min) / fullRange,
+      max: (maxVal - payload.min) / fullRange,
       curve: 'linear',
     }
     try {
