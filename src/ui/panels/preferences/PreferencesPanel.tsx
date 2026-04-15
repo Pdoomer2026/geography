@@ -16,6 +16,9 @@ import { registry } from '../../../core/registry'
 import { presetStore, FX_LABELS, FX_DEFAULTS, FX_ORDER } from '../../../core/presetStore'
 import type { GeoPreset } from '../../../core/presetStore'
 import type { GeometryPlugin } from '../../../types'
+import type { WindowMode, GeoWindowMode, MacroWindowMode, MixerWindowMode, LayerId } from '../../../types/windowMode'
+import { LAYER_IDS } from '../../../types/windowMode'
+import { useDraggable } from '../../useDraggable'
 
 // ----------------------------------------------------------------
 // 型定義
@@ -42,7 +45,6 @@ const CAMERA_LABELS: Record<string, string> = {
 // ----------------------------------------------------------------
 
 const NONE_ID = '__none__'
-const LAYER_IDS = ['layer-1', 'layer-2', 'layer-3'] as const
 
 function resolveCamId(geoId: string | undefined): string {
   if (!geoId || geoId === NONE_ID) return 'static-camera'
@@ -76,20 +78,23 @@ function applyToEngine(
 interface PreferencesPanelProps {
   open: boolean
   onClose: () => void
+  windowMode: WindowMode
+  onWindowModeChange: (mode: WindowMode) => void
 }
 
-export function PreferencesPanel({ open, onClose }: PreferencesPanelProps) {
+export function PreferencesPanel({ open, onClose, windowMode, onWindowModeChange }: PreferencesPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>('setup')
+  const { pos, handleMouseDown } = useDraggable({ x: 8, y: 80 })
 
   if (!open) return null
 
   return (
     <div
       className="fixed z-[200] font-mono text-xs select-none"
-      style={{ top: 48, left: 8, width: 500 }}
+      style={{ left: pos.x, top: pos.y, width: 500 }}
     >
       <div className="bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#2a2a4e]">
+        <div onMouseDown={handleMouseDown} className="flex items-center justify-between px-4 py-2.5 border-b border-[#2a2a4e]" style={{ cursor: 'grab' }}>
           <span className="text-[11px] text-[#7878aa] tracking-widest">⚙ PREFERENCES</span>
           <button
             onClick={onClose}
@@ -113,8 +118,8 @@ export function PreferencesPanel({ open, onClose }: PreferencesPanelProps) {
           ))}
         </div>
 
-        <div className="p-4" style={{ minHeight: 280 }}>
-          {activeTab === 'setup' && <SetupTab onClose={onClose} />}
+        <div className="p-4 overflow-y-auto" style={{ minHeight: 280, maxHeight: 'calc(100vh - 80px)' }}>
+          {activeTab === 'setup' && <SetupTab onClose={onClose} windowMode={windowMode} onWindowModeChange={onWindowModeChange} />}
           {(activeTab === 'plugins' || activeTab === 'audio' ||
             activeTab === 'midi'   || activeTab === 'output') && <ComingSoonTab />}
         </div>
@@ -127,7 +132,7 @@ export function PreferencesPanel({ open, onClose }: PreferencesPanelProps) {
 // SetupTab
 // ----------------------------------------------------------------
 
-function SetupTab({ onClose }: { onClose: () => void }) {
+function SetupTab({ onClose, windowMode, onWindowModeChange }: { onClose: () => void; windowMode: WindowMode; onWindowModeChange: (m: WindowMode) => void }) {
   const allGeometry = engine.getRegisteredPlugins()
   const allCameras  = engine.listCameraPlugins()
 
@@ -166,7 +171,7 @@ function SetupTab({ onClose }: { onClose: () => void }) {
     }
     return result
   })
-  const [activeFxLayer, setActiveFxLayer] = useState<typeof LAYER_IDS[number]>('layer-1')
+  const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
 
   // ── Preset state（presetStore から取得）───────────────────────
   const [presetNames, setPresetNames] = useState<string[]>(() => presetStore.getNames())
@@ -223,8 +228,25 @@ function SetupTab({ onClose }: { onClose: () => void }) {
   function toggleFx(id: string) {
     setSelectedFx((prev) => ({
       ...prev,
-      [activeFxLayer]: { ...prev[activeFxLayer], [id]: !prev[activeFxLayer][id] },
+      [activeLayer]: { ...prev[activeLayer], [id]: !prev[activeLayer][id] },
     }))
+  }
+
+  // ── Window Mode ハンドラー ──────────────────────────────────────
+  function handleWindowChange(kind: 'geometry' | 'camera' | 'fx', value: GeoWindowMode) {
+    onWindowModeChange({ ...windowMode, [kind]: value })
+  }
+
+  function handleMacroChange(value: MacroWindowMode) {
+    onWindowModeChange({ ...windowMode, macro: value })
+  }
+
+  function handleMixerChange(value: MixerWindowMode) {
+    onWindowModeChange({ ...windowMode, mixer: value })
+  }
+
+  function handleMonitorChange(checked: boolean) {
+    onWindowModeChange({ ...windowMode, monitor: checked })
   }
 
   // ── Preset: Save As ────────────────────────────────────────────
@@ -305,12 +327,16 @@ function SetupTab({ onClose }: { onClose: () => void }) {
     onClose()
   }
 
-  const layerLabels = ['Layer 1', 'Layer 2', 'Layer 3']
   const selectStyle = {
     background: '#1a1a2e',
     border: '1px solid #2a2a4e',
     color: '#aaaacc',
   }
+  const GEO_WINDOW_OPTIONS: { value: GeoWindowMode; label: string }[] = [
+    { value: 'none',     label: '— none —' },
+    { value: 'simple',   label: 'Simple'   },
+    { value: 'standard', label: 'Standard' },
+  ]
 
   return (
     <div className="flex flex-col gap-4">
@@ -331,16 +357,8 @@ function SetupTab({ onClose }: { onClose: () => void }) {
               <option key={name} value={name}>{name}</option>
             ))}
           </select>
-          <button
-            onClick={handleLoad}
-            className="px-3 py-1 text-[10px] rounded border whitespace-nowrap"
-            style={{ background: '#1a2a1e', borderColor: '#3a6e4a', color: '#7aaa8a' }}
-          >Load</button>
-          <button
-            onClick={handleDelete}
-            className="px-3 py-1 text-[10px] rounded border whitespace-nowrap"
-            style={{ background: '#2a1a1a', borderColor: '#6e3a3a', color: '#aa7a7a' }}
-          >Delete</button>
+          <button onClick={handleLoad} className="px-3 py-1 text-[10px] rounded border whitespace-nowrap" style={{ background: '#1a2a1e', borderColor: '#3a6e4a', color: '#7aaa8a' }}>Load</button>
+          <button onClick={handleDelete} className="px-3 py-1 text-[10px] rounded border whitespace-nowrap" style={{ background: '#2a1a1a', borderColor: '#6e3a3a', color: '#aa7a7a' }}>Delete</button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -353,38 +371,31 @@ function SetupTab({ onClose }: { onClose: () => void }) {
             className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
             style={{ ...selectStyle, color: '#ccccee' }}
           />
-          <button
-            onClick={handleSaveAs}
-            className="px-3 py-1 text-[10px] rounded border whitespace-nowrap"
-            style={{ background: '#1a1a2e', borderColor: '#5a5aaa', color: '#9999cc' }}
-          >Save As</button>
+          <button onClick={handleSaveAs} className="px-3 py-1 text-[10px] rounded border whitespace-nowrap" style={{ background: '#1a1a2e', borderColor: '#5a5aaa', color: '#9999cc' }}>Save As</button>
         </div>
 
         {statusMsg && (
-          <div className="mt-1.5 text-[9px]" style={{
-            color: statusMsg.startsWith('⚠') ? '#aa6666' : '#6aaa7a'
-          }}>{statusMsg}</div>
+          <div className="mt-1.5 text-[9px]" style={{ color: statusMsg.startsWith('⚠') ? '#aa6666' : '#6aaa7a' }}>{statusMsg}</div>
         )}
       </section>
 
       <div className="border-t border-[#1a1a3e]" />
 
-      {/* ── GEOMETRY ── */}
+      {/* ── WINDOWS ── */}
       <section>
-        <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">GEOMETRY</div>
+        <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">WINDOWS</div>
         <div className="flex flex-col gap-1.5">
-          {layerLabels.map((label, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <span className="text-[10px] text-[#4a4a6e] w-14 shrink-0">{label}</span>
+          {(['geometry', 'camera', 'fx'] as const).map((kind) => (
+            <div key={kind} className="flex items-center gap-3">
+              <span className="text-[10px] text-[#4a4a6e] w-16 shrink-0 capitalize">{kind}</span>
               <select
-                value={geoIds[i]}
-                onChange={(e) => handleGeoChange(i, e.target.value)}
+                value={windowMode[kind]}
+                onChange={(e) => handleWindowChange(kind, e.target.value as GeoWindowMode)}
                 className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
                 style={selectStyle}
               >
-                <option value={NONE_ID}>None</option>
-                {allGeometry.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                {GEO_WINDOW_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
             </div>
@@ -392,72 +403,126 @@ function SetupTab({ onClose }: { onClose: () => void }) {
         </div>
       </section>
 
-      {/* ── CAMERA ── */}
-      <section>
-        <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">CAMERA</div>
-        <div className="flex flex-col gap-1.5">
-          {layerLabels.map((label, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <span className="text-[10px] text-[#4a4a6e] w-14 shrink-0">{label}</span>
-              <select
-                value={camIds[i]}
-                onChange={(e) => handleCamChange(i, e.target.value)}
-                className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
-                style={{ ...selectStyle, color: camOverridden[i] ? '#aaaaee' : '#aaaacc' }}
-              >
-                {allCameras.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {CAMERA_LABELS[c.id] ?? c.id}
-                  </option>
-                ))}
-              </select>
-              {camOverridden[i] && (
-                <span className="text-[9px] text-[#5a5aaa] shrink-0">manual</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="border-t border-[#1a1a3e]" />
 
-      {/* ── FX ── */}
+      {/* ── 共有レイヤータブ（SETUP用）── */}
+      <div className="flex gap-1">
+        {LAYER_IDS.map((id, i) => (
+          <button
+            key={id}
+            onClick={() => setActiveLayer(id)}
+            className="text-[9px] rounded px-2.5 py-1 border transition-colors"
+            style={{
+              background: activeLayer === id ? '#2a2a6e' : '#1a1a2e',
+              borderColor: activeLayer === id ? '#5a5aaa' : '#2a2a4e',
+              color: activeLayer === id ? '#aaaaee' : '#4a4a6e',
+            }}
+          >
+            L{i + 1}
+          </button>
+        ))}
+      </div>
+
+      {/* ── SETUP ── */}
       <section>
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-[10px] text-[#7878aa] tracking-widest">FX</div>
-          <div className="flex gap-1">
-            {LAYER_IDS.map((id, i) => (
-              <button
-                key={id}
-                onClick={() => setActiveFxLayer(id)}
-                className="text-[9px] rounded px-1.5 py-0.5 border transition-colors"
-                style={{
-                  background: activeFxLayer === id ? '#2a2a6e' : '#1a1a2e',
-                  borderColor: activeFxLayer === id ? '#5a5aaa' : '#2a2a4e',
-                  color: activeFxLayer === id ? '#aaaaee' : '#4a4a6e',
-                }}
-              >
-                L{i + 1}
-              </button>
-            ))}
+        <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">SETUP</div>
+        <div className="flex flex-col gap-1.5 mb-3">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#4a4a6e] w-16 shrink-0">Geometry</span>
+            <select
+              value={geoIds[LAYER_IDS.indexOf(activeLayer)]}
+              onChange={(e) => handleGeoChange(LAYER_IDS.indexOf(activeLayer), e.target.value)}
+              className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
+              style={selectStyle}
+            >
+              <option value={NONE_ID}>None</option>
+              {allGeometry.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#4a4a6e] w-16 shrink-0">Camera</span>
+            <select
+              value={camIds[LAYER_IDS.indexOf(activeLayer)]}
+              onChange={(e) => handleCamChange(LAYER_IDS.indexOf(activeLayer), e.target.value)}
+              className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
+              style={{ ...selectStyle, color: camOverridden[LAYER_IDS.indexOf(activeLayer)] ? '#aaaaee' : '#aaaacc' }}
+            >
+              {allCameras.map((c) => (
+                <option key={c.id} value={c.id}>{CAMERA_LABELS[c.id] ?? c.id}</option>
+              ))}
+            </select>
+            {camOverridden[LAYER_IDS.indexOf(activeLayer)] && (
+              <span className="text-[9px] text-[#5a5aaa] shrink-0">manual</span>
+            )}
           </div>
         </div>
+
+        {/* FX チェックボックス */}
+        <div className="text-[10px] text-[#4a4a6e] mb-1.5">FX</div>
         <div className="grid grid-cols-2 gap-1.5">
           {FX_ORDER.map((fxId) => (
             <CheckItem
               key={fxId}
               id={fxId}
               label={FX_LABELS[fxId] ?? fxId}
-              checked={selectedFx[activeFxLayer]?.[fxId] ?? false}
+              checked={selectedFx[activeLayer]?.[fxId] ?? false}
               onChange={() => toggleFx(fxId)}
             />
           ))}
         </div>
       </section>
 
+      <div className="border-t border-[#1a1a3e]" />
+
+      {/* ── レイヤー非依存 Window ── */}
+      <section>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#4a4a6e] w-16 shrink-0">Macro</span>
+            <select
+              value={windowMode.macro}
+              onChange={(e) => handleMacroChange(e.target.value as MacroWindowMode)}
+              className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
+              style={selectStyle}
+            >
+              <option value="none">— none —</option>
+              <option value="macro-window">MacroWindow</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#4a4a6e] w-16 shrink-0">Mixer</span>
+            <select
+              value={windowMode.mixer}
+              onChange={(e) => handleMixerChange(e.target.value as MixerWindowMode)}
+              className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
+              style={selectStyle}
+            >
+              <option value="none">— none —</option>
+              <option value="mixer-simple">MixerSimple</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Monitor（debug）── */}
+      <div className="flex items-center gap-2">
+        <input
+          id="pref-monitor"
+          type="checkbox"
+          checked={windowMode.monitor}
+          onChange={(e) => handleMonitorChange(e.target.checked)}
+          className="accent-[#5a5aff] cursor-pointer"
+        />
+        <label htmlFor="pref-monitor" className="text-[10px] cursor-pointer" style={{ color: windowMode.monitor ? '#aaaacc' : '#4a4a6e' }}>
+          Monitor <span className="text-[8px] text-[#3a3a5e]">(debug)</span>
+        </label>
+      </div>
+
       {/* ── ボタン行 ── */}
       <div className="flex items-center justify-between pt-1">
-        <span className="text-[9px] text-[#3a3a5e]">
-          Load: engine に即反映 / Apply: 手動で反映して閉じる
-        </span>
+        <span className="text-[9px] text-[#3a3a5e]">Load: engine に即反映 / Apply: 手動で反映して閉じる</span>
         <button
           onClick={handleApply}
           className="px-5 py-1.5 text-[11px] rounded border transition-colors"

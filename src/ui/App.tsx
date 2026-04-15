@@ -5,29 +5,38 @@ import { projectManager } from '../core/projectManager'
 import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroWindow } from '../plugins/windows/macro-window'
 import { GeometrySimpleWindow, CameraSimpleWindow, FxSimpleWindow } from '../plugins/windows/simple-window'
+import { GeometryStandardWindow, CameraStandardWindow, FxStandardWindow } from '../plugins/windows/standard-window'
 import { GeoMonitorWindow } from '../plugins/windows/geo-monitor'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
+import { DEFAULT_WINDOW_MODE } from '../types/windowMode'
+import type { WindowMode } from '../types/windowMode'
+
+const HIDE_ALL: WindowMode = {
+  geometry: 'none',
+  camera:   'none',
+  fx:       'none',
+  macro:    'none',
+  mixer:    'none',
+  monitor:  false,
+}
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
-  const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true, camera: true, geometry: true, monitor: false })
+  const [windowMode, setWindowMode] = useState<WindowMode>(DEFAULT_WINDOW_MODE)
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
 
-  /** Plugin Apply 時に transportRegistry を更新するヘルパー（GeometrySimpleWindow に渡す） */
   const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
     engine.registerPluginToTransportRegistry(layerId, pluginId)
   }, [])
 
-  /** Plugin Remove 時に transportRegistry をクリアするヘルパー（GeometrySimpleWindow に渡す） */
   const removePluginFromRegistry = useCallback((layerId: string) => {
     engine.removePluginFromRegistry(layerId)
   }, [])
 
   useAutosave()
 
-  // MIDI 受信：MidiInputWrapper に委譲（Day58 Step 2）
   useEffect(() => {
     midiInputWrapper.init((event) => engine.handleMidiCC(event))
     return () => midiInputWrapper.dispose()
@@ -38,7 +47,6 @@ export default function App() {
     const container = mountRef.current
     engine.initialize(container).then(() => {
       engine.start()
-      // 初期化完了後に FxWindowPlugin に通知して fxGroups を描画させる
       engine.setFxEnabled('after-image', engine.getFxPlugins('layer-1').find(f => f.id === 'after-image')?.enabled ?? false, 'layer-1')
     })
     return () => { engine.dispose() }
@@ -52,11 +60,11 @@ export default function App() {
       onSave:       () => projectManager.save(),
       onSaveAs:     (filePath: string) => projectManager.saveAs(filePath),
       onPreferences: () => setPrefsOpen((o) => !o),
-      onToggleMixerWindow: () => setUiVisible((v) => ({ ...v, mixer: !v.mixer })),
-      onToggleFxWindow: () => setUiVisible((v) => ({ ...v, fx: !v.fx })),
-      onToggleMacroKnobWindow: () => setUiVisible((v) => ({ ...v, macro: !v.macro })),
-      onHideAllWindows: () => setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false, monitor: false }),
-      onShowAllWindows: () => setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true, monitor: false }),
+      onToggleMixerWindow: () => setWindowMode((v) => ({ ...v, mixer: v.mixer === 'none' ? 'mixer-simple' : 'none' })),
+      onToggleFxWindow: () => setWindowMode((v) => ({ ...v, fx: v.fx === 'none' ? 'standard' : 'none' })),
+      onToggleMacroKnobWindow: () => setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-window' : 'none' })),
+      onHideAllWindows: () => setWindowMode(HIDE_ALL),
+      onShowAllWindows: () => setWindowMode(DEFAULT_WINDOW_MODE),
       onStartRecording: () => { engine.startRecording(); setIsRecording(true) },
       onStopRecording: async () => {
         const blob = await engine.stopRecording()
@@ -70,35 +78,25 @@ export default function App() {
     return () => { window.geoAPI?.removeMenuListeners() }
   }, [])
 
-  // キーボードショートカット
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
 
-      if (e.key === '1') setUiVisible((v) => ({ ...v, macro: !v.macro }))
-      if (e.key === '2') setUiVisible((v) => ({ ...v, fx: !v.fx }))
-      if (e.key === '3') setUiVisible((v) => ({ ...v, mixer: !v.mixer }))
-      if (e.key === '4') setUiVisible((v) => ({ ...v, camera: !v.camera }))
-      if (e.key === '5') setUiVisible((v) => ({ ...v, geometry: !v.geometry }))
-      if (e.key === '6') setUiVisible((v) => ({ ...v, monitor: !v.monitor }))
+      if (e.key === '1') setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-window' : 'none' }))
+      if (e.key === '3') setWindowMode((v) => ({ ...v, mixer: v.mixer === 'none' ? 'mixer-simple' : 'none' }))
+      if (e.key === '6') setWindowMode((v) => ({ ...v, monitor: !v.monitor }))
       if (e.key === 'p' || e.key === 'P') setPrefsOpen((o) => !o)
       if (e.key === 'f' || e.key === 'F') {
-        setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false, monitor: false })
+        setWindowMode(HIDE_ALL)
         setPrefsOpen(false)
         document.documentElement.requestFullscreen?.().catch(() => {})
       }
-      if (e.key === 'h' || e.key === 'H') {
-        setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false, monitor: false })
-      }
-      if (e.key === 's' || e.key === 'S') {
-        setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true, monitor: false })
-      }
+      if (e.key === 'h' || e.key === 'H') setWindowMode(HIDE_ALL)
+      if (e.key === 's' || e.key === 'S') setWindowMode(DEFAULT_WINDOW_MODE)
     }
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true, monitor: false })
-      }
+      if (!document.fullscreenElement) setWindowMode(DEFAULT_WINDOW_MODE)
     }
     window.addEventListener('keydown', handleKey)
     document.addEventListener('fullscreenchange', handleFullscreenChange)
@@ -123,24 +121,37 @@ export default function App() {
         }}
       />
 
-      <PreferencesPanel open={prefsOpen} onClose={() => setPrefsOpen(false)} />
+      <PreferencesPanel
+        open={prefsOpen}
+        onClose={() => setPrefsOpen(false)}
+        windowMode={windowMode}
+        onWindowModeChange={setWindowMode}
+      />
 
-      {uiVisible.macro && <MacroWindow />}
+      {/* Macro */}
+      {windowMode.macro === 'macro-window' && <MacroWindow />}
 
-      {uiVisible.fx && <FxSimpleWindow />}
+      {/* Mixer */}
+      {windowMode.mixer === 'mixer-simple' && <MixerSimpleWindow />}
 
-      {uiVisible.mixer && <MixerSimpleWindow />}
-
-      {uiVisible.geometry && (
-        <GeometrySimpleWindow
-          onPluginApply={applyPluginToRegistry}
-          onPluginRemove={removePluginFromRegistry}
-        />
+      {/* Geometry */}
+      {windowMode.geometry === 'simple' && (
+        <GeometrySimpleWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
+      )}
+      {windowMode.geometry === 'standard' && (
+        <GeometryStandardWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
       )}
 
-      {uiVisible.camera && <CameraSimpleWindow />}
+      {/* Camera */}
+      {windowMode.camera === 'simple'   && <CameraSimpleWindow />}
+      {windowMode.camera === 'standard' && <CameraStandardWindow />}
 
-      {uiVisible.monitor && <GeoMonitorWindow />}
+      {/* FX */}
+      {windowMode.fx === 'simple'   && <FxSimpleWindow />}
+      {windowMode.fx === 'standard' && <FxStandardWindow />}
+
+      {/* Monitor */}
+      {windowMode.monitor && <GeoMonitorWindow />}
 
       {isRecording && (
         <div
@@ -155,7 +166,7 @@ export default function App() {
         className="fixed bottom-1 right-2 text-[9px] text-[#3a3a5e] select-none pointer-events-none"
         style={{ zIndex: 100 }}
       >
-        P:Prefs 1:MacroKnob 2:FX 3:Mixer 4:Camera 5:Geometry 6:Monitor | H:Hide S:Show F:全非表示+全画面
+        P:Prefs 1:Macro 3:Mixer 6:Monitor | H:Hide S:Show F:全非表示+全画面
       </div>
     </>
   )
