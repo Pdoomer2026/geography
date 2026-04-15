@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day58（Transport Architecture 完了・ドキュメント全更新）｜2026-04-14
+# GeoGraphy 引き継ぎメモ｜Day61（CLAUDE.md 全面整合・Window 体系確定）｜2026-04-15
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -6,6 +6,7 @@
 - **スタック**: Vite / React 18 / TypeScript / Three.js r160+ / pnpm v10.32+ / Electron 41
 - **開発スタイル**: SDD × CDD（仕様駆動 × コンパイラ駆動）
 - **GitHub**: https://github.com/Pdoomer2026/geography
+- **ブランチ**: `refactor/day53-design`
 - **プロジェクトルート**: `/Users/shinbigan/geography`
 
 ---
@@ -15,139 +16,119 @@
 | ファイル | パス |
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md`（v11） |
+| src/core/CLAUDE.md | `src/core/CLAUDE.md`（v7） |
+| src/ui/CLAUDE.md | `src/ui/CLAUDE.md`（v4） |
+| src/ui/panels/CLAUDE.md | `src/ui/panels/CLAUDE.md`（v3） |
+| src/plugins/windows/CLAUDE.md | `src/plugins/windows/CLAUDE.md`（v3） |
+| src/plugins/windows/macro-window/CLAUDE.md | `src/plugins/windows/macro-window/CLAUDE.md` |
+| src/drivers/CLAUDE.md | `src/drivers/CLAUDE.md` |
 | Transport Architecture spec | `docs/spec/transport-architecture.spec.md` |
-| MIDI Registry spec | `docs/spec/midi-registry.spec.md` |
-| Plugin Manager spec | `docs/spec/plugin-manager.spec.md` |
 | MacroKnob spec | `docs/spec/macro-knob.spec.md` |
 | CC Mapping（SSoT） | `docs/spec/cc-mapping.md` |
 | CC Map JSON（自動生成） | `settings/cc-map.json` |
-| TransportEvent 型定義 | `src/types/index.ts` |
-| TransportManager | `src/core/transportManager.ts`（Day58 新規） |
-| TransportRegistry | `src/core/transportRegistry.ts`（Day58 新規） |
-| MidiInputWrapper | `src/drivers/input/MidiInputWrapper.ts`（Day58 新規） |
-| MidiRegistry 純粋関数 | `src/core/midiRegistry.ts`（後方互換・非推奨） |
-| Registry 型定義 | `src/types/midi-registry.ts` |
-| SimpleWindowPlugin | `src/plugins/windows/simple-window/SimpleWindowPlugin.tsx` |
-| FxWindowPlugin | `src/plugins/windows/fx-window/FxWindowPlugin.tsx` |
-| App.tsx（鏡） | `src/ui/App.tsx` |
+| Engine | `src/core/engine.ts` |
+| TransportManager | `src/core/transportManager.ts` |
+| TransportRegistry | `src/core/transportRegistry.ts` |
+| AssignRegistry | `src/core/assignRegistry.ts`（旧 macroKnob.ts から改名） |
+| ProjectManager | `src/core/projectManager.ts` |
+| PresetStore | `src/core/presetStore.ts` |
+| GeometrySimpleWindow | `src/plugins/windows/simple-window/GeometrySimpleWindow.tsx` |
+| CameraSimpleWindow | `src/plugins/windows/simple-window/CameraSimpleWindow.tsx` |
+| FxSimpleWindow | `src/plugins/windows/simple-window/FxSimpleWindow.tsx` |
+| MacroWindow | `src/plugins/windows/macro-window/MacroWindow.tsx` |
+| App.tsx | `src/ui/App.tsx` |
+| PreferencesPanel | `src/ui/panels/preferences/PreferencesPanel.tsx` |
+| MidiInputWrapper | `src/drivers/input/MidiInputWrapper.ts` |
+| 引き継ぎ（最新） | `docs/handover/day61-2026-04-15.md` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `refactor/day53-design`
-- **タグ**: `day58`
-- **最新コミット**: `cb6170f`（docs: 実装計画書 v4.0 更新）
+- **タグ**: `day60`（Day61 分は未打）
+- **最新コミット**: `0b84d15`（docs: update CLAUDE.md files to reflect Day61 refactoring）
 - **テスト**: 114 tests グリーン・tsc エラーゼロ
 
 ---
 
-## Day58 で完了したこと
+## 確定したアーキテクチャ（Day61 時点）
 
-### Step 1: MidiCCEvent → TransportEvent rename
-- `MidiCCEvent` を `TransportEvent` に改名
-- `protocol` / `resolution` フィールドを削除
-- `source` を `'window' | 'plugin' | 'midi' | 'osc'` に絞る
-
-### Step 2: MidiInputWrapper 切り出し
-- `src/drivers/input/MidiInputWrapper.ts` 新規作成
-- App.tsx の MIDI useEffect が3行に簡略化
-
-### Step 3: イベント駆動化（ポーリング廃止）
-- `engine.onParamChanged(cb)` コールバック登録 API を追加
-- 200ms ポーリングを廃止・値変化時のみ発火
-
-### Step 4: Registry コア層化・TransportManager 昇格
-- `src/core/transportRegistry.ts` 新規作成（コアシングルトン）
-- `src/core/transportManager.ts` 新規作成（MidiManager をプロトコル非依存に昇格）
-- `engine.ts` の `flushParameterStore()` を transportRegistry ベースに書き換え
-- `ccMapService` の使用を `engine.initialize()` 内のみに限定
-- `App.tsx` から `ccMapService` が完全に消えた
-- App.tsx は Registry の「鏡」になった
-
-### ドキュメント更新（Day58 全 Step 反映）
-- `docs/spec/transport-architecture.spec.md` — 完成版に全面更新
-- `src/core/CLAUDE.md` — v5 → v6（TransportManager / TransportRegistry 反映）
-- `docs/spec/midi-registry.spec.md` — TransportRegistry との役割分担を明記
-- `docs/spec/plugin-manager.spec.md` — Day58 実装順序追加
-- `docs/spec/macro-knob.spec.md` — TransportEvent / TransportManager に全面更新
-- `src/ui/CLAUDE.md` — TransportEvent に更新
-- `src/drivers/input/CLAUDE.md` — MidiInputWrapper の役割を明記
-
----
-
-## 確定した設計思想（Day58 壁打ちで確定）
-
-### 「外側と内側の境界線」
-
-```
-【外側】プロトコル・自然言語・セマンティクス
-  cc-mapping.md（人間・AI が読む）
-  MidiInputWrapper / OscInputWrapper（プロトコル変換）
-  将来の AI Layer（自然言語 → TransportEvent）
-
-【境界線】
-  TransportEvent { slot, value, source?, time? }
-
-【内側】純粋な値の処理
-  TransportManager（slot + value を受け取るだけ）
-  ParameterStore（slot番号をキーとして厳密に動く）
-  Engine（CC番号の意味を知らない）
-  TransportRegistry（slot→paramId の対応表）
-```
-
-### セマンティックキーの用途
-- `"icosphere:radius"` は外側（cc-mapping.md・AI）で使うもの
-- ParameterStore のキーは slot 番号（MIDI 2.0 として厳密・一意）のまま
-
-### ControlBus（別 AI 提案）
-- Obsidian に保存済み（長期ビジョン用）
-- 今の実装には持ち込まない
-
----
-
-## 現在地
-
-| 状態 | 内容 |
+### Window 体系
+| 分類 | 場所 |
 |---|---|
-| ✅ 完了 | Transport Architecture Step 1〜4 全て |
-| ✅ 完了 | cc-mapping.md → cc-map.json の翻訳機 |
-| ✅ 完了 | 関連ドキュメント全更新 |
-| ✅ 完了 | 要件定義書 v2.0 新規作成（`docs/要件定義書_v2.0.md`） |
-| ✅ 完了 | 実装計画書 v4.0 更新（Day49〜58 実績追加・Phase 16 詳述） |
-| ⏳ 未着手 | 既存 SimpleWindow 廃止（3ファイル） |
-| ⏳ 未着手 | MacroKnob D&D アサイン UI |
-| ⏳ 未着手 | [L1][L2][L3] タブ切り替え |
-| ⏳ 未着手 | Sequencer spec 作成（壁打ちから） |
+| Simple Window | `src/plugins/windows/simple-window/` |
+| Macro Window | `src/plugins/windows/macro-window/` |
+| Mixer Simple Window | `src/plugins/mixers/simple-mixer/` |
 
----
+### Panel 体系
+| Panel | 場所 |
+|---|---|
+| Preferences Panel | `src/ui/panels/preferences/` |
 
-## 次回セッションの方針
-
-Transport Architecture・ドキュメントが全て完成。次は **Phase 16（engine の ccMapService 依存解消）の壁打ち**から始める。
-影響範囲が大きいため単独セッションで設計を固めてから実装。
-参照: `docs/spec/transport-architecture.spec.md` §5 Step4
-
-```bash
-# ベースライン確認
-cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
+### コアアーキテクチャ
+```
+MidiInputWrapper（drivers/input/）
+  → TransportEvent { slot, value, source: 'midi' }
+  → engine.handleMidiCC()
+        ↓
+  TransportManager → AssignRegistry 参照 → ParameterStore
+        ↓
+  engine.flushParameterStore() → TransportRegistry → Plugin.params
 ```
 
 ---
 
-## 環境メモ（累積）
+## Day59〜61 の主要実装（参照用）
 
-- **ブランチ**: `refactor/day53-design`
+### Day59（WindowPlugin 全面刷新）
+- SimpleWindowPlugin / CameraWindowPlugin / FxWindowPlugin を自律化
+- `registrationKey` 導入（`'layer-N:geometry'` / `'layer-N:camera'` / `'layer-N:fx'`）
+- `TransportEvent` に `layerId?` 追加
+- 旧 SimpleWindow 全廃止→アーカイブ
+
+### Day60（Save/Load・Preset・FX レイヤー別対応）
+- `projectManager.ts` / `presetStore.ts` 新設
+- Save/Load で全パラメータを正確に復元（`applySceneState()` 新設）
+- cc-mapping.md v0.4（5桁番号体系）・83 mappings 再生成
+- Preference FX L1/L2/L3 タブ・レイヤー別独立 FX 設定
+
+### Day61（CLAUDE.md 全面整合）
+- 全 CLAUDE.md を Day58〜60 の実装に追従させた
+- MacroKnob Panel → MacroWindow 格下げを全ドキュメントに反映
+- SimpleWindow パスを `src/plugins/windows/simple-window/` に統一
+- `src/drivers/CLAUDE.md` に TransportEvent フローを明文化
+
+---
+
+## 次回やること
+
+1. **ベースライン確認**
+   ```bash
+   cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
+   ```
+2. **Day61 タグ打ち**
+   ```bash
+   git tag day61 && git push origin main --tags
+   ```
+3. **Sequencer spec 壁打ち**（Day60 から持ち越し）
+   - TimelineLogger の仕様から決める
+   - Sequencer のデータフォーマット設計
+
+---
+
+## 環境メモ
+
 - **ブラウザ確認**: `pnpm dev` → `open http://localhost:5173`（毎回再起動が必要）
-- **git commit メッセージ**: `.claude/dayN-commit.txt` に書いて `git commit -F` で実行
-- **Desktop 環境でも実装可能**: tsc + test は慎太郎さんが手動実行して結果を貼る
 - **NFC 正規化スクリプト**: `/Users/shinbigan/nfc_normalize.py`
-- **write_file ルール**: 継続部分を必ず保持・move_file → read → 差分提示 → 承認 → write_file
+- **git commit メッセージ**: 日本語長文は `.claude/dayN-commit.txt` に書いて `git commit -F`
+- **write_file ルール**: 既存ファイルには使わない・move_file → read → 差分提示 → 承認 → write_file
+- **gen:cc-map**: cc-mapping.md 編集後は必ず `pnpm gen:cc-map` を実行
 
 ---
 
 ## 次回チャット用スタートプロンプト
 
 ```
-Day59開始
+Day62開始
 ```
