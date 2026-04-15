@@ -390,7 +390,7 @@ src/plugins/fx/CLAUDE.md          ← FX スタック順序・FX Plugin Interfac
 src/plugins/lights/CLAUDE.md      ← Light Plugin Interface
 src/plugins/particles/CLAUDE.md   ← Particle Plugin Interface
 src/drivers/
-src/ui/CLAUDE.md                  ← Window/Panel 命名原則・Simple Window 一覧・View メニュー連携
+src/ui/CLAUDE.md                  ← Window/Panel 命名原則・Simple Window 一覧・View メニュー連携（MacroWindow 含む）
 ```
 
 ---
