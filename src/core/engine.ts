@@ -251,34 +251,34 @@ export class Engine {
     this.activeTransitionId = id
   }
 
-  // --- MacroKnob 公開 API（MacroKnobPanel 用・Day50 整備）---
+  // --- AssignRegistry 公開 API ---
 
-  /** MacroKnob の設定一覧を返す（MacroKnobPanel 表示用） */
+  /** アサイン設定一覧を返す（MacroWindow 表示用） */
   getMacroKnobs(): MacroKnobConfig[] {
     return assignRegistry.getKnobs()
   }
 
-  /** MacroKnob の設定を更新する（MacroKnobPanel 編集用） */
+  /** アサイン設定を更新する（MacroWindow 編集用） */
   setMacroKnob(id: string, config: MacroKnobConfig): void {
     assignRegistry.setKnob(id, config)
   }
 
-  /** MacroKnob の現在値を返す（MacroKnobPanel 表示用・0.0〜1.0） */
+  /** 現在値を返す（MacroWindow 表示用・0.0〜1.0） */
   getMacroKnobValue(knobId: string): number {
     return assignRegistry.getValue(knobId)
   }
 
-  /** MacroKnob の表示用キャッシュを更新する（MacroKnobPanel UI ドラッグ用・Day52 新設） */
+  /** 現在値キャッシュを更新する（MacroWindow UI ドラッグ用） */
   setMacroKnobValue(knobId: string, value: number): void {
     assignRegistry.setValue(knobId, value)
   }
 
-  /** MacroKnob にアサインを追加する（D&D アサイン UI 用・Day52 新設） */
+  /** アサインを追加する（MacroWindow D&D 用） */
   addMacroAssign(knobId: string, assign: import('../types').MacroAssign): void {
     assignRegistry.addAssign(knobId, assign)
   }
 
-  /** MacroKnob からアサインを解除する（D&D アサイン UI 用・Day52 新設） */
+  /** アサインを解除する（MacroWindow D&D 用） */
   removeMacroAssign(knobId: string, paramId: string): void {
     assignRegistry.removeAssign(knobId, paramId)
   }
@@ -294,8 +294,7 @@ export class Engine {
 
   /**
    * CC入力の唯一の入り口（Day50 確定）。
-   * 全UI（SimpleWindow / MacroKnobPanel）・物理MIDIコントローラーが呼ぶ。
-   * MidiManager に委譲する。
+   * 全 Window・物理 MIDI コントローラーが呼ぶ。TransportManager に委譲する。
    */
   handleMidiCC(event: TransportEvent): void {
     transportManager.handle(event)

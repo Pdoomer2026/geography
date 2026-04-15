@@ -2,12 +2,11 @@
  * TransportManager
  * spec: docs/spec/transport-architecture.spec.md
  *
- * 旧: MidiManager（Day50 新設）
- * Day58 Step4: プロトコル非依存の TransportManager に昇格
+ * Day58 Step4: プロトコル非依存の TransportManager
  *
  * 責務:
  *   - TransportEvent を受け取って ParameterStore に書く
- *   - MacroKnob の解決（midiCC / assign.ccNumber でヒット検索）
+ *   - AssignRegistry を参照してアサイン解決（midiCC / assign.ccNumber でヒット検索）
  *   - Sequencer / LFO からの変調値受け取り（receiveModulation）
  *
  * 責務外:
