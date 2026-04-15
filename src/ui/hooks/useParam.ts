@@ -64,21 +64,21 @@ export function useParam(
  */
 export function useAllParams(layerId?: string): RegisteredParameterWithCC[] {
   const [params, setParams] = useState<RegisteredParameterWithCC[]>(() =>
-    engine.getParameters(layerId)
+    engine.getParametersLive(layerId)
   )
 
   // 構造変化（register / clear）は即時反映
   useEffect(() => {
-    setParams(engine.getParameters(layerId))
+    setParams(engine.getParametersLive(layerId))
     return engine.onRegistryChanged(() => {
-      setParams(engine.getParameters(layerId))
+      setParams(engine.getParametersLive(layerId))
     })
   }, [layerId])
 
-  // 値の変化は 100ms ポーリングで検知（flushParameterStore は毎フレーム走るため）
+  // 値の変化は 100ms ポーリング（plugin.params を直接読むので常に最新値）
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setParams(engine.getParameters(layerId))
+      setParams(engine.getParametersLive(layerId))
     }, 100)
     return () => window.clearInterval(timer)
   }, [layerId])

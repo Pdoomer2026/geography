@@ -258,11 +258,50 @@ export class Engine {
   /**
    * 登録済みパラメータ一覧を返す（Window が transportRegistry を直接触らないための窓口）
    * layerId を指定するとそのレイヤーのみにフィルタする。
-   * unsubscribe 関数を返す。useEffect の return で呼ぶこと。
+   * value は Registry のスナップショット（syncValue で更新された値）。
    */
   getParameters(layerId?: string): import('../types/midi-registry').RegisteredParameterWithCC[] {
     const all = transportRegistry.getAll()
     return layerId ? all.filter((p) => p.layerId === layerId) : all
+  }
+
+  /**
+   * 登録済みパラメータを plugin.params の生値付きで返す（GeoMonitor 専用）
+   * Registry は構造（CC番号・min・max・layerId）のみ提供。
+   * value は毎回 plugin.params から直接読むため常に最新値を返す。
+   * Window が plugin に直接アクセスせず、engine 経由で取得する。
+   */
+  getParametersLive(layerId?: string): import('../types/midi-registry').RegisteredParameterWithCC[] {
+    const all = transportRegistry.getAll()
+    const filtered = layerId ? all.filter((p) => p.layerId === layerId) : all
+    return filtered.map((entry) => {
+      const liveValue = this._readLiveValue(entry)
+      return liveValue !== undefined ? { ...entry, value: liveValue } : entry
+    })
+  }
+
+  /**
+   * entry に対応する plugin.params の現在値を読む（getParametersLive の内部ヘルパー）
+   * Geometry / Camera / FX の順で探す。
+   */
+  private _readLiveValue(
+    entry: import('../types/midi-registry').RegisteredParameterWithCC
+  ): number | undefined {
+    const layer = layerManager.getLayers().find((l) => l.id === entry.layerId)
+    if (!layer) return undefined
+    // Geometry
+    if (layer.plugin?.id === entry.pluginId) {
+      return layer.plugin.params[entry.id]?.value
+    }
+    // Camera
+    const cam = layerManager.getCameraPlugin(entry.layerId)
+    if (cam?.id === entry.pluginId) {
+      return cam.params[entry.id]?.value
+    }
+    // FX
+    const fx = layer.fxStack.getPlugin(entry.pluginId)
+    if (fx) return fx.params[entry.id]?.value
+    return undefined
   }
 
   /**
