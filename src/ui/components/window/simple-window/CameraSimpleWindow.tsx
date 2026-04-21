@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
+import { useSimpleParamRow } from '../../../../ui/hooks/useSimpleParamRow'
 import type { CameraPlugin } from '../../../../application/schema'
 import type { RegisteredParameterWithCC } from '../../../../application/schema/midi-registry'
 
@@ -62,15 +63,16 @@ export function CameraSimpleWindow() {
   }, [activeLayer, getParamsFromRegistry])
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    return engine.onRegistryChanged(() => {
       const cam = engine.getCameraPlugin(activeLayer)
       if (!cam) return
       if (cam.id !== cameraId) {
         setCameraId(cam.id)
         setParams(getParamsFromRegistry(activeLayer, cam.id))
+        return
       }
-    }, 200)
-    return () => window.clearInterval(timer)
+      setParams(getParamsFromRegistry(activeLayer, cam.id))
+    })
   }, [activeLayer, cameraId, getParamsFromRegistry])
 
   function handleCameraChange(pluginId: string) {
@@ -166,21 +168,9 @@ interface ParamRowProps {
 }
 
 function ParamRow({ param, layerId }: ParamRowProps) {
-  const { name, min, max, step, ccNumber } = param
-  const [value, setValue] = useState(param.value)
+  const { name, min, max, step } = param
 
-  const isBinary = min === 0 && max === 1 && step === 1
-
-  function handleChange(raw: number) {
-    setValue(raw)
-    const normalized = max > min ? (raw - min) / (max - min) : 0
-    engine.handleMidiCC({
-      slot: ccNumber,
-      value: Math.min(1, Math.max(0, normalized)),
-      source: 'window',
-      layerId,
-    })
-  }
+  const { value, isBinary, handleChange } = useSimpleParamRow({ param, layerId })
 
   return (
     <div className="flex items-center gap-2">

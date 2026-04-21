@@ -73,7 +73,7 @@ export function GeometrySimpleDnDWindow({ onPluginApply, onPluginRemove }: Geome
   pluginIdRef.current = pluginId
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    return engine.onRegistryChanged(() => {
       const geo = engine.getGeometryPlugin(activeLayer)
       if (!geo) {
         if (pluginIdRef.current !== '') {
@@ -86,12 +86,17 @@ export function GeometrySimpleDnDWindow({ onPluginApply, onPluginRemove }: Geome
         setPluginId(geo.id); setPluginName(geo.name)
         onPluginApply(activeLayer, geo.id)
       }
-      // MacroKnob 操作など外部からの値変化を読み返す
-      const live = engine.getParametersLive(activeLayer).filter((p) => p.pluginId === geo.id)
-      setParams(live)
-    }, 200)
-    return () => window.clearInterval(timer)
+      setParams(engine.getParametersLive(activeLayer).filter((p) => p.pluginId === geo.id))
+    })
   }, [activeLayer, onPluginApply, onPluginRemove])
+
+  useEffect(() => {
+    return engine.onParamChanged(() => {
+      const geo = engine.getGeometryPlugin(activeLayer)
+      if (!geo) return
+      setParams(engine.getParametersLive(activeLayer).filter((p) => p.pluginId === geo.id))
+    })
+  }, [activeLayer])
 
   return (
     <div className="fixed z-50 font-mono text-xs select-none" style={{ left: pos.x, top: pos.y, width: 320 }}>

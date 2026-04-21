@@ -47,18 +47,21 @@ export function CameraSimpleDnDWindow() {
   }, [activeLayer, getParamsFromRegistry])
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    return engine.onRegistryChanged(() => {
       const cam = engine.getCameraPlugin(activeLayer)
       if (!cam) return
-      if (cam.id !== cameraId) {
-        setCameraId(cam.id)
-      }
-      // MacroKnob 操作など外部からの値変化を読み返す
-      const live = engine.getParametersLive(activeLayer).filter((p) => p.pluginId === cam.id)
-      setParams(live)
-    }, 200)
-    return () => window.clearInterval(timer)
+      if (cam.id !== cameraId) setCameraId(cam.id)
+      setParams(engine.getParametersLive(activeLayer).filter((p) => p.pluginId === cam.id))
+    })
   }, [activeLayer, cameraId])
+
+  useEffect(() => {
+    return engine.onParamChanged(() => {
+      const cam = engine.getCameraPlugin(activeLayer)
+      if (!cam) return
+      setParams(engine.getParametersLive(activeLayer).filter((p) => p.pluginId === cam.id))
+    })
+  }, [activeLayer])
 
   function handleCameraChange(pluginId: string) {
     engine.setCameraPlugin(activeLayer, pluginId)

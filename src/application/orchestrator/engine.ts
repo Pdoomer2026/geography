@@ -51,8 +51,8 @@ export class Engine {
 
   readonly parameterStore: ParameterStore
 
-  /** Plugin → Window 逆流コールバック（Day58 Step3）*/
-  private paramChangedCallback: (() => void) | null = null
+  /** Plugin → Window 逆流コールバック（複数購読対応・Day71）*/
+  private paramChangedListeners: Set<() => void> = new Set()
   /** FX enabled 変化コールバック（Day59 新設・Sequencer 対応前倒し）*/
   private fxChangedCallback: (() => void) | null = null
 
@@ -60,8 +60,9 @@ export class Engine {
     this.parameterStore = new ParameterStore()
   }
 
-  onParamChanged(cb: () => void): void {
-    this.paramChangedCallback = cb
+  onParamChanged(cb: () => void): () => void {
+    this.paramChangedListeners.add(cb)
+    return () => this.paramChangedListeners.delete(cb)
   }
 
   onFxChanged(cb: () => void): void {
@@ -575,7 +576,7 @@ export class Engine {
     }
 
     if (changed) {
-      this.paramChangedCallback?.()
+      for (const cb of [...this.paramChangedListeners]) cb()
     }
   }
 

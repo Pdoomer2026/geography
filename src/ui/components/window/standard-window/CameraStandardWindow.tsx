@@ -58,15 +58,16 @@ export function CameraStandardWindow() {
   }, [activeLayer, getParamsFromRegistry])
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    return engine.onRegistryChanged(() => {
       const cam = engine.getCameraPlugin(activeLayer)
       if (!cam) return
       if (cam.id !== cameraId) {
         setCameraId(cam.id)
         setParams(getParamsFromRegistry(activeLayer, cam.id))
+        return
       }
-    }, 200)
-    return () => window.clearInterval(timer)
+      setParams(getParamsFromRegistry(activeLayer, cam.id))
+    })
   }, [activeLayer, cameraId, getParamsFromRegistry])
 
   function handleCameraChange(pluginId: string) {

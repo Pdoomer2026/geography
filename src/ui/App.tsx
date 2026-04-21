@@ -55,9 +55,9 @@ export default function App() {
       engine.start()
       engine.setFxEnabled('after-image', engine.getFxPlugins('layer-1').find(f => f.id === 'after-image')?.enabled ?? false, 'layer-1')
 
-      // engine → Zustand store を接続
+      // engine → Zustand store を接続（unsubscribe を cleanup で返す）
       const syncMacroKnobs = () => useGeoStore.getState().syncMacroKnobs()
-      engine.onParamChanged(syncMacroKnobs)
+      const unsubParam = engine.onParamChanged(syncMacroKnobs)
       syncMacroKnobs()
 
       // commandStream → engine（throttle 16ms = 60fps 相当）
@@ -65,7 +65,7 @@ export default function App() {
         throttleTime(16, undefined, { leading: true, trailing: true })
       ).subscribe((event) => engine.handleMidiCC(event))
 
-      return () => sub.unsubscribe()
+      return () => { sub.unsubscribe(); unsubParam() }
     })
     return () => { engine.dispose() }
   }, [])

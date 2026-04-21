@@ -50,14 +50,6 @@ export function GeometryStandardWindow({ onPluginApply, onPluginRemove }: Geomet
   }, [])
 
   useEffect(() => {
-    return engine.onRegistryChanged(() => {
-      const geo = engine.getGeometryPlugin(activeLayer)
-      if (!geo) { setParams([]); return }
-      setParams(getParamsFromRegistry(activeLayer, geo.id))
-    })
-  }, [activeLayer, getParamsFromRegistry])
-
-  useEffect(() => {
     const geo = engine.getGeometryPlugin(activeLayer)
     if (geo) {
       setPluginId(geo.id)
@@ -74,7 +66,7 @@ export function GeometryStandardWindow({ onPluginApply, onPluginRemove }: Geomet
   pluginIdRef.current = pluginId
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    return engine.onRegistryChanged(() => {
       const geo = engine.getGeometryPlugin(activeLayer)
       if (!geo) {
         if (pluginIdRef.current !== '') {
@@ -87,9 +79,10 @@ export function GeometryStandardWindow({ onPluginApply, onPluginRemove }: Geomet
         setPluginId(geo.id); setPluginName(geo.name)
         setParams(getParamsFromRegistry(activeLayer, geo.id))
         onPluginApply(activeLayer, geo.id)
+        return
       }
-    }, 200)
-    return () => window.clearInterval(timer)
+      setParams(getParamsFromRegistry(activeLayer, geo.id))
+    })
   }, [activeLayer, onPluginApply, onPluginRemove, getParamsFromRegistry])
 
   return (
