@@ -1,4 +1,4 @@
-import type { TransitionPlugin, SceneState } from '../../../types'
+import type { TransitionPlugin, SceneState } from '../../../../types'
 
 /**
  * Beat Cut Transition Plugin
