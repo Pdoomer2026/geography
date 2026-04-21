@@ -26,6 +26,12 @@ export interface PluginBase {
  * spec: docs/spec/macro-knob.spec.md §3
  */
 export interface ModulatablePlugin extends PluginBase {
+  /**
+   * パラメーターの静的定義（カタログ）
+   * spec: docs/spec/param-catalog.spec.md
+   * optional: 段階的移行のため。catalog 対応済み Plugin のみ持つ。
+   */
+  catalog?: PluginCatalog
   /** CC Standard 経由で TransportManager から制御可能なパラメーター群 */
   params: Record<string, PluginParam>
   /** MIDI Registry への登録用。params から ParameterSchema[] に変換して返す */
@@ -33,7 +39,43 @@ export interface ModulatablePlugin extends PluginBase {
 }
 
 // ============================================================
-// パラメーター定義
+// ParamCatalog（静的定義）
+// spec: docs/spec/param-catalog.spec.md
+// ============================================================
+
+/**
+ * Plugin パラメーターの静的定義エントリ。
+ * 実行時状態（現在値・UI 可動域）は PluginParam が管理する。
+ */
+export interface ParamCatalogEntry {
+  /** paramId（Record のキーと一致・明示的に保持） */
+  id: string
+  /** UI 表示名 */
+  label: string
+  /** パラメーター型（v1 は number / boolean のみ） */
+  type: 'number' | 'boolean'
+  /** 最小値（type: 'number' のみ有効） */
+  min: number
+  /** 最大値（type: 'number' のみ有効） */
+  max: number
+  /** デフォルト値（Plugin リセット時に参照） */
+  default: number
+  /** UI スライダーのステップ（省略時 0.001） */
+  step?: number
+  /** UI ヒント（将来: 'select' / 'color' 等を追加） */
+  ui: 'slider' | 'toggle'
+  /**
+   * true のとき、この param の変更で Geometry Plugin の destroy→create が発生する。
+   * spec: docs/spec/geometry-plugin.spec.md §9
+   */
+  requiresRebuild?: boolean
+}
+
+/** Plugin ごとのカタログ（paramId → 静的定義） */
+export type PluginCatalog = Record<string, ParamCatalogEntry>
+
+// ============================================================
+// パラメーター定義（実行時状態）
 // ============================================================
 
 export interface PluginParam {

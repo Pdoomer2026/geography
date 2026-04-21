@@ -1,6 +1,6 @@
 import type * as THREE from 'three'
 import type { GeometryPlugin } from '../../../../application/schema'
-import { defaultParams } from './icosphere.config'
+import { catalog, defaultParams } from './icosphere.config'
 import { IcosphereGeometry } from './IcosphereGeometry'
 
 let icosphere: IcosphereGeometry | null = null
@@ -11,6 +11,7 @@ const icospherePlugin: GeometryPlugin = {
   name: 'Icosphere',
   renderer: 'threejs',
   enabled: true,
+  catalog,
   params: structuredClone(defaultParams),
   defaultCameraPluginId: 'orbit-camera',
   defaultCameraParams: { radius: 10, height: 3, speed: 0.5, autoRotate: 1 },
