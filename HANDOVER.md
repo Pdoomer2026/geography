@@ -32,11 +32,14 @@
 ## 現在の状態
 
 - **ブランチ**: `refactor/day53-design`
-- **タグ**: `day72`（最新コミット: `36f744d`）
+- **タグ**: `day72`（最新コミット: `c2e88de`）
 - **テスト**: 127 tests グリーン・tsc エラーゼロ
 - **Day72 コミット一覧**:
   ```
   36f744d refactor: migrate all Geometry Plugins to ParamCatalog (Day72)
+  da9a6d0 feat: add ExecutionPlanner Phase 1 shell + execution-planner.spec.md (Day72)
+  bef9c01 feat: add execution flag to ParamCatalogEntry (Day72)
+  c2e88de docs: record mono-repo strategy and 3-repo split timing (Day72)
   ```
 
 ---
@@ -50,6 +53,24 @@
 - 各 `index.ts`: `catalog` フィールドを Plugin オブジェクトに追加（`ModulatablePlugin.catalog` に接続）
 - `step` 値を初めて明示的に定義（整数系: 1 / 小数0.1刻み: 0.1 / 細かい調整: 0.01）
 - **全7 Plugin が catalog 対応済みになった**（icosphere + 今回の6本）
+
+### ExecutionPlanner Phase 1 shell 新設
+- `src/application/orchestrator/executionPlanner.ts` を新規作成
+- Phase 1 は全 Command に `'sync'` を返すだけの shell
+- `docs/spec/execution-planner.spec.md` に Phase 1〜4 のロードマップを明文化
+- BullMQ 採用理由（Next.js / Supabase / Google AI Studio 統合）を spec に記録
+- CLAUDE.md の spec 一覧に追記済み
+
+### ParamCatalogEntry に `execution` フラグ追加（Phase 2 準備）
+- `execution?: 'sync' | 'async'` を `ParamCatalogEntry` に追加
+- `schema/index.ts` と `param-catalog.spec.md` を同期更新
+- Shader コンパイル等の重い処理に `'async'` を立てる準備が整った
+
+### アーキテクチャ方針確定（Day72）
+- **3レポ分割は製品版リリース直前**に行う方針を確定
+- 現在はモノレポ1本で開発速度を優先
+- Engine を純粋計算に閉じ込める意識だけ今から保つ
+- `execution-planner.spec.md` に記録済み
 
 ---
 
