@@ -7,9 +7,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
+import { useStandardDnDParamRow } from '../../../../ui/hooks/useStandardDnDParamRow'
 import type { CameraPlugin } from '../../../../application/schema'
 import type { RegisteredParameterWithCC } from '../../../../application/schema/midi-registry'
-import type { DragPayload } from '../../../../application/schema'
 import { RangeSlider } from '../standard-window/RangeSlider'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
@@ -160,47 +160,19 @@ interface ParamRowProps {
 }
 
 function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange }: ParamRowProps) {
-  const { name, min, max, step, ccNumber } = param
-  const [value, setValue] = useState(param.value)
-  const [lo, setLo] = useState(initialLo)
-  const [hi, setHi] = useState(initialHi)
-  const [isDragging, setIsDragging] = useState(false)
+  const { name, min, max, step } = param
 
-  useEffect(() => { setValue(param.value) }, [param.value])
-
-  const isBinary = min === 0 && max === 1 && step === 1
-
-  function handleChange(raw: number) {
-    setValue(raw)
-    const normalized = Math.min(1, Math.max(0, (raw - min) / (max - min || 1)))
-    engine.handleMidiCC({ slot: ccNumber, value: normalized, source: 'window', layerId })
-  }
-
-  function handleLoHiChange(newLo: number, newHi: number) {
-    setLo(newLo)
-    setHi(newHi)
-    onLoHiChange(newLo, newHi)
-  }
-
-  function handleDragStart(e: React.DragEvent) {
-    const payload: DragPayload = {
-      type: 'param',
-      id: param.id,
-      layerId,
-      pluginId,
-      ccNumber,
-      min,
-      max,
-      proposal: { lo, hi },
-    }
-    e.dataTransfer.setData('application/geography-param', JSON.stringify(payload))
-    e.dataTransfer.effectAllowed = 'copy'
-    setIsDragging(true)
-  }
-
-  function handleDragEnd() {
-    setIsDragging(false)
-  }
+  const {
+    value,
+    lo,
+    hi,
+    isDragging,
+    isBinary,
+    handleChange,
+    handleLoHiChange,
+    handleDragStart,
+    handleDragEnd,
+  } = useStandardDnDParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange })
 
   return (
     <div className="flex flex-col gap-1">

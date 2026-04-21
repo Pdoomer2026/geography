@@ -7,8 +7,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
+import { useDnDParamRow } from '../../../../ui/hooks/useDnDParamRow'
 import type { RegisteredParameterWithCC } from '../../../../application/schema/midi-registry'
-import type { DragPayload } from '../../../../application/schema'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
 type LayerId = (typeof LAYER_TABS)[number]
@@ -172,38 +172,16 @@ interface ParamRowProps {
 }
 
 function ParamRow({ param, layerId, pluginId }: ParamRowProps) {
-  const { name, min, max, step, ccNumber } = param
-  const [value, setValue] = useState(param.value)
-  const [isDragging, setIsDragging] = useState(false)
+  const { name, min, max, step } = param
 
-  useEffect(() => { setValue(param.value) }, [param.value])
-
-  const isBinary = min === 0 && max === 1 && step === 1
-
-  function handleChange(raw: number) {
-    setValue(raw)
-    const normalized = max > min ? (raw - min) / (max - min) : 0
-    engine.handleMidiCC({ slot: ccNumber, value: Math.min(1, Math.max(0, normalized)), source: 'window', layerId })
-  }
-
-  function handleDragStart(e: React.DragEvent) {
-    const payload: DragPayload = {
-      type: 'param',
-      id: param.id,
-      layerId,
-      pluginId,
-      ccNumber,
-      min,
-      max,
-    }
-    e.dataTransfer.setData('application/geography-param', JSON.stringify(payload))
-    e.dataTransfer.effectAllowed = 'copy'
-    setIsDragging(true)
-  }
-
-  function handleDragEnd() {
-    setIsDragging(false)
-  }
+  const {
+    value,
+    isDragging,
+    isBinary,
+    handleChange,
+    handleDragStart,
+    handleDragEnd,
+  } = useDnDParamRow({ param, layerId, pluginId })
 
   return (
     <div className="flex items-center gap-1.5">
@@ -225,7 +203,7 @@ function ParamRow({ param, layerId, pluginId }: ParamRowProps) {
         ≡
       </div>
 
-      <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">CC{ccNumber}</span>
+      <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">CC{param.ccNumber}</span>
       <span className="text-[9px] text-[#5a5a8e] w-16 truncate shrink-0">{name}</span>
 
       {isBinary ? (

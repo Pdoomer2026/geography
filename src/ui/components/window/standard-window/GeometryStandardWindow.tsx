@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
+import { useStandardParamRow } from '../../../../ui/hooks/useStandardParamRow'
 import type { RegisteredParameterWithCC } from '../../../../application/schema/midi-registry'
 import { RangeSlider } from './RangeSlider'
 
@@ -156,34 +157,22 @@ interface ParamRowProps {
 }
 
 function ParamRow({ param, layerId }: ParamRowProps) {
-  const { name, min, max, step, ccNumber } = param
-  const [value, setValue] = useState(param.value)
-  const [lo, setLo] = useState(min)
-  const [hi, setHi] = useState(max)
+  const { name, min, max, step } = param
 
-  useEffect(() => { setValue(param.value) }, [param.value])
-
-  const isBinary = min === 0 && max === 1 && step === 1
-
-  function handleChange(raw: number) {
-    setValue(raw)
-    const fullRange = max - min || 1
-    const t = (raw - min) / fullRange
-    const remapped = lo + t * (hi - lo)
-    const normalized = Math.min(1, Math.max(0, (remapped - min) / fullRange))
-    engine.handleMidiCC({ slot: ccNumber, value: normalized, source: 'window', layerId })
-  }
-
-  function handleLoHiChange(newLo: number, newHi: number) {
-    setLo(newLo)
-    setHi(newHi)
-  }
+  const {
+    value,
+    lo,
+    hi,
+    isBinary,
+    handleChange,
+    handleLoHiChange,
+  } = useStandardParamRow({ param, layerId })
 
   return (
     <div className="flex flex-col gap-1">
       {/* ラベル行 */}
       <div className="flex items-center gap-1.5">
-        <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">CC{ccNumber}</span>
+        <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">CC{param.ccNumber}</span>
         <span className="text-[9px] text-[#5a5a8e] w-20 truncate shrink-0">{name}</span>
         <span className="text-[9px] text-[#aaaaee] w-12 text-right tabular-nums shrink-0">
           {value.toFixed(max <= 0.1 ? 4 : 2)}

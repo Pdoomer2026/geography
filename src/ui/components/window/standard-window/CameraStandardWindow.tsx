@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
+import { useStandardParamRow } from '../../../../ui/hooks/useStandardParamRow'
 import type { CameraPlugin } from '../../../../application/schema'
 import type { RegisteredParameterWithCC } from '../../../../application/schema/midi-registry'
 import { RangeSlider } from './RangeSlider'
@@ -155,28 +156,16 @@ interface ParamRowProps {
 }
 
 function ParamRow({ param, layerId }: ParamRowProps) {
-  const { name, min, max, step, ccNumber } = param
-  const [value, setValue] = useState(param.value)
-  const [lo, setLo] = useState(min)
-  const [hi, setHi] = useState(max)
+  const { name, min, max, step } = param
 
-  useEffect(() => { setValue(param.value) }, [param.value])
-
-  const isBinary = min === 0 && max === 1 && step === 1
-
-  function handleChange(raw: number) {
-    setValue(raw)
-    // raw(min〜max) を lo〜hi にリマップして正規化
-    const fullRange = max - min || 1
-    const remapped = lo + ((raw - min) / fullRange) * (hi - lo)
-    const normalized = Math.min(1, Math.max(0, (remapped - min) / fullRange))
-    engine.handleMidiCC({ slot: ccNumber, value: normalized, source: 'window', layerId })
-  }
-
-  function handleLoHiChange(newLo: number, newHi: number) {
-    setLo(newLo)
-    setHi(newHi)
-  }
+  const {
+    value,
+    lo,
+    hi,
+    isBinary,
+    handleChange,
+    handleLoHiChange,
+  } = useStandardParamRow({ param, layerId })
 
   return (
     <div className="flex flex-col gap-1">
