@@ -1,4 +1,4 @@
-# src/plugins/windows - CLAUDE.md v3
+# src/ui/components/window - CLAUDE.md v3
 
 ## 役割
 
@@ -23,19 +23,24 @@ spec: `docs/spec/window-plugin.spec.md`
 ## ディレクトリ構成（Day61 確定）
 
 ```
-src/plugins/windows/
+src/ui/components/window/
 ├── CLAUDE.md
-├── simple-window/               ← Simple Window の格納場所
-│   ├── GeometrySimpleWindow.tsx   ← Geometry 用（旧 SimpleWindowPlugin）
-│   ├── CameraSimpleWindow.tsx     ← Camera 用（旧 CameraWindowPlugin）
-│   ├── FxSimpleWindow.tsx         ← FX 用（旧 FxWindowPlugin）
+├── simple-window/               <- Simple Window の格納場所
+│   ├── GeometrySimpleWindow.tsx
+│   ├── CameraSimpleWindow.tsx
+│   ├── FxSimpleWindow.tsx
 │   └── index.ts
-├── macro-window/                ← AssignRegistry のノブ UI
+├── standard-window/
+├── simple-dnd-window/
+├── standard-dnd-window/
+├── macro-window/                <- AssignRegistry のノブ UI
 │   ├── MacroWindow.tsx
 │   ├── index.ts
 │   └── CLAUDE.md
-├── standard-window/             ← 将来（スライダー稼働幅あり）
-└── dnd-window/                  ← 将来（D&D 機能あり）
+├── macro-8-window/
+├── geo-monitor/
+├── standard-dnd-window/
+└── dnd-window/                  <- 将来（D&D 機能あり）
 ```
 
 ---
@@ -53,7 +58,7 @@ src/plugins/windows/
 ## MUST ルール
 
 - MUST: Simple Window は `simple-window/` に置くこと
-- MUST: MacroWindow は engine を import しない（assignRegistry / transportManager に直接アクセス）
+- MUST: MacroWindow は engine を import する（MacroWindow は例外となくなった・Day61 改訂）
 - MUST: Simple Window は engine 経由でパラメータ変更（engine.handleMidiCC）
 - MUST: `<form>` タグを使用しないこと
-- MUST: App.tsx の import は全て `plugins/windows/` 配下から
+- MUST: App.tsx の import は全て `src/ui/components/` 配下から

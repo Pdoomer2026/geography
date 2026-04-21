@@ -43,7 +43,7 @@ PreferencesPanel（メイン・export）
 ## import パス（このファイルからの相対パス）
 
 ```typescript
-import { engine } from '../../core/engine'
+import { engine } from '../../../application/orchestrator/engine'
 ```
 
 ---

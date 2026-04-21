@@ -1,4 +1,4 @@
-# src/plugins/fx - CLAUDE.md
+# src/engine/fx - CLAUDE.md
 
 ## 役割
 

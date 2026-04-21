@@ -1,4 +1,4 @@
-# src/plugins/transitions - CLAUDE.md
+# src/application/command/geo-transitions - CLAUDE.md
 
 ## 役割
 
@@ -52,7 +52,7 @@ interface TransitionPlugin extends PluginBase {
 ## ファイル構成
 
 ```
-plugins/transitions/[name]/
+src/application/command/geo-transitions/[name]/
 ├── index.ts         ← TransitionPlugin export
 ├── [Name].ts        ← トランジションロジック
 ├── CLAUDE.md        ← 各トランジション固有の実装ヒント

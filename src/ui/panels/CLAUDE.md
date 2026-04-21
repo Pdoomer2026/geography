@@ -29,7 +29,7 @@ src/ui/panels/
     └── PreferencesPanel.tsx
 ```
 
-> MacroKnob Panel は Day61 で `src/plugins/windows/macro-window/MacroWindow.tsx` に格下げ済み。
+> MacroKnob Panel は Day61 で `src/ui/components/window/macro-window/MacroWindow.tsx` に格下げ済み。
 
 ---
 

@@ -1,4 +1,4 @@
-# src/plugins/mixers - CLAUDE.md v2
+# src/ui/components/mixers - CLAUDE.md v2
 
 ## 役割
 
@@ -24,16 +24,16 @@ v1 では Mixer Simple Window 固定。MixerPlugin の交換は v2 から。
 ## ディレクトリ構成
 
 ```
-src/plugins/mixers/
+src/ui/components/mixers/
 ├── CLAUDE.md
 └── simple-mixer/
-    ├── index.ts               ← MixerPlugin 登録エントリー
-    └── MixerSimpleWindow.tsx  ← デフォルト最小 UI
+    ├── index.ts
+    └── MixerSimpleWindow.tsx
 ```
 
 コントリビューターが Mixer を追加する場合：
 ```
-src/plugins/mixers/
+src/ui/components/mixers/
 └── [mixer-name]/
     ├── index.ts
     ├── [Name]SimpleWindow.tsx   または   [Name]Window.tsx（カスタム UI）

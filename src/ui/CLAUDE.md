@@ -22,16 +22,16 @@ Three.js Canvas の上に React UI をオーバーレイする。
 ## Simple Window 命名原則
 
 Simple Window のファイル名は `[Name]SimpleWindow.tsx`。
-**配置場所: `src/plugins/windows/simple-window/`（Day61 移動済み）**
+**配置場所: `src/ui/components/window/simple-window/`（Day67 移動済み）**
 
 ### Simple Window 一覧（Day61 確定）
 
 | Simple Window 名 | 対応 Plugin | ファイル |
 |---|---|---|
-| Mixer Simple Window | MixerPlugin | `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx` |
-| FX Simple Window | FX Plugin | `src/plugins/windows/simple-window/FxSimpleWindow.tsx` |
-| Geometry Simple Window | Geometry Plugin | `src/plugins/windows/simple-window/GeometrySimpleWindow.tsx` |
-| Camera Simple Window | Camera Plugin | `src/plugins/windows/simple-window/CameraSimpleWindow.tsx` |
+| Mixer Simple Window | MixerPlugin | `src/ui/components/mixers/simple-mixer/MixerSimpleWindow.tsx` |
+| FX Simple Window | FX Plugin | `src/ui/components/window/simple-window/FxSimpleWindow.tsx` |
+| Geometry Simple Window | Geometry Plugin | `src/ui/components/window/simple-window/GeometrySimpleWindow.tsx` |
+| Camera Simple Window | Camera Plugin | `src/ui/components/window/simple-window/CameraSimpleWindow.tsx` |
 
 ---
 
@@ -73,18 +73,27 @@ View メニューのイベントは `electron/main.js` → IPC → `electron/pre
 
 ```
 src/ui/
-├── App.tsx                    ← Canvas + Window / Panel 群のルートレイアウト
-├── useAutosave.ts             ← 終了時保存・起動時復元
-├── useDraggable.ts            ← フローティングウィンドウのドラッグ
+├── App.tsx                    <- Canvas + Window / Panel 群のルートレイアウト
+├── useAutosave.ts             <- 終了時保存・起動時復元
+├── useDraggable.ts            <- フローティングウィンドウのドラッグ
+├── hooks/
+│   └── useParam.ts            <- TransportRegistry 購読 Hook
+├── components/
+│   ├── window/                <- Window コンポーネント群（Day67 移動済み）
+│   │   ├── simple-window/
+│   │   ├── standard-window/
+│   │   ├── simple-dnd-window/
+│   │   ├── standard-dnd-window/
+│   │   ├── macro-window/
+│   │   ├── macro-8-window/
+│   │   └── geo-monitor/
+│   └── mixers/                <- Mixer コンポーネント群（Day67 移動済み）
+│       └── simple-mixer/
 └── panels/
-    ├── CLAUDE.md              ← Panel 共通ルール
+    ├── CLAUDE.md
     └── preferences/
-        ├── CLAUDE.md          ← Preferences 固有
+        ├── CLAUDE.md
         └── PreferencesPanel.tsx
-
-※ Simple Window は src/plugins/windows/simple-window/ に配置（Day61 移動済み）
-※ MacroWindow は src/plugins/windows/macro-window/ に配置（Day61 格下げ済み）
-※ Mixer Simple Window は src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx
 ```
 
 ---
@@ -115,7 +124,7 @@ src/ui/
 - MUST: `macroKnobManager` を直接 import しないこと・`engine` 経由のみ許可（MacroWindow は例外・直接アクセス可）
 - MUST: `<form>` タグは使用しない（onClick / onChange で代替）
 - MUST: Preferences Panel は Panel（アプリ固定）であり Window ではない
-- MUST: App.tsx の Window import は全て `src/plugins/windows/` 配下から行うこと
+- MUST: App.tsx の Window import は全て `src/ui/components/` 配下から行うこと
 
 ## localStorage 使用方針（Day52 確定）
 

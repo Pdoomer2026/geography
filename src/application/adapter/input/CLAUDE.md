@@ -1,4 +1,4 @@
-# src/drivers/input - CLAUDE.md
+# src/application/adapter/input - CLAUDE.md
 
 ## このフォルダの役割
 
@@ -12,10 +12,10 @@ spec: `docs/spec/transport-architecture.spec.md` §3
 ## ファイル構成
 
 ```
-src/drivers/input/
+src/application/adapter/input/
 ├── CLAUDE.md
-├── MidiInputWrapper.ts   ← MIDI 1.0 受信・正規化・TransportEvent 生成（Day58 実装済み）
-├── OscInputWrapper.ts    ← 将来（OSC 対応時）
+├── MidiInputWrapper.ts
+├── OscInputWrapper.ts    <- 将来（OSC 対応時）
 └── index.ts
 ```
 

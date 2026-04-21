@@ -1,4 +1,4 @@
-# src/plugins/particles - CLAUDE.md
+# src/engine/particles - CLAUDE.md
 
 ## 役割
 

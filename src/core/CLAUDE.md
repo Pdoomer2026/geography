@@ -1,5 +1,19 @@
 # src/core - CLAUDE.md v7
 
+> ⚠️ WARNING: src/core/ は Day68 で解体済み（2026-04-21）
+> 全実装ファイルは src/application/ 以下に移行完了。
+> このファイルは歴史的記録として保持する。
+>
+> 新パス一覧:
+> - engine.ts / layerManager.ts / fxStack.ts / programBus.ts / previewBus.ts → src/application/orchestrator/
+> - tempo/clock.ts → src/application/orchestrator/tempo/
+> - registry.ts / transportManager.ts / transportRegistry.ts / assignRegistry.ts → src/application/registry/
+> - state/parameterStore.ts → src/application/registry/state/
+> - ccMapService.ts → src/application/catalog/
+> - projectManager.ts / presetStore.ts → src/application/adapter/storage/
+> - command.ts → src/application/command/
+> - config.ts / midiRegistry.ts → src/application/schema/
+
 ## 役割
 
 GeoGraphy のエンジンコア。レンダーループ・Plugin Registry・Parameter Store・Command パターン・LayerManager・Program/Preview バス・AssignRegistry・TransportManager・TransportRegistry を管理する。

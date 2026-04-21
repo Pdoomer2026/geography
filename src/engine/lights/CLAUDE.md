@@ -1,4 +1,4 @@
-# src/plugins/lights - CLAUDE.md
+# src/engine/lights - CLAUDE.md
 
 ## 役割
 

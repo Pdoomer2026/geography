@@ -1,4 +1,4 @@
-# src/plugins/geometry - CLAUDE.md
+# src/engine/geometry - CLAUDE.md
 
 ## 役割
 
@@ -47,7 +47,7 @@ GeometryPlugin は MidiManager → CC Standard 経由で外部制御される。
 ## ファイル構成（必須）
 
 ```
-plugins/geometry/[category]/[name]/
+src/engine/geometry/[category]/[name]/
 ├── index.ts              ← GeometryPlugin export
 ├── [Name]Geometry.ts     ← Three.js ロジック
 ├── [name].config.ts      ← パラメーター定義
