@@ -3,7 +3,7 @@
 > SSoT: このファイル
 > 対応実装: `src/application/catalog/paramCatalog.ts`
 > 担当: Claude Desktop（設計） / Claude Code（実装）
-> 状態: Day69 設計・基本実装完了
+> 状態: Day69 設計・基本実装完了 / Day72 execution フラグ追加
 
 ---
 
@@ -75,6 +75,20 @@ export interface ParamCatalogEntry {
    * spec: docs/spec/geometry-plugin.spec.md §9
    */
   requiresRebuild?: boolean
+  /**
+   * この param の変更が引き起こす処理の実行戦略。
+   * 省略時は 'sync'（デフォルト・リアルタイム即時反映）。
+   * 'async' を指定すると ExecutionPlanner が BullMQ キューに投げる。
+   *
+   * 'async' を立てるべき処理の基準:
+   *   - Shader コンパイル（GLSL → GPU）
+   *   - segments が大きい重いメッシュ再生成
+   *   - Google AI Studio への推論リクエスト
+   *   - Supabase への書き込み
+   *
+   * spec: docs/spec/execution-planner.spec.md §4
+   */
+  execution?: 'sync' | 'async'
 }
 ```
 
@@ -164,7 +178,9 @@ const plugin: GeometryPlugin = {
 | フェーズ | 内容 |
 |---|---|
 | Day69 | 型定義 + ヘルパー実装。Icosphere のみ catalog 対応 |
+| Day72 | 全 Geometry Plugin（7本）catalog 対応完了。`execution` フラグを型に追加 |
 | 段階的 | 他の Plugin を順次 catalog 対応（tsc + test グリーンを維持） |
+| Shader Plugin 前 | `execution: 'async'` を重い処理の param に付与。ExecutionPlanner Phase 2 を開通 |
 | Plugin Store フェーズ | Zod 導入・外部 Plugin の実行時バリデーションに catalog を活用 |
 
 ---

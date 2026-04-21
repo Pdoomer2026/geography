@@ -69,6 +69,13 @@ export interface ParamCatalogEntry {
    * spec: docs/spec/geometry-plugin.spec.md §9
    */
   requiresRebuild?: boolean
+  /**
+   * この param の変更が引き起こす処理の実行戦略。
+   * 省略時は 'sync'（デフォルト・リアルタイム即時反映）。
+   * 'async' を指定すると ExecutionPlanner が BullMQ キューに投げる。
+   * spec: docs/spec/execution-planner.spec.md §4
+   */
+  execution?: 'sync' | 'async'
 }
 
 /** Plugin ごとのカタログ（paramId → 静的定義） */
