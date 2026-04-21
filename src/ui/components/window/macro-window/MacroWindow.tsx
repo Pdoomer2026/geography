@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
 import type { DragPayload, MacroAssign, MacroKnobConfig } from '../../../../application/schema'
+import { DragPayloadSchema } from '../../../../application/schema'
 
 const COLS = 8
 const ROWS = 4
@@ -110,10 +111,15 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
     const raw = e.dataTransfer.getData('application/geography-param')
     if (!raw) return
     try {
-      const payload = JSON.parse(raw) as DragPayload
-      onDrop(config.id, payload)
+      const parsed = JSON.parse(raw)
+      const result = DragPayloadSchema.safeParse(parsed)
+      if (!result.success) {
+        console.error('[MacroWindow] invalid DragPayload:', result.error.format())
+        return
+      }
+      onDrop(config.id, result.data)
     } catch {
-      // malformed payload は無視
+      console.error('[MacroWindow] malformed DragPayload JSON')
     }
   }
 

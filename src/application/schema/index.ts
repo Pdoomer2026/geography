@@ -391,15 +391,9 @@ export const GEO_PRESET_STORE_KEY = 'geography:geo-presets-v1'
  *
  * Phase 1: 'param' | 'macroKnob'
  * Phase 2 (Sequencer): | 'sequencerLane' を追加するだけで拡張できる
+ *
+ * 型定義・実行時検証は Zod スキーマから派生（SSoT: zod/dragPayload.schema.ts）
+ * spec: docs/spec/param-catalog.spec.md
  */
-export interface DragPayload {
-  type: 'param' | 'macroKnob'
-  id: string        // paramId or knobId
-  layerId: string   // アサイン元のレイヤー ID（'layer-1' 等）
-  pluginId: string  // アサイン元の Plugin ID（表示用）
-  ccNumber: number  // CC Standard の番号
-  min: number       // スライダー可動域 min
-  max: number       // スライダー可動域 max
-  lo?: number       // StandardD&D からの場合のみ: lo/hi をアサイン初期値として渡す
-  hi?: number       // StandardD&D からの場合のみ
-}
+export type { DragPayload } from './zod/dragPayload.schema'
+export { DragPayloadSchema } from './zod/dragPayload.schema'
