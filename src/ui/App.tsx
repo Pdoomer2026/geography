@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../core/engine'
-import { midiInputWrapper } from '../drivers/input/MidiInputWrapper'
+import { midiInputWrapper } from '../application/adapter/input/MidiInputWrapper'
 import { projectManager } from '../core/projectManager'
 import { MixerSimpleWindow } from './components/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroWindow } from './components/window/macro-window'

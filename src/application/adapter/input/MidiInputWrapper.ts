@@ -17,7 +17,7 @@
  *   - ParameterStore への書き込み（midiManager の責務）
  */
 
-import type { TransportEvent } from '../../types'
+import type { TransportEvent } from '../../../types'
 
 // ============================================================
 // MidiInputWrapper
