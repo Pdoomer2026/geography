@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { SceneState } from '../application/schema'
+import type { SceneState } from '../schema'
 
 // engine.ts に依存しない・単体で動作できること
 

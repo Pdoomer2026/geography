@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { assignRegistry, normalize } from '../../src/core/assignRegistry'
-import { MACRO_KNOB_COUNT, MACRO_KNOB_MAX_ASSIGNS } from '../../src/core/config'
+import { assignRegistry, normalize } from '../../src/application/registry/assignRegistry'
+import { MACRO_KNOB_COUNT, MACRO_KNOB_MAX_ASSIGNS } from '../../src/application/schema/config'
 import type { MacroKnobConfig } from '../../src/application/schema'
 
 function resetKnob(id: string): void {

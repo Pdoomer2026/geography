@@ -15,7 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { engine } from '../../../../core/engine'
+import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
 import type { RegisteredParameterWithCC } from '../../../../application/schema/midi-registry'
 import { RangeSlider } from './RangeSlider'

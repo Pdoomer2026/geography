@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Clock } from '../src/core/clock'
+import { Clock } from '../src/application/orchestrator/tempo/clock'
 
 describe('Clock', () => {
   let clock: Clock

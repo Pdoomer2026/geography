@@ -4,7 +4,7 @@
  * import.meta.glob を使って plugins/lights/ 配下の全 index.ts を自動スキャンし、
  * Plugin Registry に登録する。
  */
-import { registry } from '../../core/registry'
+import { registry } from '../../application/registry/registry'
 import type { LightPlugin } from '../../application/schema'
 
 const modules = import.meta.glob<{ default: LightPlugin }>(

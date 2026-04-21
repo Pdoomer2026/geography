@@ -110,7 +110,6 @@ class CcMapServiceImpl implements CcMapService {
 
   /**
    * cc-map.json をパースして mappings に展開する（共通処理）
-   * Electron / ブラウザ両環境から呼ばれる
    */
   private parseCcMap(raw: string): void {
     const parsed: RawCcMap = JSON.parse(raw)
@@ -140,7 +139,6 @@ class CcMapServiceImpl implements CcMapService {
    */
   private async loadCcMap(): Promise<void> {
     if (window.geoAPI) {
-      // Electron 環境
       try {
         const raw = await window.geoAPI.loadCcMap()
         if (!raw) {
@@ -152,7 +150,6 @@ class CcMapServiceImpl implements CcMapService {
         console.error('[CcMapService] cc-map.json の読み込みに失敗しました:', e)
       }
     } else {
-      // ブラウザ環境（開発時）: vite.config.ts publicDir: 'settings' により配信される
       try {
         const res = await fetch('/cc-map.json')
         if (!res.ok) {
@@ -211,17 +208,10 @@ class CcMapServiceImpl implements CcMapService {
   // 公開 API
   // ----------------------------------------------------------------
 
-  /**
-   * CC 番号を返す。
-   * cc-mapping.md に定義済み → その CC 番号を返す
-   * cc-mapping.md に未定義   → CC1000〜から自動払い出し（コントリビューター帯）
-   * Electron 環境外では自動払い出しのみ動作する
-   */
   getCcNumber(pluginId: string, paramId: string): number {
     const mapping = this.getMapping(pluginId, paramId)
     if (mapping) return mapping.ccNumber
 
-    // cc-mapping.md 未定義 → コントリビューター帯（CC1000〜）から自動払い出し
     const key = `${pluginId}:${paramId}`
     if (!this.autoAssignedCc.has(key)) {
       console.warn(

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MAX_LAYERS } from '../../src/core/config'
+import { MAX_LAYERS } from '../../src/application/schema/config'
 import type { GeometryPlugin } from '../../src/application/schema'
-import { LayerManager } from '../../src/core/layerManager'
+import { LayerManager } from '../../src/application/orchestrator/layerManager'
 
 const rendererDispose = vi.fn()
 const rendererRender = vi.fn()

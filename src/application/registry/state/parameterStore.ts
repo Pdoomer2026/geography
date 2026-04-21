@@ -1,4 +1,4 @@
-import { Command, CommandHistory } from './command'
+import { Command, CommandHistory } from '../../command/command'
 
 class SetParameterCommand implements Command {
   description: string

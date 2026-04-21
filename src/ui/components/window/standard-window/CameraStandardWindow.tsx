@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { engine } from '../../../../core/engine'
+import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
 import type { CameraPlugin } from '../../../../application/schema'
 import type { RegisteredParameterWithCC } from '../../../../application/schema/midi-registry'

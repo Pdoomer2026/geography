@@ -4,7 +4,7 @@
  * import.meta.glob を使って plugins/particles/ 配下の全 index.ts を自動スキャンし、
  * Plugin Registry に登録する。
  */
-import { registry } from '../../core/registry'
+import { registry } from '../../application/registry/registry'
 import type { ParticlePlugin } from '../../application/schema'
 
 const modules = import.meta.glob<{ default: ParticlePlugin }>(

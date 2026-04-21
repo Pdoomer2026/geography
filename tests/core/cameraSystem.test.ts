@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CameraPlugin, GeometryPlugin } from '../../src/application/schema'
-import { LayerManager } from '../../src/core/layerManager'
+import { LayerManager } from '../../src/application/orchestrator/layerManager'
 
 // ============================================================
 // Three.js モック

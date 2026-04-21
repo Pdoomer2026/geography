@@ -1,4 +1,4 @@
-import { DEFAULT_BPM } from './config'
+import { DEFAULT_BPM } from '../../schema/config'
 
 export class Clock {
   private bpm: number = DEFAULT_BPM

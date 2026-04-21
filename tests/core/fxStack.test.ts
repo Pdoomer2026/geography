@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { FxStack, FX_STACK_ORDER } from '../../src/core/fxStack'
+import { FxStack, FX_STACK_ORDER } from '../../src/application/orchestrator/fxStack'
 import type { FXPlugin, PluginParam } from '../../src/types'
 
 // ---- テスト用 MockPass ----

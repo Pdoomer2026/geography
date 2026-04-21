@@ -11,8 +11,8 @@
  *   残った本質 = CC入力 → アサイン解決 → パラメータ変調のマッピング定義。
  */
 
-import { MACRO_KNOB_COUNT, MACRO_KNOB_MAX_ASSIGNS } from './config'
-import type { MacroAssign, MacroKnobConfig, AssignRegistry } from '../application/schema'
+import { MACRO_KNOB_COUNT, MACRO_KNOB_MAX_ASSIGNS } from '../schema/config'
+import type { MacroAssign, MacroKnobConfig, AssignRegistry } from '../schema'
 
 // ============================================================
 // ヘルパー関数（spec §4）

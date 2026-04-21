@@ -9,7 +9,7 @@
  * spec: docs/spec/plugin-lifecycle.spec.md §6
  */
 
-import type { FXPlugin, IFxStack } from '../application/schema'
+import type { FXPlugin, IFxStack } from '../schema'
 
 export const FX_STACK_ORDER = [
   'after-image',
@@ -103,7 +103,6 @@ export class FxStack implements IFxStack {
     }
 
     // Step 2: composer の passes をリセット（RenderPass だけ残す）
-    // passes 配列を直接操作（EffectComposer に removePass がない場合の fallback）
     const passesToKeep = c.passes.filter(
       (p) => p.constructor.name === 'RenderPass'
     )

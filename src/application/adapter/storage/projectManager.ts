@@ -13,8 +13,8 @@
  *   - 録画（engine が持つ）
  */
 
-import { engine } from './engine'
-import type { GeoGraphyProject } from '../application/schema'
+import { engine } from '../../orchestrator/engine'
+import type { GeoGraphyProject } from '../../schema'
 
 class ProjectManagerImpl {
   private currentFilePath: string | null = null

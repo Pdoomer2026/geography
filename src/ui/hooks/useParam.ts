@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { engine } from '../../core/engine'
+import { engine } from '../../application/orchestrator/engine'
 import type { RegisteredParameterWithCC } from '../../application/schema/midi-registry'
 
 // ============================================================

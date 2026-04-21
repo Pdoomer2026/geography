@@ -17,8 +17,8 @@
 
 import { rangeMap } from './assignRegistry'
 import { transportRegistry } from './transportRegistry'
-import type { AssignRegistry, TransportEvent } from '../application/schema'
-import type { ParameterStore } from './parameterStore'
+import type { AssignRegistry, TransportEvent } from '../schema'
+import type { ParameterStore } from './state/parameterStore'
 
 // ============================================================
 // TransportManager interface

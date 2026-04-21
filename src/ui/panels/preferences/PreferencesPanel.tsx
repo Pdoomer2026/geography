@@ -11,10 +11,10 @@
  */
 
 import { useState, useEffect } from 'react'
-import { engine } from '../../../core/engine'
-import { registry } from '../../../core/registry'
-import { presetStore, FX_LABELS, FX_DEFAULTS, FX_ORDER } from '../../../core/presetStore'
-import type { GeoPreset } from '../../../core/presetStore'
+import { engine } from '../../../application/orchestrator/engine'
+import { registry } from '../../../application/registry/registry'
+import { presetStore, FX_LABELS, FX_DEFAULTS, FX_ORDER } from '../../../application/adapter/storage/presetStore'
+import type { GeoPreset } from '../../../application/adapter/storage/presetStore'
 import type { GeometryPlugin } from '../../../application/schema'
 import type { WindowMode, GeoWindowMode, MacroWindowMode, MixerWindowMode, LayerId } from '../../../application/schema/windowMode'
 import { LAYER_IDS } from '../../../application/schema/windowMode'

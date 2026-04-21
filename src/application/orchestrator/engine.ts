@@ -1,20 +1,20 @@
 import * as THREE from 'three'
-import { registry } from './registry'
-import { ParameterStore } from './parameterStore'
-import { Clock } from './clock'
-import { MAX_LAYERS } from './config'
-import { registerGeometryPlugins } from '../engine/geometry'
-import { registerLightPlugins } from '../engine/lights'
-import { registerParticlePlugins } from '../engine/particles'
-import { createFxPlugins } from '../engine/fx'
+import { registry } from '../registry/registry'
+import { ParameterStore } from '../registry/state/parameterStore'
+import { Clock } from './tempo/clock'
+import { MAX_LAYERS } from '../schema/config'
+import { registerGeometryPlugins } from '../../engine/geometry'
+import { registerLightPlugins } from '../../engine/lights'
+import { registerParticlePlugins } from '../../engine/particles'
+import { createFxPlugins } from '../../engine/fx'
 import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
-import { assignRegistry } from './assignRegistry'
-import { transportManager } from './transportManager'
-import { transportRegistry } from './transportRegistry'
-import { ccMapService } from './ccMapService'
-import { getCameraPlugin, listCameraPlugins } from '../engine/cameras'
+import { assignRegistry } from '../registry/assignRegistry'
+import { transportManager } from '../registry/transportManager'
+import { transportRegistry } from '../registry/transportRegistry'
+import { ccMapService } from '../catalog/ccMapService'
+import { getCameraPlugin, listCameraPlugins } from '../../engine/cameras'
 import type {
   CameraPlugin,
   CSSBlendMode,
@@ -28,8 +28,8 @@ import type {
   ScreenAssign,
   ScreenAssignState,
   GeoGraphyProject,
-} from '../application/schema'
-import { PROJECT_FILE_VERSION } from '../application/schema'
+} from '../schema'
+import { PROJECT_FILE_VERSION } from '../schema'
 
 // engine.ts は App.tsx に依存してはいけない・単体で動作できること
 
@@ -60,20 +60,10 @@ export class Engine {
     this.parameterStore = new ParameterStore()
   }
 
-  /**
-   * Plugin の params.value が変化したとき呼ばれるコールバックを登録する。
-   * App.tsx が syncValues() を即時実行するために使う。
-   * spec: docs/spec/transport-architecture.spec.md §5 Step3
-   */
   onParamChanged(cb: () => void): void {
     this.paramChangedCallback = cb
   }
 
-  /**
-   * FX の enabled 状態が変化したとき呼ばれるコールバックを登録する。
-   * FxWindowPlugin が購読するために使う。
-   * 将来の Sequencer / LFO からの FX ON/OFF にも対応する。
-   */
   onFxChanged(cb: () => void): void {
     this.fxChangedCallback = cb
   }
@@ -84,12 +74,9 @@ export class Engine {
     this.container = container
     layerManager.initialize(container)
 
-    // TransportManager を初期化（Day58 Step4: midiManager → transportManager に昇格）
     transportManager.init(this.parameterStore, assignRegistry)
-    // ccMapService は engine.initialize 内でのみ使用（App.tsx から完全に分離）
     await ccMapService.init()
 
-    // Plugin 自動登録
     await registerGeometryPlugins()
     await registerLightPlugins()
     await registerParticlePlugins()
@@ -102,22 +89,18 @@ export class Engine {
       layerManager.setPlugin(`layer-${index + 1}`, plugin as GeometryPlugin)
     })
 
-    // 未使用レイヤーは mute
     for (let i = allPlugins.length; i < layers.length; i++) {
       layerManager.setMute(`layer-${i + 1}`, true)
     }
 
-    // starfield (layer-2) は加算合成で背景として透過表示
     if (allPlugins.length >= 2) {
       layerManager.setBlendMode('layer-2', 'add')
     }
 
-    // FX は全レイヤーに適用（各レイヤーが独立した FX スタックを持つ）
     for (let i = 1; i <= MAX_LAYERS; i++) {
       layerManager.setupFx(`layer-${i}`, createFxPlugins())
     }
 
-    // 初期 SceneState
     const fxPlugins = layers[0]?.fxStack.getOrdered() ?? []
     const initialState: SceneState = {
       layers: allPlugins.slice(0, 1).map((p) => {
@@ -146,7 +129,6 @@ export class Engine {
     programBus.load(initialState)
     previewBus.update(initialState)
 
-    // 初期ルーティングを canvas に反映する（起動時に黒くなるバグを防ぐ）
     for (const routing of this.layerRoutings) {
       const viewOpacity =
         this.screenAssign.large === 'output'
@@ -161,16 +143,10 @@ export class Engine {
 
     window.addEventListener('resize', this.onResize)
 
-    // 起動時に Registry を一括登録（Day58 Step4: engine が ccMapService を使う唯一の場所）
     this.initTransportRegistry()
-    // 初期化完了を FxWindowPlugin に通知（enabled の初期状態を反映）
     this.fxChangedCallback?.()
   }
 
-  /**
-   * Camera Plugin を TransportRegistry に登録する
-   * setCameraPlugin() 時・initTransportRegistry() 時に呼ばれる
-   */
   registerCameraToTransportRegistry(layerId: string): void {
     const cam = layerManager.getCameraPlugin(layerId)
     if (!cam) return
@@ -184,11 +160,6 @@ export class Engine {
     transportRegistry.register(enriched, `${layerId}:camera`)
   }
 
-  /**
-   * Plugin 切り替え時に展開先から呼ばれる Registry 登録 API
-   * GeometrySimpleWindow の onPluginApply から履歴する。
-   * ccMapService を使う唯一の公開 API。
-   */
   registerPluginToTransportRegistry(layerId: string, _pluginId: string): void {
     const plugin = this.getGeometryPlugin(layerId)
     if (!plugin) return
@@ -202,12 +173,7 @@ export class Engine {
     transportRegistry.register(enriched, `${layerId}:geometry`)
   }
 
-  /**
-   * 起動時に全 Plugin を TransportRegistry に登録する。
-   * ccMapService を使う唯一の場所。App.tsx は ccMapService を知らない。
-   */
   private initTransportRegistry(): void {
-    // Geometry: 'layer-N:geometry' をキーに登録
     this.getAllLayerPlugins().forEach(({ layerId, plugin }) => {
       const enriched = plugin.getParameters().map((p) => ({
         ...p,
@@ -218,12 +184,10 @@ export class Engine {
       }))
       transportRegistry.register(enriched, `${layerId}:geometry`)
     })
-    // Camera: 'layer-N:camera' をキーに登録
     const layerIds = ['layer-1', 'layer-2', 'layer-3'] as const
     layerIds.forEach((layerId) => {
       this.registerCameraToTransportRegistry(layerId)
     })
-    // FX: 'layer-N:fx' をキーに登録（Geometry と共存できる）
     layerIds.forEach((layerId) => {
       const fxPlugins = layerManager.getLayers()
         .find((l) => l.id === layerId)?.fxStack.getOrdered() ?? []
@@ -251,27 +215,14 @@ export class Engine {
     this.activeTransitionId = id
   }
 
-  // --- AssignRegistry 公開 API ---
+  // --- TransportRegistry ファサード API ---
 
-  // --- TransportRegistry ファサード API（Day62: SDK 境界確定）---
-
-  /**
-   * 登録済みパラメータ一覧を返す（Window が transportRegistry を直接触らないための窓口）
-   * layerId を指定するとそのレイヤーのみにフィルタする。
-   * value は Registry のスナップショット（syncValue で更新された値）。
-   */
-  getParameters(layerId?: string): import('../application/schema/midi-registry').RegisteredParameterWithCC[] {
+  getParameters(layerId?: string): import('../schema/midi-registry').RegisteredParameterWithCC[] {
     const all = transportRegistry.getAll()
     return layerId ? all.filter((p) => p.layerId === layerId) : all
   }
 
-  /**
-   * 登録済みパラメータを plugin.params の生値付きで返す（GeoMonitor 専用）
-   * Registry は構造（CC番号・min・max・layerId）のみ提供。
-   * value は毎回 plugin.params から直接読むため常に最新値を返す。
-   * Window が plugin に直接アクセスせず、engine 経由で取得する。
-   */
-  getParametersLive(layerId?: string): import('../application/schema/midi-registry').RegisteredParameterWithCC[] {
+  getParametersLive(layerId?: string): import('../schema/midi-registry').RegisteredParameterWithCC[] {
     const all = transportRegistry.getAll()
     const filtered = layerId ? all.filter((p) => p.layerId === layerId) : all
     return filtered.map((entry) => {
@@ -280,80 +231,58 @@ export class Engine {
     })
   }
 
-  /**
-   * entry に対応する plugin.params の現在値を読む（getParametersLive の内部ヘルパー）
-   * Geometry / Camera / FX の順で探す。
-   */
   private _readLiveValue(
-    entry: import('../application/schema/midi-registry').RegisteredParameterWithCC
+    entry: import('../schema/midi-registry').RegisteredParameterWithCC
   ): number | undefined {
     const layer = layerManager.getLayers().find((l) => l.id === entry.layerId)
     if (!layer) return undefined
-    // Geometry
     if (layer.plugin?.id === entry.pluginId) {
       return layer.plugin.params[entry.id]?.value
     }
-    // Camera
     const cam = layerManager.getCameraPlugin(entry.layerId)
     if (cam?.id === entry.pluginId) {
       return cam.params[entry.id]?.value
     }
-    // FX
     const fx = layer.fxStack.getPlugin(entry.pluginId)
     if (fx) return fx.params[entry.id]?.value
     return undefined
   }
 
-  /**
-   * Registry が変化したときのコールバックを登録する（Window 購読用ファサード）
-   * transportRegistry.onChanged() のパススルー。unsubscribe 関数を返す。
-   */
   onRegistryChanged(cb: () => void): () => void {
     return transportRegistry.onChanged(cb)
   }
 
-  /**
-   * Geometry Plugin の Registry エントリを削除する（Plugin Remove 時）
-   * App.tsx が transportRegistry を直接触らないための窓口。
-   */
   removePluginFromRegistry(layerId: string): void {
     transportRegistry.clear(`${layerId}:geometry`)
   }
 
   // --- AssignRegistry 公開 API ---
 
-  /** アサイン設定一覧を返す（MacroWindow 表示用） */
   getMacroKnobs(): MacroKnobConfig[] {
     return assignRegistry.getKnobs()
   }
 
-  /** アサイン設定を更新する（MacroWindow 編集用） */
   setMacroKnob(id: string, config: MacroKnobConfig): void {
     assignRegistry.setKnob(id, config)
   }
 
-  /** 現在値を返す（MacroWindow 表示用・0.0〜1.0） */
   getMacroKnobValue(knobId: string): number {
     return assignRegistry.getValue(knobId)
   }
 
-  /** 現在値キャッシュを更新する（MacroWindow UI ドラッグ用） */
   setMacroKnobValue(knobId: string, value: number): void {
     assignRegistry.setValue(knobId, value)
   }
 
-  /** アサインを追加する（MacroWindow D&D 用） */
-  addMacroAssign(knobId: string, assign: import('../application/schema').MacroAssign): void {
+  addMacroAssign(knobId: string, assign: import('../schema').MacroAssign): void {
     assignRegistry.addAssign(knobId, assign)
   }
 
-  /** アサインを解除する（MacroWindow D&D 用） */
   removeMacroAssign(knobId: string, paramId: string): void {
     assignRegistry.removeAssign(knobId, paramId)
   }
 
-  /** 指定 paramId にアサインされている全ノブを返す（右クリックメニュー用・Day52 新設） */
-  getAssignsForParam(paramId: string): { knobId: string; assign: import('../application/schema').MacroAssign }[] {
+  getAssignsForParam(paramId: string): { knobId: string; assign: import('../schema').MacroAssign }[] {
     return assignRegistry.getKnobs().flatMap((k) =>
       k.assigns
         .filter((a) => a.paramId === paramId)
@@ -361,23 +290,15 @@ export class Engine {
     )
   }
 
-  /**
-   * CC入力の唯一の入り口（Day50 確定）。
-   * 全 Window・物理 MIDI コントローラーが呼ぶ。TransportManager に委譲する。
-   */
   handleMidiCC(event: TransportEvent): void {
     transportManager.handle(event)
   }
 
-  /**
-   * Sequencer / LFO からの変調値受け取り（将来実装）。
-   * TransportManager に委譲する。
-   */
   receiveMidiModulation(knobId: string, value: number): void {
     transportManager.receiveModulation(knobId, value)
   }
 
-  // --- FX コントロール API（layerId 対応）---
+  // --- FX コントロール API ---
 
   getFxPlugins(layerId: string = 'layer-1'): FXPlugin[] {
     const layer = layerManager.getLayers().find((l) => l.id === layerId)
@@ -449,14 +370,12 @@ export class Engine {
   }
 
   loadSceneState(state: SceneState): void {
-    // カメラ params を engine で直接復元（programBus は camera を知らない）
     state.layers.forEach((layerState, index) => {
       const layerId = `layer-${index + 1}`
       if (layerState.cameraId) {
         const base = getCameraPlugin(layerState.cameraId)
         if (base) {
           const plugin = { ...base, params: structuredClone(base.params) }
-          // cameraParams で値を上書き
           for (const [key, val] of Object.entries(layerState.cameraParams ?? {})) {
             if (key in plugin.params) plugin.params[key].value = val
           }
@@ -481,7 +400,6 @@ export class Engine {
       layerManager.getCameraPlugin('layer-3')?.id ?? 'static-camera',
     ]
 
-    // FX: レイヤー別に enabled FX を保存
     const fxPerLayer: Record<string, string[]> = {}
     for (const layer of layers) {
       fxPerLayer[layer.id] = layer.fxStack.getOrdered()
@@ -505,47 +423,35 @@ export class Engine {
   }
 
   restoreProject(project: GeoGraphyProject): void {
-    // 1. Geometry 差し替え
     this.applyGeometrySetup(project.setup.geometry)
 
-    // 2. Camera 差し替え
     if (project.setup.camera) {
       this.applyCameraSetup(project.setup.camera)
     }
 
-    // 3. FX セットアップ（レイヤー別・旧形式互換性あり）
     if (project.setup.fx) {
       if (Array.isArray(project.setup.fx)) {
-        // 旧形式（string[]）: 全レイヤーに同じ FX を適用
         this.applyFxSetup(project.setup.fx as unknown as string[])
       } else {
-        // 新形式（Record<string, string[]>）: レイヤー別に適用
         this.applyFxSetupPerLayer(project.setup.fx)
       }
     }
 
-    // 4. sceneState の完全反映
     this.applySceneState(project.sceneState)
 
     const restoreAssigns = project.assignRegistryState ?? (project as unknown as { macroKnobAssigns?: MacroKnobConfig[] }).macroKnobAssigns ?? []
     restoreAssigns.forEach((config) => assignRegistry.setKnob(config.id, config))
 
-    // 5. programBus / previewBus を更新
     programBus.load(project.sceneState)
     previewBus.update(project.sceneState)
   }
 
-  /**
-   * SceneState を layerManager に完全反映する（Day60 新設）
-   * Geometry params / Camera params / FX params+enabled / opacity / blendMode
-   */
   private applySceneState(state: SceneState): void {
     state.layers.forEach((layerState, index) => {
       const layerId = `layer-${index + 1}`
       const layer = layerManager.getLayers().find((l) => l.id === layerId)
       if (!layer) return
 
-      // Geometry params
       if (layer.plugin?.id === layerState.geometryId) {
         for (const [key, val] of Object.entries(layerState.geometryParams)) {
           if (key in layer.plugin.params) {
@@ -554,7 +460,6 @@ export class Engine {
         }
       }
 
-      // Camera params
       if (layerState.cameraId) {
         const cam = layerManager.getCameraPlugin(layerId)
         if (cam?.id === layerState.cameraId) {
@@ -565,7 +470,6 @@ export class Engine {
         }
       }
 
-      // FX params + enabled
       for (const fxState of layerState.fxStack) {
         const fx = layer.fxStack.getPlugin(fxState.fxId)
         if (!fx) continue
@@ -575,9 +479,8 @@ export class Engine {
         }
       }
 
-      // opacity / blendMode
       layerManager.setOpacity(layerId, layerState.opacity)
-      layerManager.setBlendMode(layerId, layerState.blendMode as import('../application/schema').CSSBlendMode)
+      layerManager.setBlendMode(layerId, layerState.blendMode as import('../schema').CSSBlendMode)
     })
   }
 
@@ -623,13 +526,6 @@ export class Engine {
     layerManager.update(delta, beat)
   }
 
-  /**
-   * ParameterStore の値を各 plugin.params に反映する（Day58 Step4 改訂）
-   *
-   * TransportRegistry から slot → param の対応を取得し、
-   * ccMapService に依存せず純粋に値を流す。
-   * engine は CC番号の意味を知らない。
-   */
   private flushParameterStore(): void {
     const allValues = this.parameterStore.getAll()
     if (allValues.size === 0) return
@@ -640,7 +536,6 @@ export class Engine {
     let changed = false
 
     for (const entry of entries) {
-      // layerId:ccNumber をキーに読む（Day59: レイヤー衝突解消）
       const storeValue = allValues.get(`${entry.layerId}:${entry.ccNumber}`)
       if (storeValue === undefined) continue
 
@@ -649,7 +544,6 @@ export class Engine {
       const layer = layerManager.getLayers().find((l) => l.id === entry.layerId)
       if (!layer) continue
 
-      // Geometry
       if (layer.plugin?.id === entry.pluginId) {
         const param = layer.plugin.params[entry.id]
         if (!param || Math.abs(param.value - actual) < 0.0001) continue
@@ -660,7 +554,6 @@ export class Engine {
         continue
       }
 
-      // Camera
       const cam = layerManager.getCameraPlugin(entry.layerId)
       if (cam?.id === entry.pluginId) {
         const param = cam.params[entry.id]
@@ -671,7 +564,6 @@ export class Engine {
         continue
       }
 
-      // FX
       const fx = layer.fxStack.getPlugin(entry.pluginId)
       if (fx) {
         const param = fx.params[entry.id]
@@ -833,7 +725,6 @@ export class Engine {
     if (!base) return
     const plugin = { ...base, params: structuredClone(base.params) }
     layerManager.setCameraPlugin(layerId, plugin, undefined, true)
-    // Registry を更新（ccMapService 依存は engine 内のみ）
     this.registerCameraToTransportRegistry(layerId)
   }
 
@@ -857,7 +748,6 @@ export class Engine {
     return layer?.plugin ?? null
   }
 
-  /** 全レイヤーの { layerId, plugin } を返す（Registry 一括登録用・Day53 新設） */
   getAllLayerPlugins(): { layerId: string; plugin: GeometryPlugin }[] {
     return layerManager.getLayers()
       .filter((l) => l.plugin !== null)
@@ -879,7 +769,6 @@ export class Engine {
     if (pluginId === null) {
       layerManager.setPlugin(layerId, null)
       layerManager.setMute(layerId, true)
-      // Registry をクリア（Day60: Plugin 差し替えの唯一経路で Registry も更新）
       transportRegistry.clear(`${layerId}:geometry`)
       return
     }
@@ -887,7 +776,6 @@ export class Engine {
     if (!plugin) return
     layerManager.setPlugin(layerId, plugin as GeometryPlugin)
     layerManager.setMute(layerId, false)
-    // Registry を更新（Day60: Plugin 差し替えの唯一経路で Registry も更新）
     this.registerPluginToTransportRegistry(layerId, plugin.id)
   }
 }

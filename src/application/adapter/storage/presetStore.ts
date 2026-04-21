@@ -12,8 +12,8 @@
  *   - engine への反映（PreferencesPanel が applyToEngine で行う）
  */
 
-import type { GeoGraphyProject, MacroKnobConfig } from '../application/schema'
-import { PROJECT_FILE_VERSION } from '../application/schema'
+import type { GeoGraphyProject, MacroKnobConfig } from '../../schema'
+import { PROJECT_FILE_VERSION } from '../../schema'
 
 // ----------------------------------------------------------------
 // FX 定数（SSoT をここに集約）

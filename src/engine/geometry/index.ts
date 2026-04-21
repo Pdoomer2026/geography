@@ -7,7 +7,7 @@
  * 新しい Geometry Plugin を追加したときは、フォルダを作るだけで自動認識される。
  * 手動でのインポート追加は不要。
  */
-import { registry } from '../../core/registry'
+import { registry } from '../../application/registry/registry'
 import type { GeometryPlugin } from '../../application/schema'
 
 // Vite の import.meta.glob で plugins/geometry/ 以下の全 index.ts を取得

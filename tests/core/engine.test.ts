@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { FxStack } from '../../src/core/fxStack'
+import { FxStack } from '../../src/application/orchestrator/fxStack'
 import type { FXPlugin, PluginParam } from '../../src/application/schema'
 
 // ---- テスト用 FXPlugin モック ----
@@ -126,10 +126,10 @@ describe('engine FX コントロール API（FxStack レベル検証）', () => 
 
 describe('engine Camera Plugin API — layerManager への委譲検証', () => {
   it('TC-engine-1: setCameraPlugin() が layerManager.setCameraPlugin を呼び出す', async () => {
-    const { layerManager } = await import('../../src/core/layerManager')
+    const { layerManager } = await import('../../src/application/orchestrator/layerManager')
     const spy = vi.spyOn(layerManager, 'setCameraPlugin')
 
-    const { engine } = await import('../../src/core/engine')
+    const { engine } = await import('../../src/application/orchestrator/engine')
     engine.setCameraPlugin('layer-1', 'static-camera')
 
     expect(spy).toHaveBeenCalledWith(
@@ -142,8 +142,8 @@ describe('engine Camera Plugin API — layerManager への委譲検証', () => {
   })
 
   it('TC-engine-2: setCameraParam() が Camera Plugin の params を更新する', async () => {
-    const { layerManager } = await import('../../src/core/layerManager')
-    const { engine } = await import('../../src/core/engine')
+    const { layerManager } = await import('../../src/application/orchestrator/layerManager')
+    const { engine } = await import('../../src/application/orchestrator/engine')
 
     // getCameraPlugin が null でなければ params を更新できる
     const spy = vi.spyOn(layerManager, 'getCameraPlugin').mockReturnValue({
@@ -174,8 +174,8 @@ describe('engine Camera Plugin API — layerManager への委譲検証', () => {
 
 describe('engine setGeometryParam — requiresRebuild ロジック検証', () => {
   it('TC-geo-1: requiresRebuild=false の param 変更時は rebuildPlugin を呼ばない', async () => {
-    const { layerManager } = await import('../../src/core/layerManager')
-    const { engine } = await import('../../src/core/engine')
+    const { layerManager } = await import('../../src/application/orchestrator/layerManager')
+    const { engine } = await import('../../src/application/orchestrator/engine')
 
     const mockPlugin = {
       id: 'grid-wave',
@@ -204,8 +204,8 @@ describe('engine setGeometryParam — requiresRebuild ロジック検証', () =>
   })
 
   it('TC-geo-2: requiresRebuild=true の param 変更時は rebuildPlugin を呼ぶ', async () => {
-    const { layerManager } = await import('../../src/core/layerManager')
-    const { engine } = await import('../../src/core/engine')
+    const { layerManager } = await import('../../src/application/orchestrator/layerManager')
+    const { engine } = await import('../../src/application/orchestrator/engine')
 
     const mockPlugin = {
       id: 'grid-wave',

@@ -1,10 +1,10 @@
 import * as THREE from 'three'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { getCameraPlugin } from '../engine/cameras'
-import { DEFAULT_CAMERA_PLUGIN_ID, MAX_LAYERS } from './config'
+import { getCameraPlugin } from '../../engine/cameras'
+import { DEFAULT_CAMERA_PLUGIN_ID, MAX_LAYERS } from '../schema/config'
 import { FxStack } from './fxStack'
-import type { CameraPlugin, CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from '../application/schema'
+import type { CameraPlugin, CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from '../schema'
 
 export class LayerManager {
   private layers: Layer[] = []
@@ -123,11 +123,6 @@ export class LayerManager {
   /**
    * Camera Plugin をレイヤーにアサインする。
    * spec: docs/spec/camera-plugin.spec.md §5-B
-   *
-   * @param layerId  対象レイヤー ID
-   * @param plugin   アサインする Camera Plugin（インスタンスをそのまま受け取る）
-   * @param overrideParams  Camera Plugin の params を上書きする値（省略可）
-   * @param userOverride    true = ユーザーが手動でアサインした（isCameraUserOverridden を立てる）
    */
   setCameraPlugin(
     layerId: string,
@@ -138,10 +133,8 @@ export class LayerManager {
     const layer = this.layers.find((l) => l.id === layerId)
     if (!layer) return
 
-    // 旧 Camera Plugin を破棄
     layer.cameraPlugin.dispose()
 
-    // params オーバーライドを適用
     if (overrideParams) {
       for (const [key, val] of Object.entries(overrideParams)) {
         if (key in plugin.params) {
@@ -158,10 +151,6 @@ export class LayerManager {
     }
   }
 
-  /**
-   * レイヤーの現在の Camera Plugin を取得する。
-   * spec: docs/spec/camera-plugin.spec.md §5-B
-   */
   getCameraPlugin(layerId: string): CameraPlugin | null {
     const layer = this.layers.find((l) => l.id === layerId)
     return layer?.cameraPlugin ?? null
@@ -171,7 +160,6 @@ export class LayerManager {
     const layer = this.layers.find((entry) => entry.id === layerId)
     if (!layer) return
 
-    // 旧 Geometry Plugin を破棄
     if (layer.plugin) {
       layer.plugin.destroy(layer.scene)
     }
@@ -181,9 +169,6 @@ export class LayerManager {
     if (plugin) {
       plugin.create(layer.scene)
 
-      // Geometry 切り替え時の Camera 自動連動
-      // isCameraUserOverridden=true の場合はユーザーの意図を尊重して連動しない
-      // spec: docs/spec/camera-plugin.spec.md §6-C
       if (!layer.isCameraUserOverridden) {
         const camId = plugin.defaultCameraPluginId ?? DEFAULT_CAMERA_PLUGIN_ID
         const camPlugin = getCameraPlugin(camId) ?? getCameraPlugin(DEFAULT_CAMERA_PLUGIN_ID)
@@ -222,7 +207,6 @@ export class LayerManager {
       layer.plugin.update(delta, beat)
       layer.fxStack.update(delta, beat)
 
-      // Camera Plugin のフレーム更新（spec: camera-plugin.spec.md §5-C）
       layer.cameraPlugin.update(delta)
 
       const composer = this.composers.get(layer.id)
@@ -271,7 +255,6 @@ export class LayerManager {
 
   /**
    * Geometry Plugin を destroy → create で再構築する。
-   * setGeometryParam() で requiresRebuild=true の param が変わった時に呼ばれる。
    * spec: docs/spec/geometry-plugin.spec.md §9
    */
   rebuildPlugin(layerId: string): void {
@@ -280,12 +263,6 @@ export class LayerManager {
     layer.plugin.destroy(layer.scene)
     layer.plugin.create(layer.scene)
   }
-
-  /**
-   * Camera Plugin の新インスタンスを取得する。
-   * getCameraPlugin() がファクトリを呼んで独立したクロージャを持つインスタンスを返す。
-   * layerManager 内では直接 getCameraPlugin() を使い、clone は不要。
-   */
 }
 
 export const layerManager = new LayerManager()

@@ -1,4 +1,4 @@
-import type { SceneState } from '../application/schema'
+import type { SceneState } from '../schema'
 
 // PreviewBus は SceneState（JSON）のみ保持する。Three.js Scene は持たない。
 
