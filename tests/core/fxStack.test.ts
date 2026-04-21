@@ -77,7 +77,9 @@ describe('FxStack', () => {
     expect(FX_STACK_ORDER[6]).toBe('rgb-shift')
     expect(FX_STACK_ORDER[7]).toBe('crt')
     expect(FX_STACK_ORDER[8]).toBe('glitch')
-    expect(FX_STACK_ORDER[9]).toBe('color-grading')
+    expect(FX_STACK_ORDER[9]).toBe('film')
+    expect(FX_STACK_ORDER[10]).toBe('frei-chen')
+    expect(FX_STACK_ORDER[11]).toBe('color-grading')
   })
 
   it('TC-1: getOrdered() は FX_STACK_ORDER 順でプラグインを返す（逆順登録でも正しい）', () => {

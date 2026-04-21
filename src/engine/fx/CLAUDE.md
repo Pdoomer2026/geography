@@ -61,6 +61,8 @@ Three.js レンダリング
 → RGBShiftPass      （RGB シフト）
 → CRTPass           （CRT）
 → GlitchPass        （グリッチ）
+→ FilmPass          （フィルムノイズ）
+→ FreiChenPass      （エッジ検出）
 → ColorGradingPass  （色調整・必ず最後）
 → 出力
 ```

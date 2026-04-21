@@ -1,9 +1,9 @@
 /**
  * FxStack
- * EffectComposer に対して 10 個の FX Pass を固定順で管理する。
+ * EffectComposer に対して 12 個の FX Pass を固定順で管理する。
  * 固定順（変更禁止）:
  *   AfterImage → Feedback → Bloom → Kaleidoscope → Mirror
- *   → ZoomBlur → RGBShift → CRT → Glitch → ColorGrading（必ず最後）
+ *   → ZoomBlur → RGBShift → CRT → Glitch → Film → FreiChen → ColorGrading（必ず最後）
  *
  * spec: docs/spec/fx-stack.spec.md
  * spec: docs/spec/plugin-lifecycle.spec.md §6
@@ -21,6 +21,8 @@ export const FX_STACK_ORDER = [
   'rgb-shift',
   'crt',
   'glitch',
+  'film',
+  'frei-chen',
   'color-grading',
 ] as const
 
