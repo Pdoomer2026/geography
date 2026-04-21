@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CameraPlugin, GeometryPlugin } from '../../src/types'
+import type { CameraPlugin, GeometryPlugin } from '../../src/application/schema'
 import { LayerManager } from '../../src/core/layerManager'
 
 // ============================================================

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { CameraPlugin } from '../../../types'
+import type { CameraPlugin } from '../../../application/schema'
 
 /**
  * StaticCameraPlugin ファクトリ

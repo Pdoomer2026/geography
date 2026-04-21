@@ -11,7 +11,7 @@
 
 import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass.js'
 import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import type { FXPlugin, PluginParam } from '../../../types'
+import type { FXPlugin, PluginParam } from '../../../application/schema'
 
 export class GlitchPlugin implements FXPlugin {
   readonly id = 'glitch'

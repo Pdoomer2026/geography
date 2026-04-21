@@ -12,7 +12,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { FxStack } from '../../src/core/fxStack'
-import type { FXPlugin, PluginParam } from '../../src/types'
+import type { FXPlugin, PluginParam } from '../../src/application/schema'
 
 // ---- テスト用 FXPlugin モック ----
 

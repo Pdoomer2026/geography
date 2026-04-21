@@ -1,4 +1,4 @@
-import type { PluginParam } from '../../../types'
+import type { PluginParam } from '../../../application/schema'
 
 // color は PluginParam が number 型のため省略
 // ColorGrading FX に委譲

@@ -1,4 +1,4 @@
-import type { PluginParam } from '../../../../types'
+import type { PluginParam } from '../../../../application/schema'
 
 export const defaultParams: Record<string, PluginParam> = {
   cols:      { value: 12,   min: 4,   max: 30,   label: 'Columns',    requiresRebuild: true },

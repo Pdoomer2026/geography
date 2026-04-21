@@ -1,4 +1,4 @@
-import type { LightPlugin } from '../../../types'
+import type { LightPlugin } from '../../../application/schema'
 import { defaultParams } from './ambient.config'
 import { AmbientLightController } from './AmbientLight'
 

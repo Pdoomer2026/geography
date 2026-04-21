@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { engine } from '../../../../core/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
-import type { DragPayload, MacroAssign, MacroKnobConfig } from '../../../../types'
+import type { DragPayload, MacroAssign, MacroKnobConfig } from '../../../../application/schema'
 
 const KNOB_COUNT = 8
 const KNOB_SIZE = 70

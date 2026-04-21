@@ -1,4 +1,4 @@
-import type { PluginParam } from '../../../../types'
+import type { PluginParam } from '../../../../application/schema'
 
 export const defaultParams: Record<string, PluginParam> = {
   speed:    { value: 0.8,  min: 0.0, max: 3.0,  label: 'Speed' },

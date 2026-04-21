@@ -43,7 +43,7 @@ import { GlitchPlugin }        from './glitch'
 import { ColorGradingPlugin }  from './color-grading'
 import { FilmPlugin }          from './film'
 import { FreiChenPlugin }      from './frei-chen'
-import type { FXPlugin } from '../../types'
+import type { FXPlugin } from '../../application/schema'
 
 /**
  * 毎回新しいインスタンスを生成して返す。

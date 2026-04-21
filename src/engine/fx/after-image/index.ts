@@ -6,7 +6,7 @@
 
 import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass.js'
 import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import type { FXPlugin, PluginParam } from '../../../types'
+import type { FXPlugin, PluginParam } from '../../../application/schema'
 
 export class AfterImagePlugin implements FXPlugin {
   readonly id = 'after-image'

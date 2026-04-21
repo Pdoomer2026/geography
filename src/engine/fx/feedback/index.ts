@@ -16,7 +16,7 @@
 import * as THREE from 'three'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import type { FXPlugin, PluginParam } from '../../../types'
+import type { FXPlugin, PluginParam } from '../../../application/schema'
 
 const FeedbackShader = {
   uniforms: {

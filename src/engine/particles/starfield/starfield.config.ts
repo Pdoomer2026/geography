@@ -1,4 +1,4 @@
-import type { PluginParam } from '../../../types'
+import type { PluginParam } from '../../../application/schema'
 
 export const defaultParams: Record<string, PluginParam> = {
   count:   { value: 5000, min: 500,  max: 10000, label: 'Count' },

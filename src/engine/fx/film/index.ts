@@ -11,7 +11,7 @@
 
 import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass.js'
 import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import type { FXPlugin, PluginParam } from '../../../types'
+import type { FXPlugin, PluginParam } from '../../../application/schema'
 
 export class FilmPlugin implements FXPlugin {
   readonly id = 'film'

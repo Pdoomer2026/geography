@@ -260,7 +260,7 @@ export class Engine {
    * layerId を指定するとそのレイヤーのみにフィルタする。
    * value は Registry のスナップショット（syncValue で更新された値）。
    */
-  getParameters(layerId?: string): import('../types/midi-registry').RegisteredParameterWithCC[] {
+  getParameters(layerId?: string): import('../application/schema/midi-registry').RegisteredParameterWithCC[] {
     const all = transportRegistry.getAll()
     return layerId ? all.filter((p) => p.layerId === layerId) : all
   }
@@ -271,7 +271,7 @@ export class Engine {
    * value は毎回 plugin.params から直接読むため常に最新値を返す。
    * Window が plugin に直接アクセスせず、engine 経由で取得する。
    */
-  getParametersLive(layerId?: string): import('../types/midi-registry').RegisteredParameterWithCC[] {
+  getParametersLive(layerId?: string): import('../application/schema/midi-registry').RegisteredParameterWithCC[] {
     const all = transportRegistry.getAll()
     const filtered = layerId ? all.filter((p) => p.layerId === layerId) : all
     return filtered.map((entry) => {
@@ -285,7 +285,7 @@ export class Engine {
    * Geometry / Camera / FX の順で探す。
    */
   private _readLiveValue(
-    entry: import('../types/midi-registry').RegisteredParameterWithCC
+    entry: import('../application/schema/midi-registry').RegisteredParameterWithCC
   ): number | undefined {
     const layer = layerManager.getLayers().find((l) => l.id === entry.layerId)
     if (!layer) return undefined
@@ -343,7 +343,7 @@ export class Engine {
   }
 
   /** アサインを追加する（MacroWindow D&D 用） */
-  addMacroAssign(knobId: string, assign: import('../types').MacroAssign): void {
+  addMacroAssign(knobId: string, assign: import('../application/schema').MacroAssign): void {
     assignRegistry.addAssign(knobId, assign)
   }
 
@@ -353,7 +353,7 @@ export class Engine {
   }
 
   /** 指定 paramId にアサインされている全ノブを返す（右クリックメニュー用・Day52 新設） */
-  getAssignsForParam(paramId: string): { knobId: string; assign: import('../types').MacroAssign }[] {
+  getAssignsForParam(paramId: string): { knobId: string; assign: import('../application/schema').MacroAssign }[] {
     return assignRegistry.getKnobs().flatMap((k) =>
       k.assigns
         .filter((a) => a.paramId === paramId)
@@ -577,7 +577,7 @@ export class Engine {
 
       // opacity / blendMode
       layerManager.setOpacity(layerId, layerState.opacity)
-      layerManager.setBlendMode(layerId, layerState.blendMode as import('../types').CSSBlendMode)
+      layerManager.setBlendMode(layerId, layerState.blendMode as import('../application/schema').CSSBlendMode)
     })
   }
 

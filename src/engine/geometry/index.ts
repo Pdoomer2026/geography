@@ -8,7 +8,7 @@
  * 手動でのインポート追加は不要。
  */
 import { registry } from '../../core/registry'
-import type { GeometryPlugin } from '../../types'
+import type { GeometryPlugin } from '../../application/schema'
 
 // Vite の import.meta.glob で plugins/geometry/ 以下の全 index.ts を取得
 // eager: false → 遅延インポート（初期ロードを軽量に保つ）

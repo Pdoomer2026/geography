@@ -15,9 +15,9 @@ import { engine } from '../../../core/engine'
 import { registry } from '../../../core/registry'
 import { presetStore, FX_LABELS, FX_DEFAULTS, FX_ORDER } from '../../../core/presetStore'
 import type { GeoPreset } from '../../../core/presetStore'
-import type { GeometryPlugin } from '../../../types'
-import type { WindowMode, GeoWindowMode, MacroWindowMode, MixerWindowMode, LayerId } from '../../../types/windowMode'
-import { LAYER_IDS } from '../../../types/windowMode'
+import type { GeometryPlugin } from '../../../application/schema'
+import type { WindowMode, GeoWindowMode, MacroWindowMode, MixerWindowMode, LayerId } from '../../../application/schema/windowMode'
+import { LAYER_IDS } from '../../../application/schema/windowMode'
 import { useDraggable } from '../../useDraggable'
 
 // ----------------------------------------------------------------

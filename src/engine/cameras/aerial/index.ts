@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import type { CameraPlugin } from '../../../types'
+import type { CameraPlugin } from '../../../application/schema'
 
 /**
  * AerialCameraPlugin ファクトリ

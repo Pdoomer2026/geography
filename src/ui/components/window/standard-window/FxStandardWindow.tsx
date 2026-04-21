@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { engine } from '../../../../core/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
-import type { RegisteredParameterWithCC } from '../../../../types/midi-registry'
+import type { RegisteredParameterWithCC } from '../../../../application/schema/midi-registry'
 import { RangeSlider } from './RangeSlider'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const

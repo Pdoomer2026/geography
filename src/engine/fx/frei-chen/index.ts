@@ -14,7 +14,7 @@ import * as THREE from 'three'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { FreiChenShader } from 'three/examples/jsm/shaders/FreiChenShader.js'
 import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import type { FXPlugin, PluginParam } from '../../../types'
+import type { FXPlugin, PluginParam } from '../../../application/schema'
 
 export class FreiChenPlugin implements FXPlugin {
   readonly id = 'frei-chen'

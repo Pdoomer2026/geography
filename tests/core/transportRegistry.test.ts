@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type { RegisteredParameterWithCC } from '../../src/types/midi-registry'
+import type { RegisteredParameterWithCC } from '../../src/application/schema/midi-registry'
 
 // クリーンなインスタンスでテストするため実装クラスをローカル複製
 class TransportRegistryImpl {

@@ -1,4 +1,4 @@
-import type { MixerPlugin } from '../../../../types'
+import type { MixerPlugin } from '../../../../application/schema'
 import { MixerSimpleWindow } from './MixerSimpleWindow'
 
 /**

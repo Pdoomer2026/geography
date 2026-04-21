@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Layer, LayerRouting, ScreenAssignState, TransitionPlugin } from '../../../../types'
+import type { Layer, LayerRouting, ScreenAssignState, TransitionPlugin } from '../../../../application/schema'
 import beatCutPlugin from '../../../../application/command/geo-transitions/beat-cut'
 import crossfadePlugin from '../../../../application/command/geo-transitions/crossfade'
 import { programBus } from '../../../../core/programBus'

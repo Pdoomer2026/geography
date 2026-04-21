@@ -5,7 +5,7 @@
  * Plugin Registry に登録する。
  */
 import { registry } from '../../core/registry'
-import type { LightPlugin } from '../../types'
+import type { LightPlugin } from '../../application/schema'
 
 const modules = import.meta.glob<{ default: LightPlugin }>(
   './**/index.ts',

@@ -1,4 +1,4 @@
-import type { PluginParam } from '../../../../types'
+import type { PluginParam } from '../../../../application/schema'
 
 export const defaultParams: Record<string, PluginParam> = {
   detail:  { value: 2,    min: 0,   max: 5,    label: 'Detail', requiresRebuild: true },

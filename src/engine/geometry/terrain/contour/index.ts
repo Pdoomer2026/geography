@@ -1,5 +1,5 @@
 import type * as THREE from 'three'
-import type { GeometryPlugin } from '../../../../types'
+import type { GeometryPlugin } from '../../../../application/schema'
 import { defaultParams } from './contour.config'
 import { ContourGeometry } from './ContourGeometry'
 

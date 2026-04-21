@@ -1,5 +1,5 @@
 import type * as THREE from 'three'
-import type { GeometryPlugin } from '../../../../types'
+import type { GeometryPlugin } from '../../../../application/schema'
 import { defaultParams } from './hex-grid.config'
 import { HexGridGeometry } from './HexGridGeometry'
 

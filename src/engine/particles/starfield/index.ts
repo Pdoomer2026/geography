@@ -1,4 +1,4 @@
-import type { ParticlePlugin } from '../../../types'
+import type { ParticlePlugin } from '../../../application/schema'
 import { defaultParams } from './starfield.config'
 import { StarfieldParticle } from './StarfieldParticle'
 

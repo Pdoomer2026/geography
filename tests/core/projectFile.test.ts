@@ -9,8 +9,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import type { GeoGraphyProject, SceneState } from '../../src/types'
-import { PROJECT_FILE_VERSION } from '../../src/types'
+import type { GeoGraphyProject, SceneState } from '../../src/application/schema'
+import { PROJECT_FILE_VERSION } from '../../src/application/schema'
 
 // ----------------------------------------------------------------
 // テスト用 SceneState ファクトリ

@@ -1,4 +1,4 @@
-import type { PluginParam } from '../../../../types'
+import type { PluginParam } from '../../../../application/schema'
 
 export const defaultParams: Record<string, PluginParam> = {
   radius:      { value: 2.5,  min: 0.5, max: 8.0,  label: 'Radius',           requiresRebuild: true },

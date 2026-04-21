@@ -1,2 +1,1 @@
-// Re-export shim — 実体は src/application/schema/ に移動済み
-export * from '../application/schema/windowMode'
+// このファイルは削除予定。全 import は application/schema/windowMode に更新済み。

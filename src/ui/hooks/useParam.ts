@@ -17,7 +17,7 @@
 
 import { useEffect, useState } from 'react'
 import { engine } from '../../core/engine'
-import type { RegisteredParameterWithCC } from '../../types/midi-registry'
+import type { RegisteredParameterWithCC } from '../../application/schema/midi-registry'
 
 // ============================================================
 // useParam — 単一 plugin のパラメータを購読する

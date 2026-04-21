@@ -12,8 +12,8 @@ import { GeometryStandardDnDWindow, CameraStandardDnDWindow, FxStandardDnDWindow
 import { GeoMonitorWindow } from './components/window/geo-monitor'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
-import { DEFAULT_WINDOW_MODE } from '../types/windowMode'
-import type { WindowMode } from '../types/windowMode'
+import { DEFAULT_WINDOW_MODE } from '../application/schema/windowMode'
+import type { WindowMode } from '../application/schema/windowMode'
 
 const HIDE_ALL: WindowMode = {
   geometry: 'none',

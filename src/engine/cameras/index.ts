@@ -1,4 +1,4 @@
-import type { CameraPlugin } from '../../types'
+import type { CameraPlugin } from '../../application/schema'
 
 /**
  * Camera Plugin ファクトリ登録

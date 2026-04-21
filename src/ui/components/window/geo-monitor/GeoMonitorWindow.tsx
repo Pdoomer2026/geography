@@ -19,7 +19,7 @@
 import { useState } from 'react'
 import { useAllParams } from '../../../../ui/hooks/useParam'
 import { useDraggable } from '../../../../ui/useDraggable'
-import type { RegisteredParameterWithCC } from '../../../../types/midi-registry'
+import type { RegisteredParameterWithCC } from '../../../../application/schema/midi-registry'
 
 const LAYER_TABS = ['all', 'layer-1', 'layer-2', 'layer-3'] as const
 type LayerFilter = (typeof LAYER_TABS)[number]

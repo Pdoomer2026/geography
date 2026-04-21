@@ -1,2 +1,1 @@
-// Re-export shim — 実体は src/application/schema/ に移動済み
-export * from '../application/schema/midi-registry'
+// このファイルは削除予定。全 import は application/schema/midi-registry に更新済み。

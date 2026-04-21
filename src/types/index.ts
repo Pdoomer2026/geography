@@ -1,3 +1,2 @@
-// Re-export shim — 実体は src/application/schema/ に移動済み
-// TODO: 次のリファクタリングセッションで全 import を application/schema に更新後、このファイルを削除する
-export * from '../application/schema'
+// このファイルは削除予定。全 import は application/schema に更新済み。
+// 自動生成ファイル（geo-cc-map.generated.ts / geo-types.generated.d.ts）のみ残存。

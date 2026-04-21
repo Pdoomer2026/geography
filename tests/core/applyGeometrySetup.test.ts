@@ -11,7 +11,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LayerManager } from '../../src/core/layerManager'
-import type { GeometryPlugin } from '../../src/types'
+import type { GeometryPlugin } from '../../src/application/schema'
 
 // ---- Three.js / EffectComposer モック ----
 

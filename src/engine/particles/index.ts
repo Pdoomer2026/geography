@@ -5,7 +5,7 @@
  * Plugin Registry に登録する。
  */
 import { registry } from '../../core/registry'
-import type { ParticlePlugin } from '../../types'
+import type { ParticlePlugin } from '../../application/schema'
 
 const modules = import.meta.glob<{ default: ParticlePlugin }>(
   './**/index.ts',
