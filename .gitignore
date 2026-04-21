@@ -6,3 +6,5 @@ dist-electron
 *.local
 coverage
 .DS_Store
+test-results
+playwright-report
