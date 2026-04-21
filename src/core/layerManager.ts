@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { getCameraPlugin } from '../plugins/cameras'
+import { getCameraPlugin } from '../engine/cameras'
 import { DEFAULT_CAMERA_PLUGIN_ID, MAX_LAYERS } from './config'
 import { FxStack } from './fxStack'
 import type { CameraPlugin, CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from '../types'

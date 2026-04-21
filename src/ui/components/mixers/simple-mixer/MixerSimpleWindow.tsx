@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Layer, LayerRouting, ScreenAssignState, TransitionPlugin } from '../../../types'
-import beatCutPlugin from '../../transitions/beat-cut'
-import crossfadePlugin from '../../transitions/crossfade'
-import { programBus } from '../../../core/programBus'
-import { previewBus } from '../../../core/previewBus'
-import { engine } from '../../../core/engine'
-import { useDraggable } from '../../../ui/useDraggable'
+import type { Layer, LayerRouting, ScreenAssignState, TransitionPlugin } from '../../../../types'
+import beatCutPlugin from '../../../../plugins/transitions/beat-cut'
+import crossfadePlugin from '../../../../plugins/transitions/crossfade'
+import { programBus } from '../../../../core/programBus'
+import { previewBus } from '../../../../core/previewBus'
+import { engine } from '../../../../core/engine'
+import { useDraggable } from '../../../../ui/useDraggable'
 
 const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin, crossfadePlugin]
 

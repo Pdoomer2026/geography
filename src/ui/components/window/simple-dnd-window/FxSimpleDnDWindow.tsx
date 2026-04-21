@@ -1,72 +1,66 @@
 /**
- * CameraSimpleDnDWindow
+ * FxSimpleDnDWindow
  *
- * CameraSimpleWindow に D&D ハンドル（≡）を追加した Window。
+ * FxSimpleWindow に D&D ハンドル（≡）を追加した Window。
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { engine } from '../../../core/engine'
-import { useDraggable } from '../../../ui/useDraggable'
-import type { CameraPlugin } from '../../../types'
-import type { RegisteredParameterWithCC } from '../../../types/midi-registry'
-import type { DragPayload } from '../../../types'
+import { engine } from '../../../../core/engine'
+import { useDraggable } from '../../../../ui/useDraggable'
+import type { RegisteredParameterWithCC } from '../../../../types/midi-registry'
+import type { DragPayload } from '../../../../types'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
 type LayerId = (typeof LAYER_TABS)[number]
 
-export function CameraSimpleDnDWindow() {
+interface FxGroup {
+  pluginId: string
+  pluginName: string
+  enabled: boolean
+  params: RegisteredParameterWithCC[]
+}
+
+export function FxSimpleDnDWindow() {
   const [collapsed, setCollapsed] = useState(false)
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
-  const [cameraId, setCameraId] = useState<string>('')
-  const [params, setParams] = useState<RegisteredParameterWithCC[]>([])
-  const [availableCameras, setAvailableCameras] = useState<CameraPlugin[]>([])
-  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 600, y: 220 })
+  const [fxGroups, setFxGroups] = useState<FxGroup[]>([])
+  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 300, y: 220 })
 
-  const getParamsFromRegistry = useCallback((layerId: LayerId, camId: string) => {
-    return engine.getParameters(layerId).filter((p) => p.pluginId === camId)
+  const buildFxGroups = useCallback((lid: string): FxGroup[] => {
+    return engine.getFxPlugins(lid).map((fx) => ({
+      pluginId: fx.id,
+      pluginName: fx.name,
+      enabled: fx.enabled,
+      params: engine.getParametersLive(lid).filter((p) => p.pluginId === fx.id),
+    }))
   }, [])
 
   useEffect(() => {
-    return engine.onRegistryChanged(() => {
-      const cam = engine.getCameraPlugin(activeLayer)
-      if (!cam) return
-      setParams(getParamsFromRegistry(activeLayer, cam.id))
-    })
-  }, [activeLayer, getParamsFromRegistry])
+    setFxGroups(buildFxGroups(activeLayer))
+  }, [activeLayer, buildFxGroups])
 
   useEffect(() => {
-    setAvailableCameras(engine.listCameraPlugins())
-    const cam = engine.getCameraPlugin(activeLayer)
-    if (cam) {
-      setCameraId(cam.id)
-      setParams(getParamsFromRegistry(activeLayer, cam.id))
-    } else {
-      setCameraId('')
-      setParams([])
-    }
-  }, [activeLayer, getParamsFromRegistry])
+    return engine.onRegistryChanged(() => {
+      setFxGroups(buildFxGroups(activeLayer))
+    })
+  }, [activeLayer, buildFxGroups])
 
+  useEffect(() => {
+    engine.onFxChanged(() => {
+      setFxGroups(buildFxGroups(activeLayer))
+    })
+  }, [activeLayer, buildFxGroups])
+
+  // MacroKnob 操作など外部からの値変化を読み返す
   useEffect(() => {
     const timer = window.setInterval(() => {
-      const cam = engine.getCameraPlugin(activeLayer)
-      if (!cam) return
-      if (cam.id !== cameraId) {
-        setCameraId(cam.id)
-      }
-      // MacroKnob 操作など外部からの値変化を読み返す
-      const live = engine.getParametersLive(activeLayer).filter((p) => p.pluginId === cam.id)
-      setParams(live)
+      setFxGroups(buildFxGroups(activeLayer))
     }, 200)
     return () => window.clearInterval(timer)
-  }, [activeLayer, cameraId])
+  }, [activeLayer, buildFxGroups])
 
-  function handleCameraChange(pluginId: string) {
-    engine.setCameraPlugin(activeLayer, pluginId)
-    const cam = engine.getCameraPlugin(activeLayer)
-    if (cam) {
-      setCameraId(cam.id)
-      setParams(getParamsFromRegistry(activeLayer, cam.id))
-    }
+  function handleToggle(fxId: string, enabled: boolean) {
+    engine.setFxEnabled(fxId, enabled, activeLayer)
   }
 
   return (
@@ -75,7 +69,7 @@ export function CameraSimpleDnDWindow() {
 
         <div onMouseDown={handleMouseDown} className="flex items-center justify-between mb-2" style={{ cursor: 'grab' }}>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-[#7878aa] tracking-widest">CAMERA D&amp;D</span>
+            <span className="text-[10px] text-[#7878aa] tracking-widest">FX D&amp;D</span>
             <div className="flex gap-1">
               {LAYER_TABS.map((id, i) => (
                 <button
@@ -102,37 +96,67 @@ export function CameraSimpleDnDWindow() {
         </div>
 
         {!collapsed && (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] text-[#5a5a8e] w-14 shrink-0">Camera</span>
-              <select
-                value={cameraId}
-                onChange={(e) => handleCameraChange(e.target.value)}
-                className="flex-1 text-[10px] rounded px-1.5 py-0.5 border outline-none cursor-pointer"
-                style={{ background: '#1a1a2e', borderColor: '#3a3a6e', color: '#aaaaee' }}
-              >
-                {availableCameras.map((cam) => (
-                  <option key={cam.id} value={cam.id}>{cam.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1 mt-1">
-              {params.length === 0 && (
-                <div className="text-[#3a3a5e] text-[10px] py-2 text-center">— no params —</div>
-              )}
-              {params.map((param) => (
-                <ParamRow
-                  key={param.ccNumber}
-                  param={param}
-                  layerId={activeLayer}
-                  pluginId={cameraId}
-                />
-              ))}
-            </div>
+          <div className="flex flex-col gap-3">
+            {fxGroups.length === 0 && (
+              <div className="text-[#3a3a5e] text-[10px] py-2 text-center">— no fx —</div>
+            )}
+            {fxGroups.map((group) => (
+              <FxGroupRow
+                key={`${activeLayer}-${group.pluginId}`}
+                group={group}
+                layerId={activeLayer}
+                onToggle={handleToggle}
+              />
+            ))}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// FxGroupRow
+// ============================================================
+
+interface FxGroupRowProps {
+  group: FxGroup
+  layerId: string
+  onToggle: (fxId: string, enabled: boolean) => void
+}
+
+function FxGroupRow({ group, layerId, onToggle }: FxGroupRowProps) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[11px]" style={{ color: group.enabled ? '#aaaacc' : '#4a4a6e' }}>
+          {group.pluginName}
+        </span>
+        <button
+          onClick={() => onToggle(group.pluginId, !group.enabled)}
+          className="text-[10px] rounded px-2 py-0.5 border transition-colors"
+          style={{
+            background: group.enabled ? '#2a2a6e' : '#1a1a2e',
+            borderColor: group.enabled ? '#5a5aaa' : '#2a2a4e',
+            color: group.enabled ? '#aaaaee' : '#4a4a6e',
+          }}
+        >
+          {group.enabled ? 'ON' : 'OFF'}
+        </button>
+      </div>
+
+      {group.enabled && group.params.length > 0 && (
+        <div className="ml-2 flex flex-col gap-1">
+          {group.params.map((param) => (
+            <ParamRow
+              key={`${group.pluginId}-${param.id}`}
+              param={param}
+              layerId={layerId}
+              pluginId={group.pluginId}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -201,7 +225,8 @@ function ParamRow({ param, layerId, pluginId }: ParamRowProps) {
         ≡
       </div>
 
-      <span className="text-[9px] text-[#5a5a8e] w-20 truncate shrink-0">{name}</span>
+      <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">CC{ccNumber}</span>
+      <span className="text-[9px] text-[#5a5a8e] w-16 truncate shrink-0">{name}</span>
 
       {isBinary ? (
         <button
@@ -226,8 +251,8 @@ function ParamRow({ param, layerId, pluginId }: ParamRowProps) {
             onChange={(e) => handleChange(parseFloat(e.target.value))}
             className="flex-1 accent-[#5a5aff] h-1 cursor-pointer"
           />
-          <span className="text-[9px] text-[#5a5a8e] w-10 text-right tabular-nums">
-            {value.toFixed(2)}
+          <span className="text-[9px] text-[#5a5a8e] w-10 text-right tabular-nums shrink-0">
+            {value.toFixed(max <= 0.1 ? 4 : 2)}
           </span>
         </>
       )}

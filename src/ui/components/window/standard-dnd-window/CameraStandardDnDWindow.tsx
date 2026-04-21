@@ -1,106 +1,82 @@
 /**
- * GeometryStandardDnDWindow
+ * CameraStandardDnDWindow
  *
- * GeometryStandardWindow（lo/hi RangeSlider）に D&D ハンドル（≡）を追加した Window。
- *
- * StandardWindow との差分:
- *   - ParamRow 先頭に draggable ≡ ハンドル追加
- *   - onDragStart で lo/hi を DragPayload に乗せる
- *     → AssignDialog の MIN/MAX 初期値が lo/hi になる
- *
- * SimpleDnDWindow との差分:
- *   - ParamRow に RangeSlider を使用（2段構成）
- *   - lo/hi を D&D payload に含める
+ * CameraStandardWindow（lo/hi RangeSlider）に D&D ハンドル（≡）を追加した Window。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { engine } from '../../../core/engine'
-import { useDraggable } from '../../../ui/useDraggable'
-import type { RegisteredParameterWithCC } from '../../../types/midi-registry'
-import type { DragPayload } from '../../../types'
+import { engine } from '../../../../core/engine'
+import { useDraggable } from '../../../../ui/useDraggable'
+import type { CameraPlugin } from '../../../../types'
+import type { RegisteredParameterWithCC } from '../../../../types/midi-registry'
+import type { DragPayload } from '../../../../types'
 import { RangeSlider } from '../standard-window/RangeSlider'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
 type LayerId = (typeof LAYER_TABS)[number]
 
-// ============================================================
-// Props
-// ============================================================
-
-export interface GeometryStandardDnDWindowProps {
-  onPluginApply: (layerId: string, pluginId: string) => void
-  onPluginRemove: (layerId: string) => void
-}
-
-// ============================================================
-// GeometryStandardDnDWindow
-// ============================================================
-
-export function GeometryStandardDnDWindow({ onPluginApply, onPluginRemove }: GeometryStandardDnDWindowProps) {
+export function CameraStandardDnDWindow() {
   const [collapsed, setCollapsed] = useState(false)
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
-  const [pluginName, setPluginName] = useState<string>('')
-  const [pluginId, setPluginId] = useState<string>('')
+  const [cameraId, setCameraId] = useState<string>('')
   const [params, setParams] = useState<RegisteredParameterWithCC[]>([])
-  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 580, y: 200 })
+  const [availableCameras, setAvailableCameras] = useState<CameraPlugin[]>([])
+  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 620, y: 200 })
   const loHiMapRef = useRef<Map<number, { lo: number; hi: number }>>(new Map())
 
-  const getParamsFromRegistry = useCallback((layerId: LayerId, geoId: string) => {
-    return engine.getParameters(layerId).filter((p) => p.pluginId === geoId)
+  const getParamsFromRegistry = useCallback((layerId: LayerId, camId: string) => {
+    return engine.getParameters(layerId).filter((p) => p.pluginId === camId)
   }, [])
 
   useEffect(() => {
     return engine.onRegistryChanged(() => {
-      const geo = engine.getGeometryPlugin(activeLayer)
-      if (!geo) { setParams([]); return }
-      setParams(getParamsFromRegistry(activeLayer, geo.id))
+      const cam = engine.getCameraPlugin(activeLayer)
+      if (!cam) return
+      setParams(getParamsFromRegistry(activeLayer, cam.id))
     })
   }, [activeLayer, getParamsFromRegistry])
 
   useEffect(() => {
-    const geo = engine.getGeometryPlugin(activeLayer)
-    if (geo) {
-      setPluginId(geo.id)
-      setPluginName(geo.name)
-      setParams(getParamsFromRegistry(activeLayer, geo.id))
+    setAvailableCameras(engine.listCameraPlugins())
+    const cam = engine.getCameraPlugin(activeLayer)
+    if (cam) {
+      setCameraId(cam.id)
+      setParams(getParamsFromRegistry(activeLayer, cam.id))
     } else {
-      setPluginId('')
-      setPluginName('')
+      setCameraId('')
       setParams([])
     }
   }, [activeLayer, getParamsFromRegistry])
 
-  const pluginIdRef = useRef(pluginId)
-  pluginIdRef.current = pluginId
-
   useEffect(() => {
     const timer = window.setInterval(() => {
-      const geo = engine.getGeometryPlugin(activeLayer)
-      if (!geo) {
-        if (pluginIdRef.current !== '') {
-          setPluginId(''); setPluginName(''); setParams([])
-          onPluginRemove(activeLayer)
-        }
-        return
+      const cam = engine.getCameraPlugin(activeLayer)
+      if (!cam) return
+      if (cam.id !== cameraId) {
+        setCameraId(cam.id)
       }
-      if (geo.id !== pluginIdRef.current) {
-        setPluginId(geo.id); setPluginName(geo.name)
-        onPluginApply(activeLayer, geo.id)
-      }
-      const live = engine.getParametersLive(activeLayer).filter((p) => p.pluginId === geo.id)
+      const live = engine.getParametersLive(activeLayer).filter((p) => p.pluginId === cam.id)
       setParams(live)
     }, 200)
     return () => window.clearInterval(timer)
-  }, [activeLayer, onPluginApply, onPluginRemove])
+  }, [activeLayer, cameraId, getParamsFromRegistry])
+
+  function handleCameraChange(pluginId: string) {
+    engine.setCameraPlugin(activeLayer, pluginId)
+    const cam = engine.getCameraPlugin(activeLayer)
+    if (cam) {
+      setCameraId(cam.id)
+      setParams(getParamsFromRegistry(activeLayer, cam.id))
+    }
+  }
 
   return (
-    <div className="fixed z-50 font-mono text-xs select-none" style={{ left: pos.x, top: pos.y, width: 340 }}>
+    <div className="fixed z-50 font-mono text-xs select-none" style={{ left: pos.x, top: pos.y, width: 320 }}>
       <div className="bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg overflow-hidden" style={{ padding: '10px 14px' }}>
 
-        {/* ヘッダー */}
         <div onMouseDown={handleMouseDown} className="flex items-center justify-between mb-2" style={{ cursor: 'grab' }}>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-[#7878aa] tracking-widest">GEOMETRY STD D&amp;D</span>
+            <span className="text-[10px] text-[#7878aa] tracking-widest">CAMERA STD D&amp;D</span>
             <div className="flex gap-1">
               {LAYER_TABS.map((id, i) => (
                 <button
@@ -129,11 +105,20 @@ export function GeometryStandardDnDWindow({ onPluginApply, onPluginRemove }: Geo
         {!collapsed && (
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-[9px] text-[#5a5a8e] w-14 shrink-0">Geometry</span>
-              <span className="text-[10px] text-[#aaaaee]">{pluginName || '— none —'}</span>
+              <span className="text-[9px] text-[#5a5a8e] w-14 shrink-0">Camera</span>
+              <select
+                value={cameraId}
+                onChange={(e) => handleCameraChange(e.target.value)}
+                className="flex-1 text-[10px] rounded px-1.5 py-0.5 border outline-none cursor-pointer"
+                style={{ background: '#1a1a2e', borderColor: '#3a3a6e', color: '#aaaaee' }}
+              >
+                {availableCameras.map((cam) => (
+                  <option key={cam.id} value={cam.id}>{cam.name}</option>
+                ))}
+              </select>
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 mt-1">
               {params.length === 0 && (
                 <div className="text-[#3a3a5e] text-[10px] py-2 text-center">— no params —</div>
               )}
@@ -144,7 +129,7 @@ export function GeometryStandardDnDWindow({ onPluginApply, onPluginRemove }: Geo
                     key={param.ccNumber}
                     param={param}
                     layerId={activeLayer}
-                    pluginId={pluginId}
+                    pluginId={cameraId}
                     initialLo={saved?.lo ?? param.min}
                     initialHi={saved?.hi ?? param.max}
                     onLoHiChange={(lo, hi) => {
@@ -220,7 +205,6 @@ function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange
 
   return (
     <div className="flex flex-col gap-1">
-      {/* ラベル行（D&D ハンドル付き） */}
       <div className="flex items-center gap-1.5">
         <div
           draggable
@@ -239,14 +223,12 @@ function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange
         >
           ≡
         </div>
-        <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">CC{ccNumber}</span>
-        <span className="text-[9px] text-[#5a5a8e] w-16 truncate shrink-0">{name}</span>
-        <span className="text-[9px] text-[#aaaaee] w-10 text-right tabular-nums shrink-0">
+        <span className="text-[9px] text-[#5a5a8e] w-20 truncate shrink-0">{name}</span>
+        <span className="text-[9px] text-[#aaaaee] w-12 text-right tabular-nums shrink-0">
           {value.toFixed(max <= 0.1 ? 4 : 2)}
         </span>
       </div>
 
-      {/* スライダー行 */}
       <div className="pl-[26px]">
         {isBinary ? (
           <button

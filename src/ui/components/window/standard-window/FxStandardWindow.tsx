@@ -1,8 +1,8 @@
 /**
- * CameraStandardWindow
- * spec: docs/spec/plugin-manager.spec.md §4-1
+ * FxStandardWindow
+ * spec: docs/spec/plugin-manager.spec.md §4-2
  *
- * CameraSimpleWindow に稼働幅（lo/hi RangeSlider）を追加した上位 Window。
+ * FxSimpleWindow に稼働幅（lo/hi RangeSlider）を追加した上位 Window。
  *
  * SimpleWindow との差分:
  *   - ParamRow に RangeSlider を使用（2段構成）
@@ -11,80 +11,72 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { engine } from '../../../core/engine'
-import { useDraggable } from '../../../ui/useDraggable'
-import type { CameraPlugin } from '../../../types'
-import type { RegisteredParameterWithCC } from '../../../types/midi-registry'
+import { engine } from '../../../../core/engine'
+import { useDraggable } from '../../../../ui/useDraggable'
+import type { RegisteredParameterWithCC } from '../../../../types/midi-registry'
 import { RangeSlider } from './RangeSlider'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
 type LayerId = (typeof LAYER_TABS)[number]
 
 // ============================================================
-// CameraStandardWindow
+// 型定義
 // ============================================================
 
-export function CameraStandardWindow() {
+export interface FxGroup {
+  pluginId: string
+  pluginName: string
+  enabled: boolean
+  params: RegisteredParameterWithCC[]
+}
+
+// ============================================================
+// FxStandardWindow
+// ============================================================
+
+export function FxStandardWindow() {
   const [collapsed, setCollapsed] = useState(false)
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
-  const [cameraId, setCameraId] = useState<string>('')
-  const [params, setParams] = useState<RegisteredParameterWithCC[]>([])
-  const [availableCameras, setAvailableCameras] = useState<CameraPlugin[]>([])
-  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 620, y: 200 })
+  const [fxGroups, setFxGroups] = useState<FxGroup[]>([])
+  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 320, y: 200 })
 
-  const getParamsFromRegistry = useCallback((layerId: LayerId, camId: string) => {
-    return engine.getParameters(layerId).filter((p) => p.pluginId === camId)
+  const buildFxGroups = useCallback((lid: string): FxGroup[] => {
+    return engine.getFxPlugins(lid).map((fx) => ({
+      pluginId: fx.id,
+      pluginName: fx.name,
+      enabled: fx.enabled,
+      params: engine.getParameters(lid).filter((p) => p.pluginId === fx.id),
+    }))
   }, [])
 
   useEffect(() => {
+    setFxGroups(buildFxGroups(activeLayer))
+  }, [activeLayer, buildFxGroups])
+
+  useEffect(() => {
     return engine.onRegistryChanged(() => {
-      const cam = engine.getCameraPlugin(activeLayer)
-      if (!cam) return
-      setParams(getParamsFromRegistry(activeLayer, cam.id))
+      setFxGroups(buildFxGroups(activeLayer))
     })
-  }, [activeLayer, getParamsFromRegistry])
+  }, [activeLayer, buildFxGroups])
 
   useEffect(() => {
-    setAvailableCameras(engine.listCameraPlugins())
-    const cam = engine.getCameraPlugin(activeLayer)
-    if (cam) {
-      setCameraId(cam.id)
-      setParams(getParamsFromRegistry(activeLayer, cam.id))
-    } else {
-      setCameraId('')
-      setParams([])
-    }
-  }, [activeLayer, getParamsFromRegistry])
+    return engine.onFxChanged(() => {
+      setFxGroups(buildFxGroups(activeLayer))
+    })
+  }, [activeLayer, buildFxGroups])
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      const cam = engine.getCameraPlugin(activeLayer)
-      if (!cam) return
-      if (cam.id !== cameraId) {
-        setCameraId(cam.id)
-        setParams(getParamsFromRegistry(activeLayer, cam.id))
-      }
-    }, 200)
-    return () => window.clearInterval(timer)
-  }, [activeLayer, cameraId, getParamsFromRegistry])
-
-  function handleCameraChange(pluginId: string) {
-    engine.setCameraPlugin(activeLayer, pluginId)
-    const cam = engine.getCameraPlugin(activeLayer)
-    if (cam) {
-      setCameraId(cam.id)
-      setParams(getParamsFromRegistry(activeLayer, cam.id))
-    }
+  function handleToggle(fxId: string, enabled: boolean) {
+    engine.setFxEnabled(fxId, enabled, activeLayer)
   }
 
   return (
-    <div className="fixed z-50 font-mono text-xs select-none" style={{ left: pos.x, top: pos.y, width: 320 }}>
+    <div className="fixed z-50 font-mono text-xs select-none" style={{ left: pos.x, top: pos.y, width: 300 }}>
       <div className="bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg overflow-hidden" style={{ padding: '10px 14px' }}>
 
         {/* ヘッダー */}
         <div onMouseDown={handleMouseDown} className="flex items-center justify-between mb-2" style={{ cursor: 'grab' }}>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-[#7878aa] tracking-widest">CAMERA STANDARD</span>
+            <span className="text-[10px] text-[#7878aa] tracking-widest">FX STANDARD</span>
             <div className="flex gap-1">
               {LAYER_TABS.map((id, i) => (
                 <button
@@ -111,36 +103,66 @@ export function CameraStandardWindow() {
         </div>
 
         {!collapsed && (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] text-[#5a5a8e] w-14 shrink-0">Camera</span>
-              <select
-                value={cameraId}
-                onChange={(e) => handleCameraChange(e.target.value)}
-                className="flex-1 text-[10px] rounded px-1.5 py-0.5 border outline-none cursor-pointer"
-                style={{ background: '#1a1a2e', borderColor: '#3a3a6e', color: '#aaaaee' }}
-              >
-                {availableCameras.map((cam) => (
-                  <option key={cam.id} value={cam.id}>{cam.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-3 mt-1">
-              {params.length === 0 && (
-                <div className="text-[#3a3a5e] text-[10px] py-2 text-center">— no params —</div>
-              )}
-              {params.map((param) => (
-                <ParamRow key={param.ccNumber} param={param} layerId={activeLayer} />
-              ))}
-            </div>
-
-            {!cameraId && (
-              <div className="text-[#3a3a5e] text-[10px] py-2 text-center">initializing...</div>
+          <div className="flex flex-col gap-3">
+            {fxGroups.length === 0 && (
+              <div className="text-[#3a3a5e] text-[10px] py-2 text-center">— no fx —</div>
             )}
+            {fxGroups.map((group) => (
+              <FxGroupRow
+                key={`${activeLayer}-${group.pluginId}`}
+                group={group}
+                layerId={activeLayer}
+                onToggle={handleToggle}
+              />
+            ))}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// FxGroupRow
+// ============================================================
+
+interface FxGroupRowProps {
+  group: FxGroup
+  layerId: string
+  onToggle: (fxId: string, enabled: boolean) => void
+}
+
+function FxGroupRow({ group, layerId, onToggle }: FxGroupRowProps) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px]" style={{ color: group.enabled ? '#aaaacc' : '#4a4a6e' }}>
+          {group.pluginName}
+        </span>
+        <button
+          onClick={() => onToggle(group.pluginId, !group.enabled)}
+          className="text-[10px] rounded px-2 py-0.5 border transition-colors"
+          style={{
+            background: group.enabled ? '#2a2a6e' : '#1a1a2e',
+            borderColor: group.enabled ? '#5a5aaa' : '#2a2a4e',
+            color: group.enabled ? '#aaaaee' : '#4a4a6e',
+          }}
+        >
+          {group.enabled ? 'ON' : 'OFF'}
+        </button>
+      </div>
+
+      {group.enabled && group.params.length > 0 && (
+        <div className="ml-2 flex flex-col gap-2.5">
+          {group.params.map((param) => (
+            <ParamRow
+              key={`${group.pluginId}-${param.id}`}
+              param={param}
+              layerId={layerId}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -166,9 +188,10 @@ function ParamRow({ param, layerId }: ParamRowProps) {
 
   function handleChange(raw: number) {
     setValue(raw)
-    // raw(min〜max) を lo〜hi にリマップして正規化
     const fullRange = max - min || 1
-    const remapped = lo + ((raw - min) / fullRange) * (hi - lo)
+    // スライダー全域(min〜max)をlo〜hiにリマップして正規化
+    const t = (raw - min) / fullRange          // 0〜1
+    const remapped = lo + t * (hi - lo)        // lo〜hi
     const normalized = Math.min(1, Math.max(0, (remapped - min) / fullRange))
     engine.handleMidiCC({ slot: ccNumber, value: normalized, source: 'window', layerId })
   }
@@ -181,13 +204,14 @@ function ParamRow({ param, layerId }: ParamRowProps) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
-        <span className="text-[9px] text-[#5a5a8e] w-20 truncate shrink-0">{name}</span>
-        <span className="text-[9px] text-[#aaaaee] w-12 text-right tabular-nums shrink-0">
+        <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">CC{ccNumber}</span>
+        <span className="text-[9px] text-[#5a5a8e] w-16 truncate shrink-0">{name}</span>
+        <span className="text-[9px] text-[#aaaaee] w-10 text-right tabular-nums shrink-0">
           {value.toFixed(max <= 0.1 ? 4 : 2)}
         </span>
       </div>
 
-      <div className="pl-0">
+      <div className="pl-10">
         {isBinary ? (
           <button
             onClick={() => handleChange(value >= 0.5 ? 0 : 1)}

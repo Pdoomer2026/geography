@@ -1,25 +1,24 @@
 /**
- * GeometrySimpleWindow
- * spec: docs/spec/plugin-manager.spec.md §4-1
+ * GeometrySimpleDnDWindow
  *
- * Geometry Plugin 用 Simple Window（Day61 改名: SimpleWindowPlugin → GeometrySimpleWindow）
+ * GeometrySimpleWindow に D&D ハンドル（≡）を追加した Window。
+ * 各 ParamRow の先頭に draggable な ≡ を表示し、
+ * MacroWindow の KnobCell にドロップしてアサインできる。
  *
- * 設計原則:
- *   - transportRegistry を直接購読する（App.tsx から params を受け取らない）
- *   - L1/L2/L3 タブで activeLayer を切り替える
- *   - engine.handleMidiCC() でパラメータ変更
- *   - onPluginApply / onPluginRemove は App.tsx 経由で受け取る
+ * Simple Window との差分:
+ *   - ParamRow 先頭に draggable ≡ ハンドル追加
+ *   - onDragStart で DragPayload を application/geography-param でセット
  *
  * 含めないもの:
- *   - RangeSlider（可動域制約）
- *   - D&D ハンドル（MacroKnob アサイン）
+ *   - RangeSlider（可動域制約） → StandardD&D Window で追加予定
  *   - Preset（Save / Load / Delete）
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { engine } from '../../../core/engine'
-import { useDraggable } from '../../../ui/useDraggable'
-import type { RegisteredParameterWithCC } from '../../../types/midi-registry'
+import { engine } from '../../../../core/engine'
+import { useDraggable } from '../../../../ui/useDraggable'
+import type { RegisteredParameterWithCC } from '../../../../types/midi-registry'
+import type { DragPayload } from '../../../../types'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
 type LayerId = (typeof LAYER_TABS)[number]
@@ -28,22 +27,22 @@ type LayerId = (typeof LAYER_TABS)[number]
 // Props
 // ============================================================
 
-export interface GeometrySimpleWindowProps {
+export interface GeometrySimpleDnDWindowProps {
   onPluginApply: (layerId: string, pluginId: string) => void
   onPluginRemove: (layerId: string) => void
 }
 
 // ============================================================
-// GeometrySimpleWindow
+// GeometrySimpleDnDWindow
 // ============================================================
 
-export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: GeometrySimpleWindowProps) {
+export function GeometrySimpleDnDWindow({ onPluginApply, onPluginRemove }: GeometrySimpleDnDWindowProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
   const [pluginName, setPluginName] = useState<string>('')
   const [pluginId, setPluginId] = useState<string>('')
   const [params, setParams] = useState<RegisteredParameterWithCC[]>([])
-  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 560, y: 16 })
+  const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 560, y: 220 })
 
   const getParamsFromRegistry = useCallback((layerId: LayerId, geoId: string) => {
     return engine.getParameters(layerId).filter((p) => p.pluginId === geoId)
@@ -52,10 +51,7 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
   useEffect(() => {
     return engine.onRegistryChanged(() => {
       const geo = engine.getGeometryPlugin(activeLayer)
-      if (!geo) {
-        setParams([])
-        return
-      }
+      if (!geo) { setParams([]); return }
       setParams(getParamsFromRegistry(activeLayer, geo.id))
     })
   }, [activeLayer, getParamsFromRegistry])
@@ -81,22 +77,21 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
       const geo = engine.getGeometryPlugin(activeLayer)
       if (!geo) {
         if (pluginIdRef.current !== '') {
-          setPluginId('')
-          setPluginName('')
-          setParams([])
+          setPluginId(''); setPluginName(''); setParams([])
           onPluginRemove(activeLayer)
         }
         return
       }
       if (geo.id !== pluginIdRef.current) {
-        setPluginId(geo.id)
-        setPluginName(geo.name)
-        setParams(getParamsFromRegistry(activeLayer, geo.id))
+        setPluginId(geo.id); setPluginName(geo.name)
         onPluginApply(activeLayer, geo.id)
       }
+      // MacroKnob 操作など外部からの値変化を読み返す
+      const live = engine.getParametersLive(activeLayer).filter((p) => p.pluginId === geo.id)
+      setParams(live)
     }, 200)
     return () => window.clearInterval(timer)
-  }, [activeLayer, onPluginApply, onPluginRemove, getParamsFromRegistry])
+  }, [activeLayer, onPluginApply, onPluginRemove])
 
   return (
     <div className="fixed z-50 font-mono text-xs select-none" style={{ left: pos.x, top: pos.y, width: 320 }}>
@@ -105,7 +100,7 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
         {/* ヘッダー */}
         <div onMouseDown={handleMouseDown} className="flex items-center justify-between mb-2" style={{ cursor: 'grab' }}>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-[#7878aa] tracking-widest">GEOMETRY SIMPLE WINDOW</span>
+            <span className="text-[10px] text-[#7878aa] tracking-widest">GEOMETRY D&amp;D</span>
             <div className="flex gap-1">
               {LAYER_TABS.map((id, i) => (
                 <button
@@ -147,6 +142,7 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
                   key={param.ccNumber}
                   param={param}
                   layerId={activeLayer}
+                  pluginId={pluginId}
                 />
               ))}
             </div>
@@ -158,17 +154,21 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
 }
 
 // ============================================================
-// ParamRow
+// ParamRow（D&D ハンドル付き）
 // ============================================================
 
 interface ParamRowProps {
   param: RegisteredParameterWithCC
   layerId: string
+  pluginId: string
 }
 
-function ParamRow({ param, layerId }: ParamRowProps) {
+function ParamRow({ param, layerId, pluginId }: ParamRowProps) {
   const { name, min, max, step, ccNumber } = param
   const [value, setValue] = useState(param.value)
+  const [isDragging, setIsDragging] = useState(false)
+
+  useEffect(() => { setValue(param.value) }, [param.value])
 
   const isBinary = min === 0 && max === 1 && step === 1
 
@@ -178,12 +178,49 @@ function ParamRow({ param, layerId }: ParamRowProps) {
     engine.handleMidiCC({ slot: ccNumber, value: Math.min(1, Math.max(0, normalized)), source: 'window', layerId })
   }
 
+  function handleDragStart(e: React.DragEvent) {
+    const payload: DragPayload = {
+      type: 'param',
+      id: param.id,
+      layerId,
+      pluginId,
+      ccNumber,
+      min,
+      max,
+    }
+    e.dataTransfer.setData('application/geography-param', JSON.stringify(payload))
+    e.dataTransfer.effectAllowed = 'copy'
+    setIsDragging(true)
+  }
+
+  function handleDragEnd() {
+    setIsDragging(false)
+  }
+
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">
-        CC{ccNumber}
-      </span>
+      {/* D&D ハンドル */}
+      <div
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        className="shrink-0 flex items-center justify-center rounded cursor-grab transition-colors"
+        style={{
+          width: 14,
+          height: 14,
+          fontSize: 9,
+          color: isDragging ? '#9090ff' : '#3a3a6e',
+          background: isDragging ? '#1a1a4e' : 'transparent',
+          userSelect: 'none',
+        }}
+        title={`${name} をドラッグして MacroKnob にアサイン`}
+      >
+        ≡
+      </div>
+
+      <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">CC{ccNumber}</span>
       <span className="text-[9px] text-[#5a5a8e] w-16 truncate shrink-0">{name}</span>
+
       {isBinary ? (
         <button
           onClick={() => handleChange(value >= 0.5 ? 0 : 1)}

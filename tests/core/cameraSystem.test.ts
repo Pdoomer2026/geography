@@ -137,7 +137,7 @@ function makeOrbitCamera(): CameraPlugin {
 // Camera Plugin Registry モック
 // ============================================================
 
-vi.mock('../../src/plugins/cameras', () => ({
+vi.mock('../../src/engine/cameras', () => ({
   getCameraPlugin: (id: string) => {
     // 毎回新しいインスタンスを返す（実装のファクトリパターンを再現）
     if (id === 'static-camera') return makeStaticCamera()

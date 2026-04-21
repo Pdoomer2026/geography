@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import gridTunnelPlugin from '../../../src/plugins/geometry/tunnel/grid-tunnel'
-import { defaultParams } from '../../../src/plugins/geometry/tunnel/grid-tunnel/grid-tunnel.config'
+import gridTunnelPlugin from '../../../src/engine/geometry/tunnel/grid-tunnel'
+import { defaultParams } from '../../../src/engine/geometry/tunnel/grid-tunnel/grid-tunnel.config'
 
 describe('Grid Tunnel Plugin', () => {
   let scene: THREE.Scene

@@ -15,9 +15,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { engine } from '../../../core/engine'
-import { useDraggable } from '../../../ui/useDraggable'
-import type { RegisteredParameterWithCC } from '../../../types/midi-registry'
+import { engine } from '../../../../core/engine'
+import { useDraggable } from '../../../../ui/useDraggable'
+import type { RegisteredParameterWithCC } from '../../../../types/midi-registry'
 import { RangeSlider } from './RangeSlider'
 
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
