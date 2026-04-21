@@ -23,7 +23,7 @@
  *   Registry はキーの意味を知らない。
  */
 
-import type { RegisteredParameterWithCC } from '../types/midi-registry'
+import type { RegisteredParameterWithCC } from '../application/schema/midi-registry'
 
 // ============================================================
 // TransportRegistry

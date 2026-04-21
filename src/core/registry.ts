@@ -1,4 +1,4 @@
-import type { GeometryPlugin, LightPlugin, ParticlePlugin } from '../types'
+import type { GeometryPlugin, LightPlugin, ParticlePlugin } from '../application/schema'
 
 type AnyPlugin = GeometryPlugin | LightPlugin | ParticlePlugin
 

@@ -9,7 +9,7 @@
  * spec: docs/spec/plugin-lifecycle.spec.md §6
  */
 
-import type { FXPlugin, IFxStack } from '../types'
+import type { FXPlugin, IFxStack } from '../application/schema'
 
 export const FX_STACK_ORDER = [
   'after-image',

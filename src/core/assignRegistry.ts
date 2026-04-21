@@ -12,7 +12,7 @@
  */
 
 import { MACRO_KNOB_COUNT, MACRO_KNOB_MAX_ASSIGNS } from './config'
-import type { MacroAssign, MacroKnobConfig, AssignRegistry } from '../types'
+import type { MacroAssign, MacroKnobConfig, AssignRegistry } from '../application/schema'
 
 // ============================================================
 // ヘルパー関数（spec §4）

@@ -4,7 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { getCameraPlugin } from '../engine/cameras'
 import { DEFAULT_CAMERA_PLUGIN_ID, MAX_LAYERS } from './config'
 import { FxStack } from './fxStack'
-import type { CameraPlugin, CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from '../types'
+import type { CameraPlugin, CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from '../application/schema'
 
 export class LayerManager {
   private layers: Layer[] = []

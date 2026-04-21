@@ -14,7 +14,7 @@
  */
 
 import { engine } from './engine'
-import type { GeoGraphyProject } from '../types'
+import type { GeoGraphyProject } from '../application/schema'
 
 class ProjectManagerImpl {
   private currentFilePath: string | null = null

@@ -28,8 +28,8 @@ import type {
   ScreenAssign,
   ScreenAssignState,
   GeoGraphyProject,
-} from '../types'
-import { PROJECT_FILE_VERSION } from '../types'
+} from '../application/schema'
+import { PROJECT_FILE_VERSION } from '../application/schema'
 
 // engine.ts は App.tsx に依存してはいけない・単体で動作できること
 

@@ -1,4 +1,4 @@
-import type { MIDIRegistry, RegisteredParameterWithCC } from '../types/midi-registry'
+import type { MIDIRegistry, RegisteredParameterWithCC } from '../application/schema/midi-registry'
 
 /**
  * Registry の更新は常に新しいオブジェクトを返す純粋関数で行う（不変性）
