@@ -143,7 +143,7 @@ function scanPluginParams(): Array<{
   paramIds: string[]
 }> {
   const results: Array<{ pluginType: string; pluginId: string; paramIds: string[] }> = []
-  const pluginsRoot = join(ROOT, 'src', 'plugins')
+  const pluginsRoot = join(ROOT, 'src', 'engine')
   const types = ['geometry', 'fx', 'particles']
 
   for (const pType of types) {
