@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day63（Standard Window + Preferences 全面刷新）｜2026-04-15
+# GeoGraphy 引き継ぎメモ｜Day67（3ゾーンアーキテクチャ移行）｜2026-04-21
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -16,93 +16,65 @@
 | ファイル | パス |
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md` |
-| CC Mapping（SSoT） | `docs/spec/cc-mapping.md`（v0.5） |
-| CC Mapping Guide | `docs/spec/cc-mapping-guide.md`（v1.0） |
+| CC Mapping（SSoT） | `docs/spec/cc-mapping.md` |
 | CC Map JSON（自動生成） | `settings/cc-map.json` |
-| WindowMode 型 | `src/types/windowMode.ts` |
 | Engine | `src/core/engine.ts` |
 | App.tsx | `src/ui/App.tsx` |
-| PreferencesPanel | `src/ui/panels/preferences/PreferencesPanel.tsx` |
-| GeometryStandardWindow | `src/plugins/windows/standard-window/GeometryStandardWindow.tsx` |
-| CameraStandardWindow | `src/plugins/windows/standard-window/CameraStandardWindow.tsx` |
-| FxStandardWindow | `src/plugins/windows/standard-window/FxStandardWindow.tsx` |
-| RangeSlider | `src/plugins/windows/standard-window/RangeSlider.tsx` |
-| GeometrySimpleWindow | `src/plugins/windows/simple-window/GeometrySimpleWindow.tsx` |
-| CameraSimpleWindow | `src/plugins/windows/simple-window/CameraSimpleWindow.tsx` |
-| FxSimpleWindow | `src/plugins/windows/simple-window/FxSimpleWindow.tsx` |
-| MacroWindow | `src/plugins/windows/macro-window/MacroWindow.tsx` |
-| GeoMonitorWindow | `src/plugins/windows/geo-monitor/GeoMonitorWindow.tsx` |
-| 引き継ぎ（最新） | `docs/handover/day63-2026-04-15.md` |
+| application/schema（型定義） | `src/application/schema/index.ts` |
+| geo-transitions | `src/application/command/geo-transitions/` |
+| MidiInputWrapper | `src/application/adapter/input/MidiInputWrapper.ts` |
+| 引き継ぎ（最新） | `docs/handover/day67-2026-04-21.md` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `refactor/day53-design`
-- **タグ**: `day63`
-- **最新コミット**: `3394276`
+- **タグ**: `day67`
+- **最新コミット**: `6f0e98d`
 - **テスト**: 127 tests グリーン・tsc エラーゼロ
 
 ---
 
-## 確定したアーキテクチャ（Day63 時点）
+## 確定したアーキテクチャ（Day67）
 
-### Window 階層
 ```
-Simple Window   → パラメータ表示・操作（min〜maxフル範囲）
-Standard Window → パラメータ表示・操作 + lo/hi 稼働幅制限
-（将来）D&D Window → MacroKnob アサイン用
-```
+src/
+  engine/              Three.jsプラグイン（疎結合）
+    geometry/ fx/ cameras/ lights/ particles/
 
-### WindowMode 管理（App.tsx）
-```typescript
-windowMode: {
-  geometry: 'none' | 'simple' | 'standard'
-  camera:   'none' | 'simple' | 'standard'
-  fx:       'none' | 'simple' | 'standard'
-  macro:    'none' | 'macro-window'
-  mixer:    'none' | 'mixer-simple'
-  monitor:  boolean
-}
-```
+  application/         意思決定・Registry・Transport
+    command/
+      geo-transitions/
+    adapter/（旧 drivers/）
+      input/（MidiInputWrapper）
+    schema/（旧 types/ の実体）
+      index.ts / midi-registry.ts / windowMode.ts / geoAPI.d.ts
 
-### Preferences レイアウト
-```
-PRESETS → WINDOWS（ドロップダウン）→ [L1/L2/L3] → SETUP → Macro/Mixer → Monitor(debug)
-```
+  ui/                  表示・操作
+    components/
+      window/（旧 plugins/windows/）
+      mixers/（旧 plugins/mixers/）
 
-### キーバインド
-```
-1: Macro トグル
-3: Mixer トグル
-6: Monitor トグル
-P: Preferences
-H: 全非表示
-S: 全表示（DEFAULT_WINDOW_MODE）
-F: 全非表示 + 全画面
+  core/                → 将来 application/ に統合予定
+  types/               → 自動生成ファイルのみ残存
+  plugins/             ✅ 完全廃止
 ```
 
-### コアアーキテクチャ
+### コアアーキテクチャ（変更なし）
 ```
 MidiInputWrapper → TransportEvent → engine.handleMidiCC()
   → TransportManager → AssignRegistry → ParameterStore
   → engine.flushParameterStore() → TransportRegistry → Plugin.params
 ```
 
-### SDK 境界
-```
-【公開】engine.handleMidiCC() / getParameters() / getParametersLive()
-       engine.onRegistryChanged() / onFxChanged()
-       useParam() / useAllParams() Hook
-【非公開】TransportRegistry / AssignRegistry / TransportManager
-```
-
 ---
 
 ## 次回やること
 
-1. **Sequencer Window spec 検討**（Phase 16）
-2. **LICENSE ファイル追加**（OSS 公開直前）
+1. **`src/core/` → `src/application/` への移行**
+2. **Sequencer Window spec 検討**（Phase 16）
+3. **`film` / `frei-chen` が FX_STACK_ORDER に未登録**（警告対応）
 
 ---
 
@@ -111,13 +83,12 @@ MidiInputWrapper → TransportEvent → engine.handleMidiCC()
 - **ブラウザ確認**: `pnpm dev` → `open http://localhost:5173`（毎回再起動が必要）
 - **NFC 正規化スクリプト**: `/Users/shinbigan/nfc_normalize.py`
 - **git commit メッセージ**: 日本語長文は `.claude/dayN-commit.txt` に書いて `git commit -F`
-- **write_file ルール**: 既存ファイルには使わない（edit_file を使う）
-- **gen:cc-map**: cc-mapping.md 編集後は必ず `pnpm gen:all` を実行
+- **write_file ルール**: 既存ファイルには使わない（`edit_file` を使う）
 
 ---
 
 ## 次回チャット用スタートプロンプト
 
 ```
-Day64開始
+Day68開始
 ```
