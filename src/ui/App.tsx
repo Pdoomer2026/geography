@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { throttleTime } from 'rxjs/operators'
 import { engine } from '../application/orchestrator/engine'
 import { midiInputWrapper } from '../application/adapter/input/MidiInputWrapper'
 import { projectManager } from '../application/adapter/storage/projectManager'
+import { paramCommand$ } from '../application/command/commandStream'
+import { useGeoStore } from './store/geoStore'
 import { MixerSimpleWindow } from './components/mixers/simple-mixer/MixerSimpleWindow'
 import { MacroWindow } from './components/window/macro-window'
 import { Macro8Window } from './components/window/macro-8-window'
@@ -51,6 +54,18 @@ export default function App() {
     engine.initialize(container).then(() => {
       engine.start()
       engine.setFxEnabled('after-image', engine.getFxPlugins('layer-1').find(f => f.id === 'after-image')?.enabled ?? false, 'layer-1')
+
+      // engine → Zustand store を接続
+      const syncMacroKnobs = () => useGeoStore.getState().syncMacroKnobs()
+      engine.onParamChanged(syncMacroKnobs)
+      syncMacroKnobs()
+
+      // commandStream → engine（throttle 16ms = 60fps 相当）
+      const sub = paramCommand$.pipe(
+        throttleTime(16, undefined, { leading: true, trailing: true })
+      ).subscribe((event) => engine.handleMidiCC(event))
+
+      return () => sub.unsubscribe()
     })
     return () => { engine.dispose() }
   }, [])

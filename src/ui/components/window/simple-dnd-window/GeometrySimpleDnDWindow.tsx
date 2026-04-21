@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
+import { paramCommand$ } from '../../../../application/command/commandStream'
 import { useDraggable } from '../../../../ui/useDraggable'
 import type { RegisteredParameterWithCC } from '../../../../application/schema/midi-registry'
 import type { DragPayload } from '../../../../application/schema'
@@ -175,7 +176,7 @@ function ParamRow({ param, layerId, pluginId }: ParamRowProps) {
   function handleChange(raw: number) {
     setValue(raw)
     const normalized = max > min ? (raw - min) / (max - min) : 0
-    engine.handleMidiCC({ slot: ccNumber, value: Math.min(1, Math.max(0, normalized)), source: 'window', layerId })
+    paramCommand$.next({ slot: ccNumber, value: Math.min(1, Math.max(0, normalized)), source: 'window', layerId })
   }
 
   function handleDragStart(e: React.DragEvent) {

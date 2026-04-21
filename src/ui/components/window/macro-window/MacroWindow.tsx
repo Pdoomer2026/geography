@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
+import { useGeoStore } from '../../../../ui/store/geoStore'
 import type { DragPayload, MacroAssign, MacroKnobConfig } from '../../../../application/schema'
 import { DragPayloadSchema } from '../../../../application/schema'
 
@@ -431,23 +432,16 @@ function AssignDialog({ knobId, payload, onAssign, onClose }: AssignDialogProps)
 // ============================================================
 
 export function MacroWindow() {
-  const [knobs, setKnobs] = useState<MacroKnobConfig[]>([])
-  const [values, setValues] = useState<number[]>(new Array(32).fill(0))
+  const { macroKnobs: knobs, macroValues: values, syncMacroKnobs } = useGeoStore()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [assignTarget, setAssignTarget] = useState<{ knobId: string; payload: DragPayload } | null>(null)
 
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth / 2 - 200, y: 16 })
 
+  // 初回同期（store が空の場合）
   useEffect(() => {
-    const sync = () => {
-      const configs = engine.getMacroKnobs()
-      setKnobs([...configs])
-      setValues(configs.map((k) => engine.getMacroKnobValue(k.id)))
-    }
-    sync()
-    const timer = window.setInterval(sync, 200)
-    return () => window.clearInterval(timer)
-  }, [])
+    if (knobs.length === 0) syncMacroKnobs()
+  }, [knobs.length, syncMacroKnobs])
 
   const handleEdit = useCallback((id: string) => {
     setEditingId(id)
@@ -458,14 +452,15 @@ export function MacroWindow() {
     const current = engine.getMacroKnobs().find((k) => k.id === editingId)
     if (!current) return
     engine.setMacroKnob(editingId, { ...current, name, midiCC })
+    syncMacroKnobs()
     setEditingId(null)
-  }, [editingId])
+  }, [editingId, syncMacroKnobs])
 
   const handleRemoveAssign = useCallback((paramId: string) => {
     if (!editingId) return
     engine.removeMacroAssign(editingId, paramId)
-    setKnobs([...engine.getMacroKnobs()])
-  }, [editingId])
+    syncMacroKnobs()
+  }, [editingId, syncMacroKnobs])
 
   const handleClose = useCallback(() => setEditingId(null), [])
 
@@ -476,8 +471,9 @@ export function MacroWindow() {
   const handleAssign = useCallback((assign: MacroAssign) => {
     if (!assignTarget) return
     engine.addMacroAssign(assignTarget.knobId, assign)
+    syncMacroKnobs()
     setAssignTarget(null)
-  }, [assignTarget])
+  }, [assignTarget, syncMacroKnobs])
 
   const editingConfig = editingId
     ? knobs.find((k) => k.id === editingId) ?? null
