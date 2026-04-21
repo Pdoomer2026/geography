@@ -217,8 +217,7 @@ function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange
       ccNumber,
       min,
       max,
-      lo,
-      hi,
+      proposal: { lo, hi },
     }
     e.dataTransfer.setData('application/geography-param', JSON.stringify(payload))
     e.dataTransfer.effectAllowed = 'copy'

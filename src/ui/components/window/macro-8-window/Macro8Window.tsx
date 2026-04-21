@@ -330,8 +330,8 @@ interface AssignDialogProps {
 }
 
 function AssignDialog({ knobId, payload, onAssign, onClose }: AssignDialogProps) {
-  const [minVal, setMinVal] = useState(payload.lo ?? payload.min)
-  const [maxVal, setMaxVal] = useState(payload.hi ?? payload.max)
+  const [minVal, setMinVal] = useState(payload.proposal?.lo ?? payload.min)
+  const [maxVal, setMaxVal] = useState(payload.proposal?.hi ?? payload.max)
   const [error, setError] = useState<string | null>(null)
 
   function handleAssign() {

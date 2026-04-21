@@ -9,10 +9,16 @@
  * - Plugin Store フェーズ: 外部 Plugin の payload 検証にもそのまま拡張できる
  *
  * TypeScript 型（DragPayload）は Zod スキーマから派生させる。
- * schema/index.ts の手書き interface は本ファイルに移行済み。
+ *
+ * ## proposal について
+ *   StandardDnDWindow からのドラッグ時のみ付与される。
+ *   RangeSlider で設定した lo/hi を MacroKnob アサインダイアログの
+ *   初期値として引き渡すための AssignProposal。
+ *   詳細: zod/assignProposal.schema.ts
  */
 
 import { z } from 'zod'
+import { AssignProposalSchema } from './assignProposal.schema'
 
 export const DragPayloadSchema = z.object({
   /** ドラッグ元の種別 */
@@ -28,18 +34,16 @@ export const DragPayloadSchema = z.object({
    * MIDI 2.0 拡張 CC（CC500 台等）を許容するため上限なし
    */
   ccNumber: z.number().int().min(0),
-  /** スライダー可動域 min */
+  /** Plugin の物理限界値 min */
   min: z.number(),
-  /** スライダー可動域 max */
+  /** Plugin の物理限界値 max */
   max: z.number(),
-  /** StandardD&D からの場合のみ: アサイン初期値 lo */
-  lo: z.number().optional(),
-  /** StandardD&D からの場合のみ: アサイン初期値 hi */
-  hi: z.number().optional(),
+  /**
+   * StandardDnDWindow からのドラッグ時のみ付与される。
+   * RangeSlider の lo/hi を MacroKnob アサインダイアログの初期値として引き渡す。
+   * 詳細: zod/assignProposal.schema.ts
+   */
+  proposal: AssignProposalSchema.optional(),
 })
 
-/**
- * DragPayload 型（Zod スキーマから派生）
- * schema/index.ts から re-export して全体で統一して使う。
- */
 export type DragPayload = z.infer<typeof DragPayloadSchema>

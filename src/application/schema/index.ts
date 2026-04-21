@@ -397,3 +397,9 @@ export const GEO_PRESET_STORE_KEY = 'geography:geo-presets-v1'
  */
 export type { DragPayload } from './zod/dragPayload.schema'
 export { DragPayloadSchema } from './zod/dragPayload.schema'
+
+export type { RangeConstraint } from './zod/rangeConstraint.schema'
+export { RangeConstraintSchema } from './zod/rangeConstraint.schema'
+
+export type { AssignProposal } from './zod/assignProposal.schema'
+export { AssignProposalSchema } from './zod/assignProposal.schema'
