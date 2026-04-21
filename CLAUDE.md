@@ -84,6 +84,17 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 9. セッション終了時に git commit + Day タグを打つ（MUST）
 ```
 
+**⚠️ HANDOVER.md / dev-log の更新タイミング（MUST・Day72確立）**
+
+HANDOVER.md と Obsidian dev-log はセッション終了直前にのみ更新する。
+git push 完了後に自動で更新を始めてはいけない。
+
+- git push 後 → **次の作業があるか慎太郎さんに確認する**
+- 「終業する」「引き継ぎ制作」「まとめ制作」と明示されたとき → HANDOVER.md 更新 → dev-log 作成
+- コンテキストウィンドウに余裕がある限り作業を続けることを優先する
+- 理由: push 後すぐに HANDOVER.md を更新するとトークンを無駄に消費し、
+  追加作業の余地があるのに終業フローに入ってしまう
+
 ### 始業時の CLAUDE.md 読み方（MUST）
 
 ルート CLAUDE.md はプロジェクト全体の方針確認のみに使う。
@@ -320,6 +331,7 @@ Icosphere / Torus / Torusknot の 3 Plugin に cameraPreset を追加。"
 | `docs/spec/shader-plugin.spec.md` | Shader Plugin（疎結合・GeoGraffiコア） | Claude Code | ⬜ 設計済み・実装はシーケンサー後 |
 | `docs/spec/midi-registry.spec.md` | MIDI Registry（動的状態管理） | Claude Desktop | ⬜ Day55 設計確定 |
 | `docs/spec/plugin-manager.spec.md` | Plugin Manager（Phase A/B フロー） | Claude Desktop | ⬜ Day55 設計確定 |
+| `docs/spec/execution-planner.spec.md` | ExecutionPlanner（Sync/Async 判断・BullMQ への道） | Claude Code | ⬜ Day72 設計確定・Phase 1 実装待ち |
 
 ---
 

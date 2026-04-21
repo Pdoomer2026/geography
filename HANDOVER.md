@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day71｜2026-04-21
+# GeoGraphy 引き継ぎメモ｜Day72｜2026-04-21
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -32,33 +32,24 @@
 ## 現在の状態
 
 - **ブランチ**: `refactor/day53-design`
-- **タグ**: `day71`（最新コミット: `4d8b7db`）
+- **タグ**: `day72`（最新コミット: `36f744d`）
 - **テスト**: 127 tests グリーン・tsc エラーゼロ
-- **Day71 コミット一覧**:
+- **Day72 コミット一覧**:
   ```
-  4d8b7db fix: add film and frei-chen to FX_STACK_ORDER (Day71)
-  99ef972 refactor: replace setInterval polling with event-driven callbacks (Day71)
+  36f744d refactor: migrate all Geometry Plugins to ParamCatalog (Day72)
   ```
 
 ---
 
-## Day71 で完了したこと
+## Day72 で完了したこと
 
-### SimpleWindow 系の paramCommand$ 統一
-- `useSimpleParamRow` フック新設（`src/ui/hooks/useSimpleParamRow.ts`）
-- `GeometrySimpleWindow` / `FxSimpleWindow` / `CameraSimpleWindow` の ParamRow 内インライン実装を `useSimpleParamRow` に置き換え
-- `engine.handleMidiCC()` 直呼びを全廃止 → `paramCommand$.next()` に統一
-
-### setInterval ポーリング全廃止（イベント駆動化）
-- `engine.onParamChanged` を単一CB → `Set<listener>` 複数購読対応に変更（unsubscribe 返却）
-- `App.tsx` の cleanup で `unsubParam()` を追加
-- Geometry/Camera Simple/Standard Window（4本）: `setInterval` → `onRegistryChanged`
-- DnD 系 3 Window（GeometrySimpleDnD / GeometryStandardDnD / CameraSimpleDnD）: `setInterval` → `onRegistryChanged`（構造変化）+ `onParamChanged`（値変化）の2本立て
-- **設計方針**: 変化がない時は一切コードが動かない。AIがコードを読む際に余計な処理で迷わない
-
-### film / frei-chen を FX_STACK_ORDER に追加
-- `fxStack.ts` の `FX_STACK_ORDER` に `film` / `frei-chen` を追加（glitch の直後・color-grading の直前）
-- `fxStack.ts` コメント・`fx/CLAUDE.md` スタック順序・`fxStack.test.ts` を同期更新
+### ParamCatalog 移行（全 Geometry Plugin 対応完了）
+- `param-catalog.spec.md` §6 の移行戦略に基づき icosphere 以外の全6 Plugin を catalog 対応
+- 対象: `torus` / `torusknot` / `contour` / `hex-grid` / `grid-tunnel` / `grid-wave`
+- 各 `[plugin].config.ts`: `PluginCatalog` + `catalogToPluginParams` を導入。`defaultParams` の重複定義を廃止
+- 各 `index.ts`: `catalog` フィールドを Plugin オブジェクトに追加（`ModulatablePlugin.catalog` に接続）
+- `step` 値を初めて明示的に定義（整数系: 1 / 小数0.1刻み: 0.1 / 細かい調整: 0.01）
+- **全7 Plugin が catalog 対応済みになった**（icosphere + 今回の6本）
 
 ---
 
@@ -96,10 +87,6 @@ after-image → feedback → bloom → kaleidoscope → mirror
    - `docs/spec/` に `sequencer-window.spec.md` を新規作成
    - BPM クロックとの連携設計
 
-### 優先度 中
-2. **ParamCatalog 移行**（`ccMapService` → `paramCatalog`）
-   - `docs/spec/param-catalog.spec.md` を読んで移行方針を確認
-
 ---
 
 ## 環境メモ
@@ -115,5 +102,5 @@ after-image → feedback → bloom → kaleidoscope → mirror
 ## 次回チャット用スタートプロンプト
 
 ```
-Day72開始
+Day73開始
 ```
