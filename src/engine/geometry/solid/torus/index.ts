@@ -1,6 +1,6 @@
 import type * as THREE from 'three'
 import type { GeometryPlugin } from '../../../../application/schema'
-import { defaultParams } from './torus.config'
+import { catalog, defaultParams } from './torus.config'
 import { TorusGeometryWrapper } from './TorusGeometryWrapper'
 
 let torus: TorusGeometryWrapper | null = null
@@ -11,6 +11,7 @@ const torusPlugin: GeometryPlugin = {
   name: 'Torus',
   renderer: 'threejs',
   enabled: true,
+  catalog,
   params: structuredClone(defaultParams),
   defaultCameraPluginId: 'orbit-camera',
   defaultCameraParams: { radius: 12, height: 4, speed: 0.4, autoRotate: 1 },

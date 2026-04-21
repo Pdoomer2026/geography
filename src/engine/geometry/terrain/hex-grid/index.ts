@@ -1,6 +1,6 @@
 import type * as THREE from 'three'
 import type { GeometryPlugin } from '../../../../application/schema'
-import { defaultParams } from './hex-grid.config'
+import { catalog, defaultParams } from './hex-grid.config'
 import { HexGridGeometry } from './HexGridGeometry'
 
 let hexGrid: HexGridGeometry | null = null
@@ -11,6 +11,7 @@ const hexGridPlugin: GeometryPlugin = {
   name: 'Hex Grid',
   renderer: 'threejs',
   enabled: true,
+  catalog,
   params: structuredClone(defaultParams),
   defaultCameraPluginId: 'aerial-camera',
   defaultCameraParams: { height: 20 },

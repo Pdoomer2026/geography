@@ -1,6 +1,6 @@
 import type * as THREE from 'three'
 import type { GeometryPlugin } from '../../../../application/schema'
-import { defaultParams } from './contour.config'
+import { catalog, defaultParams } from './contour.config'
 import { ContourGeometry } from './ContourGeometry'
 
 let contour: ContourGeometry | null = null
@@ -11,6 +11,7 @@ const contourPlugin: GeometryPlugin = {
   name: 'Contour',
   renderer: 'threejs',
   enabled: true,
+  catalog,
   params: structuredClone(defaultParams),
   defaultCameraPluginId: 'static-camera',
   defaultCameraParams: { posX: 0, posY: 10, posZ: 14 },

@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day70｜2026-04-21
+# GeoGraphy 引き継ぎメモ｜Day71｜2026-04-21
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -16,81 +16,75 @@
 | ファイル | パス |
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md` |
-| ParamCatalog spec | `docs/spec/param-catalog.spec.md` |
-| DragPayload スキーマ | `src/application/schema/zod/dragPayload.schema.ts` |
-| RangeConstraint スキーマ | `src/application/schema/zod/rangeConstraint.schema.ts` |
-| AssignProposal スキーマ | `src/application/schema/zod/assignProposal.schema.ts` |
+| useSimpleParamRow | `src/ui/hooks/useSimpleParamRow.ts` |
 | useDnDParamRow | `src/ui/hooks/useDnDParamRow.ts` |
 | useStandardParamRow | `src/ui/hooks/useStandardParamRow.ts` |
 | useStandardDnDParamRow | `src/ui/hooks/useStandardDnDParamRow.ts` |
 | CommandStream（RxJS） | `src/application/command/commandStream.ts` |
 | GeoStore（Zustand） | `src/ui/store/geoStore.ts` |
 | Engine | `src/application/orchestrator/engine.ts` |
+| FxStack | `src/application/orchestrator/fxStack.ts` |
 | App.tsx | `src/ui/App.tsx` |
-| MacroWindow | `src/ui/components/window/macro-window/MacroWindow.tsx` |
-| Playwright config | `playwright.config.ts` |
-| e2e テスト | `tests/e2e/standardDnDWindow.spec.ts` |
+| FX index | `src/engine/fx/index.ts` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `refactor/day53-design`
-- **タグ**: `day70`（最新コミット: `92eeb35`）
+- **タグ**: `day71`（最新コミット: `4d8b7db`）
 - **テスト**: 127 tests グリーン・tsc エラーゼロ
-- **Day70 コミット一覧**:
+- **Day71 コミット一覧**:
   ```
-  92eeb35 feat: extract useStandardDnDParamRow / useStandardParamRow / useDnDParamRow hooks
-  a3ef660 chore: add test-results and playwright-report to .gitignore
-  bc231d8 feat: introduce RangeConstraint and AssignProposal Zod schemas
+  4d8b7db fix: add film and frei-chen to FX_STACK_ORDER (Day71)
+  99ef972 refactor: replace setInterval polling with event-driven callbacks (Day71)
   ```
 
 ---
 
-## Day70 で完了したこと
+## Day71 で完了したこと
 
-### Zod スキーマ整理
-- `RangeConstraintSchema` 新設（lo/hi = ユーザーが設定した操作範囲）
-- `AssignProposalSchema` 新設（MacroKnob アサイン時の初期提案値）
-- `DragPayloadSchema` の `lo/hi` フラット → `proposal: AssignProposal` に変更
-- `MacroWindow` / `Macro8Window` の `AssignDialog` を `payload.proposal?.lo/hi` に修正
+### SimpleWindow 系の paramCommand$ 統一
+- `useSimpleParamRow` フック新設（`src/ui/hooks/useSimpleParamRow.ts`）
+- `GeometrySimpleWindow` / `FxSimpleWindow` / `CameraSimpleWindow` の ParamRow 内インライン実装を `useSimpleParamRow` に置き換え
+- `engine.handleMidiCC()` 直呼びを全廃止 → `paramCommand$.next()` に統一
 
-### ParamRow フック3本 抽出
-- `useDnDParamRow` → SimpleDnD 系（D&D ハンドルのみ）
-- `useStandardParamRow` → Standard 系（lo/hi リマップ正規化）
-- `useStandardDnDParamRow` → StandardDnD 系（lo/hi + proposal D&D）
-- 対象 Window 9ファイル全て差し替え完了・ブラウザ動作確認済み
+### setInterval ポーリング全廃止（イベント駆動化）
+- `engine.onParamChanged` を単一CB → `Set<listener>` 複数購読対応に変更（unsubscribe 返却）
+- `App.tsx` の cleanup で `unsubParam()` を追加
+- Geometry/Camera Simple/Standard Window（4本）: `setInterval` → `onRegistryChanged`
+- DnD 系 3 Window（GeometrySimpleDnD / GeometryStandardDnD / CameraSimpleDnD）: `setInterval` → `onRegistryChanged`（構造変化）+ `onParamChanged`（値変化）の2本立て
+- **設計方針**: 変化がない時は一切コードが動かない。AIがコードを読む際に余計な処理で迷わない
 
-### Playwright 導入
-- `@playwright/test` インストール・chromium セットアップ
-- `tests/e2e/` ディレクトリ新設
-- Vitest から e2e テストを除外（`vite.config.ts` の `exclude` 追加）
+### film / frei-chen を FX_STACK_ORDER に追加
+- `fxStack.ts` の `FX_STACK_ORDER` に `film` / `frei-chen` を追加（glitch の直後・color-grading の直前）
+- `fxStack.ts` コメント・`fx/CLAUDE.md` スタック順序・`fxStack.test.ts` を同期更新
 
 ---
 
-## アーキテクチャ方針（Day70 確定）
+## アーキテクチャ確定事項（Day71）
 
-### 概念の分離（重要）
-| 概念 | 定義元 | 意味 |
-|---|---|---|
-| `min / max` | Plugin（config.ts） | パラメーターの物理的な限界値 |
-| `lo / hi` | ユーザー（RangeSlider） | ユーザーが設定した操作範囲 |
-| `proposal` | StandardDnDWindow | MacroKnob アサイン初期提案値 |
-
-### データフロー（StandardDnDWindow → MacroKnob）
+### イベント駆動の2本立て設計
 ```
-RangeSlider の lo/hi（RangeConstraint）
-    ↓ useStandardDnDParamRow が D&D payload に proposal として乗せる
-    ↓ MacroWindow の AssignDialog が proposal.lo/hi を初期値として表示
-    ↓ ユーザーが確認・調整
-MacroAssign.min / max（0〜1 の正規化済み確定値）
+onRegistryChanged  → プラグイン構造変化（Plugin切り替え・登録/解除）
+onParamChanged     → パラメーター値変化（MacroKnob 操作・スライダー操作）
 ```
 
-### フック設計
+### paramCommand$ フロー（全Window統一済み）
 ```
-useDnDParamRow          → SimpleDnD 系（D&D + paramCommand$）
-useStandardParamRow     → Standard 系（lo/hi リマップ + paramCommand$）
-useStandardDnDParamRow  → StandardDnD 系（lo/hi + proposal D&D + paramCommand$）
+UI スライダー操作
+  → useSimpleParamRow / useDnDParamRow / useStandardParamRow 等
+  → paramCommand$.next({ slot, value, source: 'window', layerId })
+  → App.tsx の throttleTime(16ms)
+  → engine.handleMidiCC()
+  → flushParameterStore()
+  → onParamChanged 発火 → Window 再描画
+```
+
+### FX_STACK_ORDER（12本・確定）
+```
+after-image → feedback → bloom → kaleidoscope → mirror
+→ zoom-blur → rgb-shift → crt → glitch → film → frei-chen → color-grading（最後）
 ```
 
 ---
@@ -98,16 +92,13 @@ useStandardDnDParamRow  → StandardDnD 系（lo/hi + proposal D&D + paramComman
 ## 次回やること
 
 ### 優先度 高
-1. **他 Window の RxJS 切り替え**（未完了）
-   - SimpleWindow / StandardWindow 系は `engine.handleMidiCC()` 直接呼び出しのまま
-   - → `paramCommand$.next()` に統一する
-2. **他 Window の Zustand 移行**（未完了）
-   - MacroWindow のみ対応済み
-   - → `setInterval 200ms` ポーリングを `useGeoStore()` に置き換え
-3. **`film` / `frei-chen` が FX_STACK_ORDER に未登録警告対応**
+1. **Sequencer Window spec 検討**（Phase 16）
+   - `docs/spec/` に `sequencer-window.spec.md` を新規作成
+   - BPM クロックとの連携設計
 
 ### 優先度 中
-4. **Sequencer Window spec 検討**（Phase 16）
+2. **ParamCatalog 移行**（`ccMapService` → `paramCatalog`）
+   - `docs/spec/param-catalog.spec.md` を読んで移行方針を確認
 
 ---
 
@@ -124,5 +115,5 @@ useStandardDnDParamRow  → StandardDnD 系（lo/hi + proposal D&D + paramComman
 ## 次回チャット用スタートプロンプト
 
 ```
-Day71開始
+Day72開始
 ```

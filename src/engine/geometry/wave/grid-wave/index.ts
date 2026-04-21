@@ -1,6 +1,6 @@
 import type * as THREE from 'three'
 import type { GeometryPlugin } from '../../../../application/schema'
-import { defaultParams } from './grid-wave.config'
+import { catalog, defaultParams } from './grid-wave.config'
 import { GridWaveGeometry } from './GridWaveGeometry'
 
 let gridWave: GridWaveGeometry | null = null
@@ -11,6 +11,7 @@ const gridWavePlugin: GeometryPlugin = {
   name: 'Grid Wave',
   renderer: 'threejs',
   enabled: true,
+  catalog,
   params: structuredClone(defaultParams),
 
   create(scene: THREE.Scene): void {

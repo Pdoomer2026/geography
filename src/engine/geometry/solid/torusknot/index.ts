@@ -1,6 +1,6 @@
 import type * as THREE from 'three'
 import type { GeometryPlugin } from '../../../../application/schema'
-import { defaultParams } from './torusknot.config'
+import { catalog, defaultParams } from './torusknot.config'
 import { TorusknotGeometry } from './TorusknotGeometry'
 
 let torusknot: TorusknotGeometry | null = null
@@ -11,6 +11,7 @@ const torusknotPlugin: GeometryPlugin = {
   name: 'Torus Knot',
   renderer: 'threejs',
   enabled: true,
+  catalog,
   params: structuredClone(defaultParams),
   defaultCameraPluginId: 'orbit-camera',
   defaultCameraParams: { radius: 10, height: 3, speed: 0.6, autoRotate: 1 },

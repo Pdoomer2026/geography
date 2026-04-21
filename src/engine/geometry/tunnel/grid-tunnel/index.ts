@@ -1,6 +1,6 @@
 import type * as THREE from 'three'
 import type { GeometryPlugin } from '../../../../application/schema'
-import { defaultParams } from './grid-tunnel.config'
+import { catalog, defaultParams } from './grid-tunnel.config'
 import { GridTunnelGeometry } from './GridTunnelGeometry'
 
 let tunnel: GridTunnelGeometry | null = null
@@ -10,6 +10,7 @@ const gridTunnelPlugin: GeometryPlugin = {
   name: 'Grid Tunnel',
   renderer: 'threejs',
   enabled: true,
+  catalog,
   params: structuredClone(defaultParams),
   defaultCameraPluginId: 'static-camera',
   defaultCameraParams: { posX: 0, posY: 0, posZ: 5 },
