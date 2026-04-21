@@ -1,3 +1,23 @@
+import { vi } from 'vitest'
+
+// Tone.js は Web Audio API を必要とするため jsdom 環境ではモックする
+vi.mock('tone', () => {
+  let bpmValue = 128
+  const transport = {
+    bpm: {
+      get value() { return bpmValue },
+      set value(v: number) { bpmValue = v },
+    },
+    ticks: 0,
+    PPQ: 192,
+    state: 'stopped' as 'started' | 'stopped' | 'paused',
+    start()  { this.state = 'started' },
+    pause()  { this.state = 'paused' },
+    stop()   { this.state = 'stopped'; this.ticks = 0 },
+  }
+  return { getTransport: () => transport }
+})
+
 /**
  * engine.ts FX コントロール API テスト
  * spec: docs/spec/fx-control-ui.spec.md
