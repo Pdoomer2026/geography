@@ -74,28 +74,28 @@ function parseHeader(
  * ヘッダー行・区切り行は null を返す。
  */
 function parseTableRow(line: string): ParamEntry | null {
-  // | paramId | CC# | Block | blockName | pluginMin | pluginMax | ccMin | ccMax | 備考 |
+  // | geoParamAddress | paramId | CC# | Block | blockName | pluginMin | pluginMax | ccMin | ccMax | 備考 |
   const cells = line
     .split('|')
     .map((c) => c.trim())
     .filter((_, i, arr) => i > 0 && i < arr.length - 1)
-  if (cells.length < 8) return null
-  if (cells[0] === 'paramId' || cells[0].startsWith('-')) return null
+  if (cells.length < 9) return null
+  if (cells[0] === 'geoParamAddress' || cells[0].startsWith('-')) return null
 
-  const ccRaw = cells[1].replace('CC', '').trim()
+  const ccRaw = cells[2].replace('CC', '').trim()
   const ccNumber = parseInt(ccRaw, 10)
   if (isNaN(ccNumber)) return null
 
   return {
-    paramId: cells[0],
+    paramId: cells[1],
     ccNumber,
-    block: cells[2],
-    blockName: cells[3],
-    pluginMin: parseFloat(cells[4]),
-    pluginMax: parseFloat(cells[5]),
-    ccMin: parseFloat(cells[6]),
-    ccMax: parseFloat(cells[7]),
-    note: cells[8] ?? '',
+    block: cells[3],
+    blockName: cells[4],
+    pluginMin: parseFloat(cells[5]),
+    pluginMax: parseFloat(cells[6]),
+    ccMin: parseFloat(cells[7]),
+    ccMax: parseFloat(cells[8]),
+    note: cells[9] ?? '',
   }
 }
 

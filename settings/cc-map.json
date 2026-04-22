@@ -1,6 +1,6 @@
 {
   "version": "0.2",
-  "generatedAt": "2026-04-15T04:26:43.547Z",
+  "generatedAt": "2026-04-22T01:12:53.357Z",
   "generatedFrom": "docs/spec/cc-mapping.md",
   "mappings": [
     {
@@ -412,17 +412,6 @@
           "note": ""
         },
         {
-          "paramId": "length",
-          "ccNumber": 11501,
-          "block": "SPACE",
-          "blockName": "Depth",
-          "pluginMin": 10,
-          "pluginMax": 100,
-          "ccMin": 0,
-          "ccMax": 1,
-          "note": ""
-        },
-        {
           "paramId": "hue",
           "ccNumber": 11401,
           "block": "COLOR",
@@ -432,6 +421,17 @@
           "ccMin": 0,
           "ccMax": 1,
           "note": "度数→CC変換"
+        },
+        {
+          "paramId": "length",
+          "ccNumber": 11501,
+          "block": "SPACE",
+          "blockName": "Depth",
+          "pluginMin": 10,
+          "pluginMax": 100,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
         }
       ]
     },
