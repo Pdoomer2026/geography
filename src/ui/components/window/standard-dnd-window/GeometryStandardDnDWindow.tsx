@@ -84,6 +84,7 @@ export function GeometryStandardDnDWindow({ onPluginApply, onPluginRemove }: Geo
         return
       }
       if (geo.id !== pluginIdRef.current) {
+        pluginIdRef.current = geo.id  // 先に更新して再入ループを防ぐ
         setPluginId(geo.id); setPluginName(geo.name)
         onPluginApply(activeLayer, geo.id)
       }

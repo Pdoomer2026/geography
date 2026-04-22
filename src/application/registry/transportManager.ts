@@ -49,12 +49,21 @@ class TransportManagerImpl implements TransportManager {
     // layerId がある（source:'window'）→ そのレイヤーのみに書く
     // layerId がない（source:'midi'）→ Registry で全マッチに書く
     if (event.layerId) {
-      this.store.set(`${event.layerId}:${event.slot}`, event.value)
+      const entries = transportRegistry.getAll().filter(
+        (p) => p.ccNumber === event.slot && p.layerId === event.layerId
+      )
+      if (entries.length > 0) {
+        for (const entry of entries) {
+          this.store.set(entry.geoParamAddress, event.value)
+        }
+      } else {
+        this.store.set(String(event.slot), event.value)
+      }
     } else {
       const entries = transportRegistry.getAll().filter((p) => p.ccNumber === event.slot)
       if (entries.length > 0) {
         for (const entry of entries) {
-          this.store.set(`${entry.layerId}:${event.slot}`, event.value)
+          this.store.set(entry.geoParamAddress, event.value)
         }
       } else {
         this.store.set(String(event.slot), event.value)
@@ -99,7 +108,7 @@ class TransportManagerImpl implements TransportManager {
       )
       if (entries.length > 0) {
         for (const entry of entries) {
-          this.store.set(`${entry.layerId}:${assign.ccNumber}`, mapped)
+          this.store.set(entry.geoParamAddress, mapped)
         }
       } else {
         this.store.set(String(assign.ccNumber), mapped)

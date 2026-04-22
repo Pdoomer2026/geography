@@ -544,7 +544,7 @@ export class Engine {
     let changed = false
 
     for (const entry of entries) {
-      const storeValue = allValues.get(`${entry.layerId}:${entry.ccNumber}`)
+      const storeValue = allValues.get(entry.geoParamAddress)
       if (storeValue === undefined) continue
 
       const actual = entry.min + storeValue * (entry.max - entry.min)
@@ -774,6 +774,14 @@ export class Engine {
   }
 
   setLayerPlugin(layerId: string, pluginId: string | null): void {
+    // 切り替え前に古い GeoParamAddress を ParameterStore から削除
+    const oldPlugin = this.getGeometryPlugin(layerId)
+    if (oldPlugin) {
+      for (const paramId of Object.keys(oldPlugin.params)) {
+        this.parameterStore.delete(toGeoParamAddress(layerId, oldPlugin.id, paramId))
+      }
+    }
+
     if (pluginId === null) {
       layerManager.setPlugin(layerId, null)
       layerManager.setMute(layerId, true)

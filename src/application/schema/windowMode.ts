@@ -4,7 +4,7 @@
  */
 
 export type GeoWindowMode = 'none' | 'simple' | 'simple-dnd' | 'standard' | 'standard-dnd'
-export type MacroWindowMode = 'none' | 'macro-window' | 'macro-8-window'
+export type MacroWindowMode = 'none' | 'macro-8-window'
 export type MixerWindowMode = 'none' | 'mixer-simple'
 
 export interface WindowMode {
@@ -20,10 +20,10 @@ export const LAYER_IDS = ['layer-1', 'layer-2', 'layer-3'] as const
 export type LayerId = typeof LAYER_IDS[number]
 
 export const DEFAULT_WINDOW_MODE: WindowMode = {
-  geometry: 'standard',
-  camera:   'standard',
-  fx:       'standard',
-  macro:    'macro-window',
+  geometry: 'standard-dnd',
+  camera:   'standard-dnd',
+  fx:       'standard-dnd',
+  macro:    'macro-8-window',
   mixer:    'mixer-simple',
   monitor:  false,
 }

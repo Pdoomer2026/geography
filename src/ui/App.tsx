@@ -6,7 +6,6 @@ import { projectManager } from '../application/adapter/storage/projectManager'
 import { paramCommand$ } from '../application/command/commandStream'
 import { useGeoStore } from './store/geoStore'
 import { MixerSimpleWindow } from './components/mixers/simple-mixer/MixerSimpleWindow'
-import { MacroWindow } from './components/window/macro-window'
 import { Macro8Window } from './components/window/macro-8-window'
 import { GeometrySimpleWindow, CameraSimpleWindow, FxSimpleWindow } from './components/window/simple-window'
 import { GeometryStandardWindow, CameraStandardWindow, FxStandardWindow } from './components/window/standard-window'
@@ -80,7 +79,7 @@ export default function App() {
       onPreferences: () => setPrefsOpen((o) => !o),
       onToggleMixerWindow: () => setWindowMode((v) => ({ ...v, mixer: v.mixer === 'none' ? 'mixer-simple' : 'none' })),
       onToggleFxWindow: () => setWindowMode((v) => ({ ...v, fx: v.fx === 'none' ? 'standard' : 'none' })),
-      onToggleMacroKnobWindow: () => setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-window' : 'none' })),
+      onToggleMacroKnobWindow: () => setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-8-window' : 'none' })),
       onHideAllWindows: () => setWindowMode(HIDE_ALL),
       onShowAllWindows: () => setWindowMode(DEFAULT_WINDOW_MODE),
       onStartRecording: () => { engine.startRecording(); setIsRecording(true) },
@@ -101,7 +100,7 @@ export default function App() {
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
 
-      if (e.key === '1') setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-window' : 'none' }))
+      if (e.key === '1') setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-8-window' : 'none' }))
       if (e.key === '3') setWindowMode((v) => ({ ...v, mixer: v.mixer === 'none' ? 'mixer-simple' : 'none' }))
       if (e.key === '6') setWindowMode((v) => ({ ...v, monitor: !v.monitor }))
       if (e.key === 'p' || e.key === 'P') setPrefsOpen((o) => !o)
@@ -147,7 +146,6 @@ export default function App() {
       />
 
       {/* Macro */}
-      {windowMode.macro === 'macro-window'   && <MacroWindow />}
       {windowMode.macro === 'macro-8-window' && <Macro8Window />}
 
       {/* Mixer */}
