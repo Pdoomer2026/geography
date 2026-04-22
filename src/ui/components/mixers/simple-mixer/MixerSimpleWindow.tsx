@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Layer, LayerRouting, ScreenAssignState, TransitionPlugin } from '../../../../application/schema'
+import type { Layer, LayerRouting, MidiLearnTarget, ScreenAssignState, TransitionPlugin } from '../../../../application/schema'
 import beatCutPlugin from '../../../../application/command/geo-transitions/beat-cut'
 import crossfadePlugin from '../../../../application/command/geo-transitions/crossfade'
 import { programBus } from '../../../../application/orchestrator/programBus'
@@ -9,6 +9,54 @@ import { useDraggable } from '../../../../ui/useDraggable'
 
 const AVAILABLE_TRANSITIONS: TransitionPlugin[] = [beatCutPlugin, crossfadePlugin]
 
+// Output フェーダーの controlId
+const OUTPUT_CONTROL_IDS = ['opacity-L1', 'opacity-L2', 'opacity-L3'] as const
+
+// ============================================================
+// コンテキストメニュー（Output フェーダー用）
+// ============================================================
+
+interface FaderContextMenuProps {
+  x: number
+  y: number
+  hasCC: boolean
+  onLearn: () => void
+  onClear: () => void
+  onClose: () => void
+}
+
+function FaderContextMenu({ x, y, hasCC, onLearn, onClear, onClose }: FaderContextMenuProps) {
+  useEffect(() => {
+    const handler = () => onClose()
+    window.addEventListener('mousedown', handler)
+    return () => window.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed z-[300] bg-[#0f0f1e] border border-[#3a3a6e] rounded font-mono text-xs shadow-lg"
+      style={{ left: x, top: y, minWidth: 150 }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <button
+        onClick={() => { onLearn(); onClose() }}
+        className="w-full text-left px-3 py-2 hover:bg-[#1a1a3e] transition-colors flex items-center gap-2"
+        style={{ color: '#ff7878' }}
+      >
+        <span>●</span> MIDI Learn
+      </button>
+      {hasCC && (
+        <button
+          onClick={() => { onClear(); onClose() }}
+          className="w-full text-left px-3 py-2 hover:bg-[#1a1a3e] transition-colors"
+          style={{ color: '#6666aa' }}
+        >
+          Clear MIDI CC
+        </button>
+      )}
+    </div>
+  )
+}
 
 // ============================================================
 // 縦フェーダーコンポーネント
@@ -67,6 +115,9 @@ export function MixerSimpleWindow() {
   const [layers, setLayers] = useState<Layer[]>([])
   const [routings, setRoutings] = useState<LayerRouting[]>(engine.getLayerRoutings())
   const [screenAssign, setScreenAssign] = useState<ScreenAssignState>(engine.getScreenAssign())
+  const [learnTarget, setLearnTarget] = useState<MidiLearnTarget | null>(null)
+  const [outputLearnedCCs, setOutputLearnedCCs] = useState<number[]>([-1, -1, -1])
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; index: number } | null>(null)
   const smallScreenRef = useRef<HTMLCanvasElement>(null)
 
   // --- v2 送り（コードは残す・UI は非表示） ---
@@ -81,12 +132,14 @@ export function MixerSimpleWindow() {
     y: Math.max(0, window.innerHeight - 320),
   })
 
-  // 200ms ポーリング：レイヤー状態・ルーティング・アサインを同期
+  // 200ms ポーリング：レイヤー状態・ルーティング・アサイン・MIDI Learn を同期
   useEffect(() => {
     const sync = () => {
       setLayers([...engine.getLayers()])
       setRoutings([...engine.getLayerRoutings()])
       setScreenAssign({ ...engine.getScreenAssign() })
+      setLearnTarget(engine.getMidiLearnTarget())
+      setOutputLearnedCCs(OUTPUT_CONTROL_IDS.map((id) => engine.getLearnedCC(id)))
     }
     sync()
     const timer = window.setInterval(sync, 200)
@@ -132,11 +185,23 @@ export function MixerSimpleWindow() {
     engine.setLayerRouting(layerId, r.outputOpacity, value)
   }
 
-  // Output view フェーダー変更
+  // Output フェーダー変更
   function handleOutputOpacity(layerId: string, value: number) {
     const r = routings.find((r) => r.layerId === layerId)
     if (!r) return
     engine.setLayerRouting(layerId, value, r.editOpacity)
+  }
+
+  // MIDI Learn ハンドラー
+  function handleLearn(index: number) {
+    const id = OUTPUT_CONTROL_IDS[index]
+    engine.startMidiLearn({ id, type: 'layer-opacity', label: `Output L${index + 1}` })
+    setContextMenu(null)
+  }
+
+  function handleClearCC(index: number) {
+    engine.clearLearnedCC(OUTPUT_CONTROL_IDS[index])
+    setContextMenu(null)
   }
 
   // SWAP ボタン
@@ -185,125 +250,176 @@ export function MixerSimpleWindow() {
   void displayBpm; void handleTap
 
   return (
-    <div
-      className="fixed z-50 bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg
-                 text-white font-mono text-xs select-none"
-      style={{ left: pos.x, top: pos.y, width: 680, padding: '12px 16px' }}
-    >
-      {/* ヘッダー（ドラッグハンドル） */}
+    <>
+      <style>{`
+        @keyframes pulse-border-mixer {
+          0%, 100% { border-color: #ff7878; }
+          50% { border-color: #ff2222; }
+        }
+      `}</style>
+
       <div
-        onMouseDown={handleMouseDown}
-        className="text-[10px] text-[#7878aa] mb-3 tracking-widest"
-        style={{ cursor: 'grab' }}
+        className="fixed z-50 bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg
+                   text-white font-mono text-xs select-none"
+        style={{ left: pos.x, top: pos.y, width: 680, padding: '12px 16px' }}
       >
-        MIXER SIMPLE WINDOW
-      </div>
-
-      {/* Small screen + フェーダーエリア 横並び */}
-      <div className="flex items-start gap-4">
-
-        {/* Small screen */}
-        <div className="flex-shrink-0">
-          <div className="text-[9px] text-[#4a4a6e] mb-1 tracking-wider">
-            SMALL SCREEN —
-            <span className="text-[#aaaaff] ml-1">{screenAssign.small.toUpperCase()}</span>
-          </div>
-          <canvas
-            ref={smallScreenRef}
-            width={240 * (window.devicePixelRatio || 1)}
-            height={135 * (window.devicePixelRatio || 1)}
-            style={{
-              width: 240,
-              height: 135,
-              display: 'block',
-              border: '1px solid #2a2a4e',
-              borderRadius: 4,
-            }}
-          />
+        {/* ヘッダー（ドラッグハンドル） */}
+        <div
+          onMouseDown={handleMouseDown}
+          className="text-[10px] text-[#7878aa] mb-3 tracking-widest"
+          style={{ cursor: 'grab' }}
+        >
+          MIXER SIMPLE WINDOW
         </div>
 
-        {/* フェーダーエリア */}
-        <div className="flex items-center gap-3">
+        {/* Small screen + フェーダーエリア 横並び */}
+        <div className="flex items-start gap-4">
 
-        {/* EDIT view フェーダー × 3 */}
-        <div>
-          <div className="text-[10px] text-[#aaaacc] mb-2 tracking-wider">EDIT view</div>
-          <div className="flex gap-2">
-            {layers.map((layer, i) => {
-              const r = routings.find((r) => r.layerId === layer.id)
-              return (
-                <div key={layer.id} className="flex flex-col items-center">
-                  <VerticalFader
-                    label={`L${i + 1}`}
-                    value={r?.editOpacity ?? 1}
-                    onChange={(v) => handleEditOpacity(layer.id, v)}
-                  />
-                  <div
-                    className="text-[8px] text-center mt-1"
-                    style={{ color: layer.plugin ? '#7878aa' : '#3a3a5e', width: 36 }}
-                  >
-                    {layer.plugin?.name ?? 'None'}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* 中央：SWAP ボタン + アサインラベル */}
-        <div className="flex flex-col items-center justify-center" style={{ paddingTop: 20, minWidth: 80 }}>
-          <button
-            onClick={handleSwap}
-            className="bg-[#1a1a3e] border border-[#4a4a7e] rounded px-3 py-1
-                       text-[#aaaaff] text-[11px] cursor-pointer hover:bg-[#2a2a5e]
-                       tracking-wider mb-3"
-          >
-            ⇄ SWAP
-          </button>
-          <div className="text-[9px] text-center" style={{ lineHeight: 1.8 }}>
-            <div>
-              <span className="text-[#4a4a6e]">Large: </span>
-              <span className="text-[#aaaaff] font-bold">
-                {screenAssign.large.toUpperCase()}
-              </span>
+          {/* Small screen */}
+          <div className="flex-shrink-0">
+            <div className="text-[9px] text-[#4a4a6e] mb-1 tracking-wider">
+              SMALL SCREEN —
+              <span className="text-[#aaaaff] ml-1">{screenAssign.small.toUpperCase()}</span>
             </div>
+            <canvas
+              ref={smallScreenRef}
+              width={240 * (window.devicePixelRatio || 1)}
+              height={135 * (window.devicePixelRatio || 1)}
+              style={{
+                width: 240,
+                height: 135,
+                display: 'block',
+                border: '1px solid #2a2a4e',
+                borderRadius: 4,
+              }}
+            />
+          </div>
+
+          {/* フェーダーエリア */}
+          <div className="flex items-center gap-3">
+
+            {/* EDIT view フェーダー × 3 */}
             <div>
-              <span className="text-[#4a4a6e]">Small: </span>
-              <span className="text-[#aaaaff] font-bold">
-                {screenAssign.small.toUpperCase()}
-              </span>
+              <div className="text-[10px] text-[#aaaacc] mb-2 tracking-wider">EDIT view</div>
+              <div className="flex gap-2">
+                {layers.map((layer, i) => {
+                  const r = routings.find((r) => r.layerId === layer.id)
+                  return (
+                    <div key={layer.id} className="flex flex-col items-center">
+                      <VerticalFader
+                        label={`L${i + 1}`}
+                        value={r?.editOpacity ?? 1}
+                        onChange={(v) => handleEditOpacity(layer.id, v)}
+                      />
+                      <div
+                        className="text-[8px] text-center mt-1"
+                        style={{ color: layer.plugin ? '#7878aa' : '#3a3a5e', width: 36 }}
+                      >
+                        {layer.plugin?.name ?? 'None'}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* OUTPUT view フェーダー × 3 */}
-        <div>
-          <div className="text-[10px] text-[#aaaacc] mb-2 tracking-wider">OUTPUT view</div>
-          <div className="flex gap-2">
-            {layers.map((layer, i) => {
-              const r = routings.find((r) => r.layerId === layer.id)
-              return (
-                <div key={layer.id} className="flex flex-col items-center">
-                  <VerticalFader
-                    label={`L${i + 1}`}
-                    value={r?.outputOpacity ?? 1}
-                    onChange={(v) => handleOutputOpacity(layer.id, v)}
-                  />
-                  <div
-                    className="text-[8px] text-center mt-1"
-                    style={{ color: layer.plugin ? '#7878aa' : '#3a3a5e', width: 36 }}
-                  >
-                    {layer.plugin?.name ?? 'None'}
-                  </div>
+            {/* 中央：SWAP ボタン + アサインラベル */}
+            <div className="flex flex-col items-center justify-center" style={{ paddingTop: 20, minWidth: 80 }}>
+              <button
+                onClick={handleSwap}
+                className="bg-[#1a1a3e] border border-[#4a4a7e] rounded px-3 py-1
+                           text-[#aaaaff] text-[11px] cursor-pointer hover:bg-[#2a2a5e]
+                           tracking-wider mb-3"
+              >
+                ⇄ SWAP
+              </button>
+              <div className="text-[9px] text-center" style={{ lineHeight: 1.8 }}>
+                <div>
+                  <span className="text-[#4a4a6e]">Large: </span>
+                  <span className="text-[#aaaaff] font-bold">
+                    {screenAssign.large.toUpperCase()}
+                  </span>
                 </div>
-              )
-            })}
-          </div>
-        </div>
+                <div>
+                  <span className="text-[#4a4a6e]">Small: </span>
+                  <span className="text-[#aaaaff] font-bold">
+                    {screenAssign.small.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-        </div>
+            {/* OUTPUT view フェーダー × 3 */}
+            <div>
+              <div className="text-[10px] text-[#aaaacc] mb-2 tracking-wider">OUTPUT view</div>
+              <div className="flex gap-2">
+                {layers.map((layer, i) => {
+                  const r = routings.find((r) => r.layerId === layer.id)
+                  const controlId = OUTPUT_CONTROL_IDS[i]
+                  const isLearning = learnTarget?.id === controlId
+                  const cc = outputLearnedCCs[i] ?? -1
+                  return (
+                    <div
+                      key={layer.id}
+                      className="flex flex-col items-center rounded"
+                      style={{
+                        border: isLearning ? '1px solid #ff7878' : '1px solid transparent',
+                        animation: isLearning ? 'pulse-border-mixer 0.8s ease-in-out infinite' : undefined,
+                        background: isLearning ? '#1a0a0a' : undefined,
+                        padding: '2px 4px',
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        setContextMenu({ x: e.clientX, y: e.clientY, index: i })
+                      }}
+                    >
+                      <VerticalFader
+                        label={`L${i + 1}`}
+                        value={r?.outputOpacity ?? 1}
+                        onChange={(v) => handleOutputOpacity(layer.id, v)}
+                      />
+                      {/* CC バッジ */}
+                      {cc >= 0 && !isLearning && (
+                        <span
+                          className="text-[8px] px-1 rounded mt-0.5"
+                          style={{ color: '#ff9999', background: '#2a0a0a' }}
+                        >
+                          CC{cc}
+                        </span>
+                      )}
+                      {/* Learn 待機中表示 */}
+                      {isLearning && (
+                        <span className="text-[8px] mt-0.5" style={{ color: '#ff7878' }}>...wait</span>
+                      )}
+                      <div
+                        className="text-[8px] text-center mt-1"
+                        style={{ color: layer.plugin ? '#7878aa' : '#3a3a5e', width: 36 }}
+                      >
+                        {layer.plugin?.name ?? 'None'}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
 
-      </div>
-    </div>
+          </div>{/* end フェーダーエリア */}
+
+        </div>{/* end flex items-start */}
+
+      </div>{/* end outer window */}
+
+      {/* コンテキストメニュー */}
+      {contextMenu && (
+        <FaderContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          hasCC={(outputLearnedCCs[contextMenu.index] ?? -1) >= 0}
+          onLearn={() => handleLearn(contextMenu.index)}
+          onClear={() => handleClearCC(contextMenu.index)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+    </>
   )
 }

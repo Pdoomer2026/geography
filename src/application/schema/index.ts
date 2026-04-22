@@ -278,7 +278,18 @@ export interface MacroAssign {
  * TransportEvent（旧: MidiCCEvent）
  * spec: docs/spec/transport-architecture.spec.md §2
  *
- * slot: プロトコル非依存の抽象 ID（現在は CC番号と同値。将来 OSC 等に対応するとき分離する）
+ * slot: プロトコル非依存の抽象 ID。MIDI 1.0 の全アドレス空間を 4096 値で表現。
+ *   CC 空間:   slot = channel * 128 + cc         （範囲: 0 〜 2047）
+ *     ch0, CC7  → slot 7    （Track Fader 1）
+ *     ch1, CC7  → slot 135  （Track Fader 2）
+ *     ch0, CC48 → slot 48   （Track Knob 1）
+ *   Note 空間: slot = 2048 + channel * 128 + note （範囲: 2048 〜 4095）
+ *     ch0, Note 82 → slot 2130 （Scene Launch 1）
+ *     ch0, Note 52 → slot 2100 （Clip Stop Track 1）
+ *     ch1, Note 52 → slot 2228 （Clip Stop Track 2）
+ *   OSC / Sequencer 等将来プロトコル: Input Wrapper 内で同じ slot 空間に変換する
+ *   spec: docs/spec/midi-learn.spec.md §slot-encoding
+ *
  * source: ループ防止用・入力元の識別（省略可）
  * time: イベントのタイムスタンプ ms（省略可）
  *
@@ -392,22 +403,8 @@ export interface MidiLearnable {
   learnedCC: number
 }
 
-export type MidiLearnTargetType =
-  | 'macro'           // MacroKnob
-  | 'geometry-param'  // Geometry スライダー（将来）
-  | 'camera-param'    // Camera スライダー（将来）
-  | 'fx-param'        // FX スライダー（将来）
-  | 'layer-opacity'   // Layer Opacity = Mixer（将来）
-  | 'sequencer-param' // Sequencer（将来）
-
-export interface MidiLearnTarget {
-  /** コントロールの一意 ID（例: 'macro-1', 'opacity-layer-1'）*/
-  id: string
-  /** コントロールの種類 */
-  type: MidiLearnTargetType
-  /** UI 表示用ラベル */
-  label: string
-}
+export type { MidiLearnTargetType, MidiLearnTarget } from './zod/midiLearnTarget.schema'
+export { MidiLearnTargetTypeSchema, MidiLearnTargetSchema } from './zod/midiLearnTarget.schema'
 
 // ============================================================
 // MidiMonitorEvent（MIDI Monitor Window 専用・engine フローとは独立）

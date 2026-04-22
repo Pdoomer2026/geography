@@ -347,9 +347,17 @@ export class Engine {
         assignRegistry.setValue(target.id, value)
         transportManager.receiveModulation(target.id, value)
         break
-      case 'layer-opacity':
-        // 将来実装
+      case 'layer-opacity': {
+        // controlId: 'opacity-L1' / 'opacity-L2' / 'opacity-L3'
+        const match = target.id.match(/^opacity-L(\d+)$/)
+        if (!match) break
+        const layerIndex = parseInt(match[1], 10) - 1
+        const layerId = `layer-${layerIndex + 1}`
+        const routing = this.layerRoutings.find((r) => r.layerId === layerId)
+        if (!routing) break
+        this.setLayerRouting(layerId, value, routing.editOpacity)
         break
+      }
       case 'geometry-param':
       case 'camera-param':
       case 'fx-param':

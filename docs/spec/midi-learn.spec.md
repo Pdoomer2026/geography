@@ -345,6 +345,39 @@ interface GeoGraphyProject {
 
 ---
 
+## §slot-encoding — slot エンコーディング仕様
+
+> Day76 確定。SSoT: このセクション。
+
+**`TransportEvent.slot` の定義:**
+
+```
+slot = channel * 128 + cc
+```
+
+MIDI 1.0 の全アドレス空間（16 ch × 128 CC = 2048 値）を `number` で一意に表現する。
+
+```
+ch0, CC7  → slot 7     Track Fader 1
+ch1, CC7  → slot 135   Track Fader 2
+ch2, CC7  → slot 263   Track Fader 3
+ch0, CC48 → slot 48    Track Knob 1
+ch0, CC49 → slot 49    Track Knob 2
+```
+
+**後方互換性:**
+
+Track Knob（全て ch0）は `slot = cc` のまま変わらない。既存の MIDI Learn アサインは破壊されない。
+
+**将来プロトコル:**
+
+OSC / Sequencer 等からの入力は各 Input Wrapper 内で同じ slot 空間に変換する。
+Ableton Live （IAC Driver 経由）も MIDI 1.0 なので同じエンコーディングで扱える。
+
+**実装場所:** `MidiInputWrapper.ts` 内の `slot = channel * 128 + number`
+
+---
+
 ## 10. MUST ルール
 
 - MUST: Learn モードは `source === 'midi'` のイベントのみ反応する

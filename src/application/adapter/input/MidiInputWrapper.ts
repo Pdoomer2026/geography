@@ -79,7 +79,11 @@ export class MidiInputWrapper {
 
     // CC メッセージ（0xB0）→ TransportEvent + MonitorEvent
     if (statusType === 0xb0) {
-      const slot = number
+      // slot = channel * 128 + cc（MIDI 1.0 全アドレス空間を一意にエンコード）
+      // ch0, CC7 → 7 / ch1, CC7 → 135 / ch2, CC7 → 263
+      // Track Knob（全て ch0）は slot = cc のまま変わらない
+      // spec: docs/spec/midi-learn.spec.md §slot-encoding
+      const slot = channel * 128 + number
       const value = rawValue / 127
 
       this.onEvent?.({ slot, value, source: 'midi' })
@@ -90,17 +94,25 @@ export class MidiInputWrapper {
       return
     }
 
-    // Note-On（0x90）→ MonitorEvent のみ
+    // Note-On（0x90）→ TransportEvent + MonitorEvent
+    // slot = 2048 + channel * 128 + note（Note 空間は CC 空間の上に展開）
+    // ch:0, Note 82 → slot 2130 / ch:1, Note 52 → slot 2228
+    // spec: docs/spec/midi-learn.spec.md §slot-encoding
     if (statusType === 0x90) {
+      const slot = 2048 + channel * 128 + number
+      const value = rawValue / 127
+      this.onEvent?.({ slot, value, source: 'midi' })
       this.onMonitorEvent?.({
-        type: 'note-on', number, value: rawValue / 127, rawValue,
+        type: 'note-on', number, value, rawValue,
         channel, deviceName, timestamp: Date.now(),
       })
       return
     }
 
-    // Note-Off（0x80）→ MonitorEvent のみ
+    // Note-Off（0x80）→ TransportEvent（value=0）+ MonitorEvent
     if (statusType === 0x80) {
+      const slot = 2048 + channel * 128 + number
+      this.onEvent?.({ slot, value: 0, source: 'midi' })
       this.onMonitorEvent?.({
         type: 'note-off', number, value: 0, rawValue,
         channel, deviceName, timestamp: Date.now(),
