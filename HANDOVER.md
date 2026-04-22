@@ -1,4 +1,4 @@
-# GeoGraphy 引き継ぎメモ｜Day73｜2026-04-22
+# GeoGraphy 引き継ぎメモ｜Day74｜2026-04-22
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
@@ -16,89 +16,74 @@
 | ファイル | パス |
 |---|---|
 | CLAUDE.md（全体方針） | `CLAUDE.md` |
-| Clock | `src/application/orchestrator/tempo/clock.ts` |
-| IClock | `src/application/orchestrator/tempo/IClock.ts` |
 | GeoParamAddress | `src/application/schema/geoParamAddress.ts` |
 | GeoParamAddress spec | `docs/spec/geo-param-address.spec.md` |
-| Clock spec | `docs/spec/clock.spec.md` |
+| windowMode | `src/application/schema/windowMode.ts` |
 | Engine | `src/application/orchestrator/engine.ts` |
 | TransportManager | `src/application/registry/transportManager.ts` |
-| AssignRegistry | `src/application/registry/assignRegistry.ts` |
+| GeometryStandardDnDWindow | `src/ui/components/window/standard-dnd-window/GeometryStandardDnDWindow.tsx` |
+| Macro8Window | `src/ui/components/window/macro-8-window/Macro8Window.tsx` |
 
 ---
 
 ## 現在の状態
 
 - **ブランチ**: `refactor/day53-design`
-- **タグ**: `day73`（Clock移行）/ `day73-geo-param`（GeoParamAddress導入）
+- **タグ**: `day74`
 - **テスト**: **129 tests グリーン・tsc エラーゼロ**
-- **Day73 コミット一覧**:
+- **Day74 コミット**:
   ```
-  3e7db93 feat: migrate Clock to Tone.js + add getTotalBeats/isRunning/reset (Day73)
-  df16d0d feat: introduce GeoParamAddress as unified parameter identity (Day73)
+  13d2c3b feat: GeoParamAddress integration + StandardDnD default + MacroWindow removal (Day74)
   ```
 
 ---
 
-## Day73 で完了したこと
+## Day74 で完了したこと
 
-### Clock → Tone.js 移行
-- `pnpm add tone`（Tone.js 15.1.22）
-- `IClock` インターフェース新設（`src/application/orchestrator/tempo/IClock.ts`）
-- `Clock` を Tone.js ベースに全面移行
-  - `performance.now()` → `Tone.Transport.ticks / PPQ`
-  - BPM変更時のリセット問題を解決（`Transport.pause()` で累積保持）
-  - `getTotalBeats()` 追加（Sequencer/LFOの時間計算の源）
-  - `isRunning()` / `reset()` 追加（Scheduler連携の準備）
-- Vitest用 Tone.js モック追加（`clock.test.ts` / `engine.test.ts`）
-- `docs/spec/clock.spec.md` 新規作成
+### GeoParamAddress 統合（Day73未完了タスク）
+- `transportManager.ts`: store キーを geoParamAddress に統一（3経路）
+  - window 入力（`event.layerId` あり）: entries から `entry.geoParamAddress` で set
+  - MIDI 入力（`event.layerId` なし）: 同上
+  - `receiveModulation`: `entry.geoParamAddress` で set
+- `engine.ts` `flushParameterStore()`: lookup キーを `entry.geoParamAddress` に変更
+- `engine.ts` `setLayerPlugin()`: Plugin 切り替え時に古い geoParamAddress を ParameterStore から削除
+- これにより ParameterStore の書き込みキーと読み出しキーが完全一致 → スライダー・MIDI CC が正しく plugin.params に反映される
 
-**Tone.js 導入で得られた恩恵:**
-- BPM変更時のリセット問題 → 解決済み
-- MIDI Clock受信 → 外部音源と同期（Phase 2）
-- 将来の音生成 → そのまま拡張できる
-- スケジューラ精度 → AudioContext ベースで高精度
-- TAP TEMPO → Tone.js に組み込み済み
+### UI デフォルト変更
+- `windowMode.ts` `DEFAULT_WINDOW_MODE`: geometry/camera/fx を `standard-dnd`、macro を `macro-8-window` に変更
 
-### GeoParamAddress 導入
-- `src/application/schema/geoParamAddress.ts` 新規作成
-  - `GeoParamAddress = 'geo://layer-1/icosphere/scale'` 形式
-  - `toGeoParamAddress()` / `parseGeoParamAddress()` / `isGeoParamAddress()`
-- `RegisteredParameterWithCC` に `geoParamAddress` フィールド追加
-- `MacroAssign.paramId` → `geoParamAddress` に変更
-- `ParameterStore` に `delete()` メソッド追加
-- `engine.ts` の `initTransportRegistry()` で geoParamAddress を付与
-- `transportManager.ts` の `store.set()` を GeoParamAddress キーに変更
-- `assignRegistry.ts` の `removeAssign()` を geoParamAddress ベースに変更
-- `MacroWindow` / `Macro8Window` の UI を geoParamAddress 対応に更新
-- `docs/spec/geo-param-address.spec.md` 新規作成
+### 無限ループバグ修正
+- `onRegistryChanged` コールバック内で `onPluginApply` を呼ぶと registry が再発火して無限ループになるバグを発見・修正
+- 修正方法: `pluginIdRef.current = geo.id` を `onPluginApply` 呼び出し**前**に更新して再入を防ぐ
+- 影響ファイル: `GeometryStandardDnDWindow` / `GeometrySimpleWindow` / `GeometrySimpleDnDWindow`（3ファイル）
+- `GeometryStandardWindow` はすでに修正済みだった
 
-**GeoParamAddress 導入の効果:**
-- レイヤー間の CC 誤作動を構造的に防止（layerId が Address に含まれる）
-- AI 可読性向上（`geo://` プレフィックスで一意識別）
-- Sequencer の target 指定が `geoParamAddress` で直接できる
-- エンジン非依存（PixiJS 等どのエンジンが来ても Address は変わらない）
+### MacroWindow 廃止
+- 旧 MacroWindow（32ノブ）を廃止、Macro8Window に一本化
+- `MacroWindowMode` から `'macro-window'` を削除
+- `App.tsx` / `PreferencesPanel` / キーバインド（キー `1`）/ `onToggleMacroKnobWindow` を全て `macro-8-window` に変更
 
 ---
 
-## アーキテクチャ確定事項（Day73）
+## アーキテクチャ確定事項（Day74）
 
-### GeoParamAddress の役割
+### GeoParamAddress の完全統合（Day74完了）
 ```
-ccNumber / paramId → 「玄関（入力の受け口）」として残す
-geoParamAddress    → GeoGraphy 内部の唯一の識別子
+入力経路（window/MIDI/modulation）
+  → transportManager: store.set(entry.geoParamAddress, value)
+  → ParameterStore: キー = 'geo://layer-1/icosphere/scale'
+  → engine.flushParameterStore(): allValues.get(entry.geoParamAddress)
+  → plugin.params[entry.id].value = actual
+```
 
-変換タイミング: engine.ts の initTransportRegistry() のみ
-  toGeoParamAddress(layerId, plugin.id, p.id)
-```
-
-### BPM クロック設計（Tone.js ベース）
-```
-Wall Time（実時間）→ Scheduler（将来）→ clock.setTempo() / start() / stop()
-Clock（Tone.js）  → getTotalBeats() → Sequencer / LFO（将来）
-  currentBar  = Math.floor(total / 4) % 16
-  step16th    = Math.floor(total * 4) % 64
-  loopPhase   = (total % 64) / 64
+### Geometry Window の onRegistryChanged パターン（バグ修正済み）
+```typescript
+// MUST: pluginIdRef.current を onPluginApply より先に更新する
+if (geo.id !== pluginIdRef.current) {
+  pluginIdRef.current = geo.id  // ← 先に更新して再入ループを防ぐ
+  setPluginId(geo.id)
+  onPluginApply(activeLayer, geo.id)
+}
 ```
 
 ### Tone.js Phase ロードマップ
@@ -113,14 +98,10 @@ Clock（Tone.js）  → getTotalBeats() → Sequencer / LFO（将来）
 ## 次回やること
 
 ### 優先度 高
-1. **flushParameterStore() の GeoParamAddress 対応**（未完了）
-   - `engine.ts` の `flushParameterStore()` の lookup キーを
-     `${entry.layerId}:${entry.ccNumber}` → `entry.geoParamAddress` に変更
-   - spec §4-3 参照
-2. **Plugin 切り替え時のクリーンアップ**
-   - `setLayerPlugin()` で古い GeoParamAddress を ParameterStore から削除
-   - `ParameterStore.delete()` は追加済み
-3. **Sequencer Window spec 作成**（Phase 16）
+1. **Sequencer Window spec 作成**（Phase 16）
+   - `docs/spec/sequencer-window.spec.md` 新規作成
+   - Sequencer の target 指定は `geoParamAddress` で直接指定（Day74で基盤完成）
+   - Clock の `getTotalBeats()` / `currentBar` / `step16th` を制御源として使用
 
 ---
 
@@ -130,11 +111,13 @@ Clock（Tone.js）  → getTotalBeats() → Sequencer / LFO（将来）
 - **git commit**: 日本語長文は `.claude/dayN-commit.sh` に書いて `bash` で実行
 - **NFC 正規化**: 日本語ファイル編集後は `python3 /Users/shinbigan/nfc_normalize.py`
 - **Tone.js テスト**: `vi.mock('tone', ...)` を clock.test.ts / engine.test.ts に追加済み
+- **DEFAULT_WINDOW_MODE**: StandardD&D + Macro8 が初期表示（Day74変更）
+- **MacroWindow（旧32ノブ）**: 廃止済み・ファイルは残るが参照なし
 
 ---
 
 ## 次回チャット用スタートプロンプト
 
 ```
-Day74開始
+Day75開始
 ```

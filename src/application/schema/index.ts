@@ -366,15 +366,70 @@ export interface GeoGraphyProject {
   setup: {
     geometry: string[]
     camera: [string, string, string]
-    fx: Record<string, string[]>  // layerId -> enabled FX ids（Day60）
+    fx: Record<string, string[]>
   }
   sceneState: SceneState
   assignRegistryState: MacroKnobConfig[]
   presetRefs: Record<string, string>
+  /** MIDI Learn アサイン（controlId → 外部CC番号）・spec: docs/spec/midi-learn.spec.md */
+  midiLearnAssigns?: Record<string, number>
 }
 
 /** プロジェクトファイルのフォーマットバージョン */
 export const PROJECT_FILE_VERSION = '1.0.0'
+
+// ============================================================
+// MidiLearnable / MidiLearnTarget（MIDI Learn 汎用インフラ）
+// spec: docs/spec/midi-learn.spec.md
+// ============================================================
+
+/**
+ * MIDI Learn 可能な全コントロールが実装する共通インターフェース。
+ * ノブ・スライダー・フェーダー・Sequencer レーン等が対象。
+ */
+export interface MidiLearnable {
+  /** 外部デバイスの CC番号（-1 = 未アサイン） */
+  learnedCC: number
+}
+
+export type MidiLearnTargetType =
+  | 'macro'           // MacroKnob
+  | 'geometry-param'  // Geometry スライダー（将来）
+  | 'camera-param'    // Camera スライダー（将来）
+  | 'fx-param'        // FX スライダー（将来）
+  | 'layer-opacity'   // Layer Opacity = Mixer（将来）
+  | 'sequencer-param' // Sequencer（将来）
+
+export interface MidiLearnTarget {
+  /** コントロールの一意 ID（例: 'macro-1', 'opacity-layer-1'）*/
+  id: string
+  /** コントロールの種類 */
+  type: MidiLearnTargetType
+  /** UI 表示用ラベル */
+  label: string
+}
+
+// ============================================================
+// MidiMonitorEvent（MIDI Monitor Window 専用・engine フローとは独立）
+// spec: docs/spec/midi-monitor.spec.md
+// ============================================================
+
+export interface MidiMonitorEvent {
+  /** 'cc' | 'note-on' | 'note-off' */
+  type: 'cc' | 'note-on' | 'note-off'
+  /** CC番号 or Note番号（0〜127） */
+  number: number
+  /** 正規化済み値（0.0〜1.0） */
+  value: number
+  /** 生の値（0〜127） */
+  rawValue: number
+  /** MIDI チャンネル（0〜15） */
+  channel: number
+  /** 送信元デバイス名 */
+  deviceName: string
+  /** イベント受信時刻 */
+  timestamp: number
+}
 
 // ============================================================
 // Plugin Preset（spec: docs/spec/project-file.spec.md §4）

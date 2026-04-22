@@ -18,6 +18,7 @@
  */
 
 import type { TransportEvent } from '../../../application/schema'
+import type { MidiMonitorEvent } from '../../../application/schema'
 
 // ============================================================
 // MidiInputWrapper
@@ -26,13 +27,19 @@ import type { TransportEvent } from '../../../application/schema'
 export class MidiInputWrapper {
   private midiAccess: MIDIAccess | null = null
   private onEvent: ((event: TransportEvent) => void) | null = null
+  private onMonitorEvent: ((event: MidiMonitorEvent) => void) | null = null
 
   /**
    * Web MIDI API を初期化し、CC メッセージの受信を開始する。
    * @param onEvent TransportEvent を受け取るコールバック（通常は engine.handleMidiCC）
+   * @param onMonitorEvent MidiMonitorEvent を受け取るコールバック（MidiMonitorWindow 用・省略可）
    */
-  async init(onEvent: (event: TransportEvent) => void): Promise<void> {
+  async init(
+    onEvent: (event: TransportEvent) => void,
+    onMonitorEvent?: (event: MidiMonitorEvent) => void,
+  ): Promise<void> {
     this.onEvent = onEvent
+    this.onMonitorEvent = onMonitorEvent ?? null
 
     if (!navigator.requestMIDIAccess) {
       console.warn('[MidiInputWrapper] Web MIDI API is not supported in this environment.')
@@ -59,31 +66,46 @@ export class MidiInputWrapper {
     })
   }
 
-  /** CC メッセージをパースして TransportEvent を生成する */
+  /** CC メッセージをパースして TransportEvent と MidiMonitorEvent を生成する */
   private onMidiMessage = (event: MIDIMessageEvent): void => {
     const data = event.data
     if (!data || data.length < 3) return
 
-    // CC メッセージ（status byte の上位4bit が 0xB）のみ処理
     const statusType = data[0] & 0xf0
-    if (statusType !== 0xb0) return
-
-    const cc = data[1]
+    const channel = data[0] & 0x0f
+    const number = data[1]
     const rawValue = data[2]
+    const deviceName = (event.target as MIDIInput).name ?? 'Unknown'
 
-    // CC番号 → Slot（現在は同値。将来 OSC 等対応時に変換ロジックを追加）
-    const slot = cc
+    // CC メッセージ（0xB0）→ TransportEvent + MonitorEvent
+    if (statusType === 0xb0) {
+      const slot = number
+      const value = rawValue / 127
 
-    // rawValue(0〜127) → 0.0〜1.0 正規化
-    const value = rawValue / 127
-
-    const transportEvent: TransportEvent = {
-      slot,
-      value,
-      source: 'midi',
+      this.onEvent?.({ slot, value, source: 'midi' })
+      this.onMonitorEvent?.({
+        type: 'cc', number, value, rawValue, channel, deviceName,
+        timestamp: Date.now(),
+      })
+      return
     }
 
-    this.onEvent?.(transportEvent)
+    // Note-On（0x90）→ MonitorEvent のみ
+    if (statusType === 0x90) {
+      this.onMonitorEvent?.({
+        type: 'note-on', number, value: rawValue / 127, rawValue,
+        channel, deviceName, timestamp: Date.now(),
+      })
+      return
+    }
+
+    // Note-Off（0x80）→ MonitorEvent のみ
+    if (statusType === 0x80) {
+      this.onMonitorEvent?.({
+        type: 'note-off', number, value: 0, rawValue,
+        channel, deviceName, timestamp: Date.now(),
+      })
+    }
   }
 
   /** MIDI 受信を停止し、リスナーを解除する */

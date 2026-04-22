@@ -8,6 +8,7 @@ import { registerGeometryPlugins } from '../../engine/geometry'
 import { registerLightPlugins } from '../../engine/lights'
 import { registerParticlePlugins } from '../../engine/particles'
 import { createFxPlugins } from '../../engine/fx'
+import { midiLearnService } from '../registry/midiLearnService'
 import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
@@ -25,6 +26,7 @@ import type {
   Layer,
   LayerRouting,
   MacroKnobConfig,
+  MidiLearnTarget,
   TransportEvent,
   SceneState,
   ScreenAssign,
@@ -297,8 +299,64 @@ export class Engine {
     )
   }
 
+  // --- MIDI Learn API ---
+
+  startMidiLearn(target: MidiLearnTarget): void {
+    midiLearnService.startLearn(target)
+  }
+
+  stopMidiLearn(): void {
+    midiLearnService.stopLearn()
+  }
+
+  getMidiLearnTarget(): MidiLearnTarget | null {
+    return midiLearnService.getLearnTarget()
+  }
+
+  getLearnedCC(controlId: string): number {
+    return midiLearnService.getAssignedCC(controlId)
+  }
+
+  clearLearnedCC(controlId: string): void {
+    midiLearnService.clearAssign(controlId)
+  }
+
   handleMidiCC(event: TransportEvent): void {
+    // MIDI Learn モード中且つ source==='midi' のみ CC を記録して終了
+    const learnTarget = midiLearnService.getLearnTarget()
+    if (learnTarget && event.source === 'midi') {
+      midiLearnService.assign(learnTarget.id, event.slot)
+      midiLearnService.stopLearn()
+      return
+    }
+
+    // Learn 済みコントロールへのルーティング
+    const learned = midiLearnService.resolve(event.slot)
+    if (learned) {
+      this.dispatchToLearned(learned, event.value)
+    }
+
+    // 通常の TransportManager 処理
     transportManager.handle(event)
+  }
+
+  /** MIDI Learn 済みコントロールへの値を流す */
+  private dispatchToLearned(target: MidiLearnTarget, value: number): void {
+    switch (target.type) {
+      case 'macro':
+        assignRegistry.setValue(target.id, value)
+        transportManager.receiveModulation(target.id, value)
+        break
+      case 'layer-opacity':
+        // 将来実装
+        break
+      case 'geometry-param':
+      case 'camera-param':
+      case 'fx-param':
+      case 'sequencer-param':
+        // 将来実装
+        break
+    }
   }
 
   receiveMidiModulation(knobId: string, value: number): void {

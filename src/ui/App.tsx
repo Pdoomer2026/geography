@@ -12,18 +12,21 @@ import { GeometryStandardWindow, CameraStandardWindow, FxStandardWindow } from '
 import { GeometrySimpleDnDWindow, CameraSimpleDnDWindow, FxSimpleDnDWindow } from './components/window/simple-dnd-window'
 import { GeometryStandardDnDWindow, CameraStandardDnDWindow, FxStandardDnDWindow } from './components/window/standard-dnd-window'
 import { GeoMonitorWindow } from './components/window/geo-monitor'
+import { MidiMonitorWindow } from './components/window/midi-monitor'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { useAutosave } from './useAutosave'
 import { DEFAULT_WINDOW_MODE } from '../application/schema/windowMode'
 import type { WindowMode } from '../application/schema/windowMode'
+import type { MidiMonitorEvent } from '../application/schema'
 
 const HIDE_ALL: WindowMode = {
-  geometry: 'none',
-  camera:   'none',
-  fx:       'none',
-  macro:    'none',
-  mixer:    'none',
-  monitor:  false,
+  geometry:    'none',
+  camera:      'none',
+  fx:          'none',
+  macro:       'none',
+  mixer:       'none',
+  monitor:     false,
+  midiMonitor: false,
 }
 
 export default function App() {
@@ -31,6 +34,7 @@ export default function App() {
   const [windowMode, setWindowMode] = useState<WindowMode>(DEFAULT_WINDOW_MODE)
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const midiMonitorCallbackRef = useRef<((event: MidiMonitorEvent) => void) | null>(null)
 
   const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
     engine.registerPluginToTransportRegistry(layerId, pluginId)
@@ -43,7 +47,10 @@ export default function App() {
   useAutosave()
 
   useEffect(() => {
-    midiInputWrapper.init((event) => engine.handleMidiCC(event))
+    midiInputWrapper.init(
+      (event) => engine.handleMidiCC(event),
+      (event) => midiMonitorCallbackRef.current?.(event),
+    )
     return () => midiInputWrapper.dispose()
   }, [])
 
@@ -103,6 +110,7 @@ export default function App() {
       if (e.key === '1') setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-8-window' : 'none' }))
       if (e.key === '3') setWindowMode((v) => ({ ...v, mixer: v.mixer === 'none' ? 'mixer-simple' : 'none' }))
       if (e.key === '6') setWindowMode((v) => ({ ...v, monitor: !v.monitor }))
+      if (e.key === 'm' || e.key === 'M') setWindowMode((v) => ({ ...v, midiMonitor: !v.midiMonitor }))
       if (e.key === 'p' || e.key === 'P') setPrefsOpen((o) => !o)
       if (e.key === 'f' || e.key === 'F') {
         setWindowMode(HIDE_ALL)
@@ -179,6 +187,11 @@ export default function App() {
 
       {/* Monitor */}
       {windowMode.monitor && <GeoMonitorWindow />}
+      {windowMode.midiMonitor && (
+        <MidiMonitorWindow
+          onMount={(cb) => { midiMonitorCallbackRef.current = cb }}
+        />
+      )}
 
       {isRecording && (
         <div
@@ -193,7 +206,7 @@ export default function App() {
         className="fixed bottom-1 right-2 text-[9px] text-[#3a3a5e] select-none pointer-events-none"
         style={{ zIndex: 100 }}
       >
-        P:Prefs 1:Macro 3:Mixer 6:Monitor | H:Hide S:Show F:全非表示+全画面
+        P:Prefs 1:Macro 3:Mixer M:MIDI Monitor 6:GeoMonitor | H:Hide S:Show F:全非表示+全画面
       </div>
     </>
   )
