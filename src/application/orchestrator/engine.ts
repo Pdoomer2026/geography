@@ -14,6 +14,7 @@ import { assignRegistry } from '../registry/assignRegistry'
 import { transportManager } from '../registry/transportManager'
 import { transportRegistry } from '../registry/transportRegistry'
 import { ccMapService } from '../catalog/ccMapService'
+import { toGeoParamAddress } from '../schema/geoParamAddress'
 import { getCameraPlugin, listCameraPlugins } from '../../engine/cameras'
 import type {
   CameraPlugin,
@@ -156,6 +157,7 @@ export class Engine {
       layerId,
       pluginId: cam.id,
       ccNumber: ccMapService.getCcNumber(cam.id, p.id),
+      geoParamAddress: toGeoParamAddress(layerId, cam.id, p.id),
       value: cam.params[p.id]?.value ?? p.min,
     }))
     transportRegistry.register(enriched, `${layerId}:camera`)
@@ -169,6 +171,7 @@ export class Engine {
       layerId,
       pluginId: plugin.id,
       ccNumber: ccMapService.getCcNumber(plugin.id, p.id),
+      geoParamAddress: toGeoParamAddress(layerId, plugin.id, p.id),
       value: plugin.params[p.id]?.value ?? p.min,
     }))
     transportRegistry.register(enriched, `${layerId}:geometry`)
@@ -181,6 +184,7 @@ export class Engine {
         layerId,
         pluginId: plugin.id,
         ccNumber: ccMapService.getCcNumber(plugin.id, p.id),
+        geoParamAddress: toGeoParamAddress(layerId, plugin.id, p.id),
         value: plugin.params[p.id]?.value ?? p.min,
       }))
       transportRegistry.register(enriched, `${layerId}:geometry`)
@@ -203,6 +207,7 @@ export class Engine {
           layerId,
           pluginId: fx.id,
           ccNumber: ccMapService.getCcNumber(fx.id, paramId),
+          geoParamAddress: toGeoParamAddress(layerId, fx.id, paramId),
           value: param.value,
         }))
       )
@@ -283,10 +288,10 @@ export class Engine {
     assignRegistry.removeAssign(knobId, paramId)
   }
 
-  getAssignsForParam(paramId: string): { knobId: string; assign: import('../schema').MacroAssign }[] {
+  getAssignsForParam(geoParamAddress: string): { knobId: string; assign: import('../schema').MacroAssign }[] {
     return assignRegistry.getKnobs().flatMap((k) =>
       k.assigns
-        .filter((a) => a.paramId === paramId)
+        .filter((a) => a.geoParamAddress === geoParamAddress)
         .map((a) => ({ knobId: k.id, assign: a }))
     )
   }

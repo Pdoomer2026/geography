@@ -77,10 +77,10 @@ class AssignRegistryImpl implements AssignRegistry {
     knob.assigns.push({ ...assign })
   }
 
-  removeAssign(knobId: string, paramId: string): void {
+  removeAssign(knobId: string, geoParamAddress: string): void {
     const knob = this.knobs.find((k) => k.id === knobId)
     if (!knob) throw new Error(`AssignRegistry "${knobId}" が存在しません`)
-    knob.assigns = knob.assigns.filter((a) => a.paramId !== paramId)
+    knob.assigns = knob.assigns.filter((a) => a.geoParamAddress !== geoParamAddress)
   }
 
   getValue(knobId: string): number {

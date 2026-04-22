@@ -69,7 +69,7 @@ class TransportManagerImpl implements TransportManager {
       this.knobManager.setValue(knobByMidi.id, event.value)
       for (const assign of knobByMidi.assigns) {
         const mapped = rangeMap(event.value, assign.min, assign.max)
-        this.store.set(assign.paramId, mapped)
+        this.store.set(assign.geoParamAddress, mapped)
       }
     }
 

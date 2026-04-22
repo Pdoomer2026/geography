@@ -11,7 +11,7 @@ import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
 import { useGeoStore } from '../../../../ui/store/geoStore'
 import type { DragPayload, MacroAssign, MacroKnobConfig } from '../../../../application/schema'
-import { DragPayloadSchema } from '../../../../application/schema'
+import { DragPayloadSchema, toGeoParamAddress, parseGeoParamAddress } from '../../../../application/schema'
 
 const COLS = 8
 const ROWS = 4
@@ -205,7 +205,7 @@ function KnobCell({ config, value, onEdit, onDrop, onKnobChange }: KnobCellProps
 interface EditDialogProps {
   config: MacroKnobConfig
   onSave: (name: string, midiCC: number) => void
-  onRemoveAssign: (paramId: string) => void
+  onRemoveAssign: (geoParamAddress: string) => void
   onClose: () => void
 }
 
@@ -267,13 +267,13 @@ function EditDialog({ config, onSave, onRemoveAssign, onClose }: EditDialogProps
             {config.assigns.map((a, i) => (
               <div key={i} className="flex items-center justify-between py-0.5 group">
                 <span className="text-[#5555aa] text-[9px]">
-                  CC{a.ccNumber} · {a.paramId} [{a.min}…{a.max}]
+                  CC{a.ccNumber} · {parseGeoParamAddress(a.geoParamAddress)?.paramId ?? a.geoParamAddress} [{a.min.toFixed(2)}…{a.max.toFixed(2)}]
                 </span>
                 <button
-                  onClick={() => onRemoveAssign(a.paramId)}
+                  onClick={() => onRemoveAssign(a.geoParamAddress)}
                   className="text-[8px] text-[#3a3a5e] hover:text-[#cc4444]
                              transition-colors ml-2 px-1 opacity-0 group-hover:opacity-100"
-                  title={`${a.paramId} のアサインを解除`}
+                  title={`${a.geoParamAddress} のアサインを解除`}
                 >
                   ×
                 </button>
@@ -329,7 +329,7 @@ function AssignDialog({ knobId, payload, onAssign, onClose }: AssignDialogProps)
     // assign.min/max も同じ正規化スケールに変換して保存する
     const fullRange = payload.max - payload.min || 1
     const assign: MacroAssign = {
-      paramId: payload.id,
+      geoParamAddress: toGeoParamAddress(payload.layerId, payload.pluginId, payload.id),
       ccNumber: payload.ccNumber,
       layerId: payload.layerId,
       min: (minVal - payload.min) / fullRange,
@@ -456,9 +456,9 @@ export function MacroWindow() {
     setEditingId(null)
   }, [editingId, syncMacroKnobs])
 
-  const handleRemoveAssign = useCallback((paramId: string) => {
+  const handleRemoveAssign = useCallback((geoParamAddress: string) => {
     if (!editingId) return
-    engine.removeMacroAssign(editingId, paramId)
+    engine.removeMacroAssign(editingId, geoParamAddress)
     syncMacroKnobs()
   }, [editingId, syncMacroKnobs])
 

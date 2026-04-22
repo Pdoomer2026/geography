@@ -1,3 +1,7 @@
+import type { GeoParamAddress } from './geoParamAddress'
+export type { GeoParamAddress } from './geoParamAddress'
+export { toGeoParamAddress, parseGeoParamAddress, isGeoParamAddress } from './geoParamAddress'
+
 import type * as THREE from 'three'
 import type { FC } from 'react'
 import type { ParameterSchema } from './midi-registry'
@@ -257,7 +261,7 @@ export interface ModulatorDriver {
 export type CurveType = 'linear'
 
 export interface MacroAssign {
-  paramId: string
+  geoParamAddress: GeoParamAddress
   /**
    * CC Standard の CC 番号（ccMapService が提供する実効値）
    * spec: docs/spec/cc-mapping.spec.md §9
@@ -312,7 +316,7 @@ export interface AssignRegistry {
   getKnobs(): MacroKnobConfig[]
   setKnob(id: string, config: MacroKnobConfig): void
   addAssign(knobId: string, assign: MacroAssign): void
-  removeAssign(knobId: string, paramId: string): void
+  removeAssign(knobId: string, geoParamAddress: GeoParamAddress): void
   /** 0.0〜1.0 に正規化した現在値を返す（表示用キャッシュ） */
   getValue(knobId: string): number
   /** TransportManager から書かれる現在値キャッシュの更新 */

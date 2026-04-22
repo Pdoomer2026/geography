@@ -1,3 +1,5 @@
+import type { GeoParamAddress } from './geoParamAddress'
+
 /**
  * MIDI Registry の型定義
  *
@@ -26,6 +28,7 @@ export interface RegisteredParameter extends ParameterSchema {
 export interface RegisteredParameterWithCC extends RegisteredParameter {
   ccNumber: number
   value: number
+  geoParamAddress: GeoParamAddress
 }
 
 export interface MIDIRegistry {

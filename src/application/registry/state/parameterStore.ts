@@ -39,6 +39,10 @@ export class ParameterStore {
     this.history.execute(command)
   }
 
+  delete(key: string): void {
+    this.values.delete(key)
+  }
+
   setDirect(key: string, value: number): void {
     this.values.set(key, value)
   }

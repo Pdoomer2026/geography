@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
 import { useDraggable } from '../../../../ui/useDraggable'
 import type { DragPayload, MacroAssign, MacroKnobConfig } from '../../../../application/schema'
+import { toGeoParamAddress, parseGeoParamAddress } from '../../../../application/schema'
 
 const KNOB_COUNT = 8
 const KNOB_SIZE = 70
@@ -221,7 +222,7 @@ function KnobCell({ config, value, assignValues, onEdit, onDrop, onKnobChange }:
         <div className="w-full mt-0.5">
           {config.assigns.map((a, i) => (
             <div key={i} className="text-[8px] text-[#4a4a7e] truncate text-center">
-              {a.layerId} · {a.paramId}
+              {a.layerId} · {parseGeoParamAddress(a.geoParamAddress)?.paramId ?? a.geoParamAddress}
             </div>
           ))}
         </div>
@@ -237,7 +238,7 @@ function KnobCell({ config, value, assignValues, onEdit, onDrop, onKnobChange }:
 interface EditDialogProps {
   config: MacroKnobConfig
   onSave: (name: string, midiCC: number) => void
-  onRemoveAssign: (paramId: string) => void
+  onRemoveAssign: (geoParamAddress: string) => void
   onClose: () => void
 }
 
@@ -297,10 +298,10 @@ function EditDialog({ config, onSave, onRemoveAssign, onClose }: EditDialogProps
             {config.assigns.map((a, i) => (
               <div key={i} className="flex items-center justify-between py-0.5 group">
                 <span className="text-[#5555aa] text-[9px]">
-                  {a.layerId} · CC{a.ccNumber} · {a.paramId}
+                  {a.layerId} · CC{a.ccNumber} · {parseGeoParamAddress(a.geoParamAddress)?.paramId ?? a.geoParamAddress}
                 </span>
                 <button
-                  onClick={() => onRemoveAssign(a.paramId)}
+                  onClick={() => onRemoveAssign(a.geoParamAddress)}
                   className="text-[8px] text-[#3a3a5e] hover:text-[#cc4444]
                              transition-colors ml-2 px-1 opacity-0 group-hover:opacity-100"
                 >×</button>
@@ -338,7 +339,7 @@ function AssignDialog({ knobId, payload, onAssign, onClose }: AssignDialogProps)
     if (minVal >= maxVal) { setError('min は max より小さくしてください'); return }
     const fullRange = payload.max - payload.min || 1
     const assign: MacroAssign = {
-      paramId: payload.id,
+      geoParamAddress: toGeoParamAddress(payload.layerId, payload.pluginId, payload.id),
       ccNumber: payload.ccNumber,
       layerId: payload.layerId,
       min: (minVal - payload.min) / fullRange,
@@ -455,9 +456,9 @@ export function Macro8Window() {
     setEditingId(null)
   }, [editingId])
 
-  const handleRemoveAssign = useCallback((paramId: string) => {
+  const handleRemoveAssign = useCallback((geoParamAddress: string) => {
     if (!editingId) return
-    engine.removeMacroAssign(editingId, paramId)
+    engine.removeMacroAssign(editingId, geoParamAddress)
     setKnobs([...engine.getMacroKnobs().slice(0, KNOB_COUNT)])
   }, [editingId])
 
