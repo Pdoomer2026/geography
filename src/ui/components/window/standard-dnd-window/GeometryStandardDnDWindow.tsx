@@ -43,7 +43,7 @@ export function GeometryStandardDnDWindow({ onPluginApply, onPluginRemove }: Geo
   const [pluginId, setPluginId] = useState<string>('')
   const [params, setParams] = useState<RegisteredParameterWithCC[]>([])
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 580, y: 200 })
-  const loHiMapRef = useRef<Map<number, { lo: number; hi: number }>>(new Map())
+  const loHiMapRef = useRef<Map<string, { lo: number; hi: number }>>(new Map())
 
   const getParamsFromRegistry = useCallback((layerId: LayerId, geoId: string) => {
     return engine.getParameters(layerId).filter((p) => p.pluginId === geoId)
@@ -145,17 +145,18 @@ export function GeometryStandardDnDWindow({ onPluginApply, onPluginRemove }: Geo
                 <div className="text-[#3a3a5e] text-[10px] py-2 text-center">— no params —</div>
               )}
               {params.map((param) => {
-                const saved = loHiMapRef.current.get(param.ccNumber)
+                const key = `${pluginId}:${param.ccNumber}`
+                const saved = loHiMapRef.current.get(key)
                 return (
                   <ParamRow
-                    key={param.ccNumber}
+                    key={`${pluginId}:${param.ccNumber}`}
                     param={param}
                     layerId={activeLayer}
                     pluginId={pluginId}
                     initialLo={saved?.lo ?? param.min}
                     initialHi={saved?.hi ?? param.max}
                     onLoHiChange={(lo, hi) => {
-                      loHiMapRef.current.set(param.ccNumber, { lo, hi })
+                      loHiMapRef.current.set(key, { lo, hi })
                     }}
                   />
                 )

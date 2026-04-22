@@ -26,7 +26,7 @@ export function FxStandardDnDWindow() {
   const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
   const [fxGroups, setFxGroups] = useState<FxGroup[]>([])
   const { pos, handleMouseDown } = useDraggable({ x: window.innerWidth - 320, y: 200 })
-  const loHiMapRef = useRef<Map<number, { lo: number; hi: number }>>(new Map())
+  const loHiMapRef = useRef<Map<string, { lo: number; hi: number }>>(new Map())
 
   const buildFxGroups = useCallback((lid: string): FxGroup[] => {
     return engine.getFxPlugins(lid).map((fx) => ({
@@ -125,7 +125,7 @@ interface FxGroupRowProps {
   group: FxGroup
   layerId: string
   onToggle: (fxId: string, enabled: boolean) => void
-  loHiMapRef: React.RefObject<Map<number, { lo: number; hi: number }>>
+  loHiMapRef: React.RefObject<Map<string, { lo: number; hi: number }>>
 }
 
 function FxGroupRow({ group, layerId, onToggle, loHiMapRef }: FxGroupRowProps) {
@@ -151,7 +151,8 @@ function FxGroupRow({ group, layerId, onToggle, loHiMapRef }: FxGroupRowProps) {
       {group.enabled && group.params.length > 0 && (
         <div className="ml-2 flex flex-col gap-2.5">
           {group.params.map((param) => {
-            const saved = loHiMapRef.current?.get(param.ccNumber)
+            const key = `${group.pluginId}:${param.ccNumber}`
+            const saved = loHiMapRef.current?.get(key)
             return (
               <ParamRow
                 key={`${group.pluginId}-${param.id}`}
@@ -161,7 +162,7 @@ function FxGroupRow({ group, layerId, onToggle, loHiMapRef }: FxGroupRowProps) {
                 initialLo={saved?.lo ?? param.min}
                 initialHi={saved?.hi ?? param.max}
                 onLoHiChange={(lo, hi) => {
-                  loHiMapRef.current?.set(param.ccNumber, { lo, hi })
+                  loHiMapRef.current?.set(key, { lo, hi })
                 }}
               />
             )
