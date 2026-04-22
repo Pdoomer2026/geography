@@ -76,6 +76,7 @@ export function GeometryStandardWindow({ onPluginApply, onPluginRemove }: Geomet
         return
       }
       if (geo.id !== pluginIdRef.current) {
+        pluginIdRef.current = geo.id  // 同期的に更新して再入を防ぐ
         setPluginId(geo.id); setPluginName(geo.name)
         setParams(getParamsFromRegistry(activeLayer, geo.id))
         onPluginApply(activeLayer, geo.id)

@@ -1,3 +1,4 @@
+import * as Tone from 'tone'
 import * as THREE from 'three'
 import { registry } from '../registry/registry'
 import { ParameterStore } from '../registry/state/parameterStore'
@@ -495,7 +496,8 @@ export class Engine {
   start(): void {
     if (this.animationId !== null) return
     this.threeClock.start()
-    this.clock.start()
+    // Tone.js は AudioContext がユーザージェスチャー後に resume される必要がある
+    Tone.start().then(() => { this.clock.start() }).catch(() => { this.clock.start() })
     this.loop()
   }
 
