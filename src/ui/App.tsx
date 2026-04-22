@@ -7,6 +7,7 @@ import { paramCommand$ } from '../application/command/commandStream'
 import { useGeoStore } from './store/geoStore'
 import { MixerSimpleWindow } from './components/mixers/simple-mixer/MixerSimpleWindow'
 import { Macro8Window } from './components/window/macro-8-window'
+import { Macro8MidiWindow } from './components/window/macro-8-window/Macro8MidiWindow'
 import { GeometrySimpleWindow, CameraSimpleWindow, FxSimpleWindow } from './components/window/simple-window'
 import { GeometryStandardWindow, CameraStandardWindow, FxStandardWindow } from './components/window/standard-window'
 import { GeometrySimpleDnDWindow, CameraSimpleDnDWindow, FxSimpleDnDWindow } from './components/window/simple-dnd-window'
@@ -155,6 +156,7 @@ export default function App() {
 
       {/* Macro */}
       {windowMode.macro === 'macro-8-window' && <Macro8Window />}
+      {windowMode.macro === 'macro-8-window' && <Macro8MidiWindow />}
 
       {/* Mixer */}
       {windowMode.mixer === 'mixer-simple' && <MixerSimpleWindow />}
