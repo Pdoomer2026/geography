@@ -81,9 +81,35 @@ export default function App() {
     if (!window.geoAPI) return
     window.geoAPI.onMenuEvents({
       onNew:        () => projectManager.newProject(),
-      onOpen:       (filePath: string, data: string) => projectManager.openProject(filePath, data),
+      // Day78: 薄い鏡化→ renderer 側が dialog + fs 操作を実行する
+      onOpen: async () => {
+        if (!window.geoAPI) return
+        const result = await window.geoAPI.showOpenDialog()
+        if (result.canceled || result.filePaths.length === 0) return
+        const filePath = result.filePaths[0]
+        const data = await window.geoAPI.loadFile(filePath)
+        projectManager.openProject(filePath, data)
+        await window.geoAPI.addRecent(filePath)
+      },
       onSave:       () => projectManager.save(),
-      onSaveAs:     (filePath: string) => projectManager.saveAs(filePath),
+      // Day78: 薄い鏡化→ renderer 側が showSaveDialog を実行する
+      onSaveAs: async () => {
+        if (!window.geoAPI) return
+        const result = await window.geoAPI.showSaveDialog()
+        if (result.canceled || !result.filePath) return
+        await projectManager.saveAs(result.filePath)
+      },
+      // Day78: 新規→ renderer 側が loadFile + addRecent を実行する
+      onOpenRecent: async (filePath: string) => {
+        if (!window.geoAPI) return
+        try {
+          const data = await window.geoAPI.loadFile(filePath)
+          projectManager.openProject(filePath, data)
+          await window.geoAPI.addRecent(filePath)
+        } catch {
+          console.warn('[GeoGraphy] ファイルが見つかりません:', filePath)
+        }
+      },
       onPreferences: () => setPrefsOpen((o) => !o),
       onToggleMixerWindow: () => setWindowMode((v) => ({ ...v, mixer: v.mixer === 'none' ? 'mixer-simple' : 'none' })),
       onToggleFxWindow: () => setWindowMode((v) => ({ ...v, fx: v.fx === 'none' ? 'standard' : 'none' })),

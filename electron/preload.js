@@ -58,10 +58,13 @@ contextBridge.exposeInMainWorld('geoAPI', {
    */
   onMenuEvents: (handlers) => {
     // File / GeoGraphy メニュー
+    // Day78: onOpen / onSaveAs は引数なしに変更（薄い鏡化）
+    //        renderer 側が dialog + fs 操作を担う
     if (handlers.onNew)          ipcRenderer.on('menu:new',          () => handlers.onNew())
-    if (handlers.onOpen)         ipcRenderer.on('menu:open',         (_e, filePath, data) => handlers.onOpen(filePath, data))
+    if (handlers.onOpen)         ipcRenderer.on('menu:open',         () => handlers.onOpen())
     if (handlers.onSave)         ipcRenderer.on('menu:save',         () => handlers.onSave())
-    if (handlers.onSaveAs)       ipcRenderer.on('menu:save-as',      (_e, filePath) => handlers.onSaveAs(filePath))
+    if (handlers.onSaveAs)       ipcRenderer.on('menu:save-as',      () => handlers.onSaveAs())
+    if (handlers.onOpenRecent)   ipcRenderer.on('menu:open-recent',  (_e, filePath) => handlers.onOpenRecent(filePath))
     if (handlers.onPreferences)  ipcRenderer.on('menu:preferences',  () => handlers.onPreferences())
 
     // View メニュー（Day29追加）
@@ -93,11 +96,23 @@ contextBridge.exposeInMainWorld('geoAPI', {
   /**
    * onMenuEvents で登録したリスナーをすべて解除する
    */
+  // ── Recent ファイル管理（Day78追加）────────────────────────────
+
+  addRecent: (filePath) =>
+    ipcRenderer.invoke('add-recent', filePath),
+
+  getRecent: () =>
+    ipcRenderer.invoke('get-recent'),
+
+  clearRecent: () =>
+    ipcRenderer.invoke('clear-recent'),
+
   removeMenuListeners: () => {
     ipcRenderer.removeAllListeners('menu:new')
     ipcRenderer.removeAllListeners('menu:open')
     ipcRenderer.removeAllListeners('menu:save')
     ipcRenderer.removeAllListeners('menu:save-as')
+    ipcRenderer.removeAllListeners('menu:open-recent')
     ipcRenderer.removeAllListeners('menu:preferences')
     ipcRenderer.removeAllListeners('menu:toggle-mixer-window')
     ipcRenderer.removeAllListeners('menu:toggle-fx-window')

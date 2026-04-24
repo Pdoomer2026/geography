@@ -53,8 +53,8 @@ class ProjectManagerImpl {
   async save(): Promise<void> {
     if (!window.geoAPI) return
     if (!this.currentFilePath) {
-      // SaveAs にフォールバック（geoAPI 側でダイアログを開く）
-      window.geoAPI.onMenuEvents({ onSaveAs: (path: string) => this.saveAs(path) })
+      // SaveAs にフォールバック→ App.tsx の onSaveAs ハンドラーが担当する
+      // sendToRenderer('menu:save') を受けた後、App.tsx 内で showSaveDialog が展開される
       return
     }
     const name =

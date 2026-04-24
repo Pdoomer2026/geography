@@ -44,13 +44,19 @@ declare global {
       /**
        * メニューバーからの操作イベントをまとめて登録する。
        * File / GeoGraphy / View メニューのイベントを一括受信する。
+       *
+       * Day78: 薄い鏡化により onOpen / onSaveAs は引数なしに変更。
+       *   - onOpen: renderer 側が showOpenDialog() + loadFile() + addRecent() を実行
+       *   - onSaveAs: renderer 側が showSaveDialog() + saveAs() を実行
+       *   - onOpenRecent: renderer 側が loadFile() + openProject() + addRecent() を実行
        */
       onMenuEvents(handlers: {
         // File / GeoGraphy メニュー
         onNew?: () => void
-        onOpen?: (filePath: string, data: string) => void
+        onOpen?: () => void
         onSave?: () => void
-        onSaveAs?: (filePath: string) => void
+        onSaveAs?: () => void
+        onOpenRecent?: (filePath: string) => void
         onPreferences?: () => void
 
         // View メニュー（Day29追加）
@@ -75,6 +81,21 @@ declare global {
        * 保存先パスを返す。
        */
       saveRecording(buffer: ArrayBuffer, defaultName: string): Promise<{ filePath?: string; canceled: boolean }>
+
+      // ── CC Map / CC Overrides ─────────────────────────────────
+      // spec: docs/spec/cc-mapping.spec.md §6
+
+      // ── Recent ファイル管理（Day78追加）─────────────────────────
+      // spec: docs/spec/electron.spec.md §4
+
+      /** filePath を Recent に追加する。main.js が recent.json を更新してメニューを再構築する */
+      addRecent(filePath: string): Promise<{ success: boolean }>
+
+      /** Recent リストを取得する（最大5件） */
+      getRecent(): Promise<Array<{ name: string; filePath: string; savedAt: string }>>
+
+      /** Recent リストをクリアする */
+      clearRecent(): Promise<{ success: boolean }>
 
       // ── CC Map / CC Overrides ─────────────────────────────────
       // spec: docs/spec/cc-mapping.spec.md §6
