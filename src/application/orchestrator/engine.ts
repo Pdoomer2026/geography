@@ -783,6 +783,19 @@ export class Engine {
     })
   }
 
+  // ── Output API（spec: docs/spec/output-manager.spec.md）────────────
+
+  /**
+   * Program 側（最初の非ミュート）レイヤーの canvas を返す。
+   * outputManager が captureStream() を呼ぶために使用する。
+   * preserveDrawingBuffer: true は layerManager 側で設定済み。
+   */
+  getOutputCanvas(): HTMLCanvasElement | null {
+    const layers = layerManager.getLayers()
+    const programLayer = layers.find((l) => !l.mute) ?? layers[0]
+    return programLayer?.canvas ?? null
+  }
+
   applyCameraSetup(cameraPluginIds: string[]): void {
     const layers = layerManager.getLayers()
     layers.forEach((layer, index) => {

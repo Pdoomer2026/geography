@@ -11,7 +11,7 @@
  * IMPORTANT: electron/ ディレクトリは CommonJS モード（electron/package.json で指定）
  */
 
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Menu, screen } = require('electron')
 const { join } = require('path')
 const { readFile, writeFile, mkdir } = require('fs/promises')
 const { existsSync } = require('fs')
@@ -225,6 +225,12 @@ function buildMenu(recentItems = []) {
           click: () => sendToRenderer('menu:show-all-windows'),
         },
         { type: 'separator' },
+        {
+          label: 'Output Window',
+          accelerator: 'Cmd+Shift+O',
+          click: () => sendToRenderer('menu:toggle-output'),
+        },
+        { type: 'separator' },
         ...(isDev
           ? [
               { label: 'Reload', role: 'reload' },
@@ -410,6 +416,36 @@ ipcMain.handle('clear-recent', async () => {
   await writeFile(RECENT_PATH, '[]', 'utf-8')
   buildMenu([])
   return { success: true }
+})
+
+// ── Output 機能（spec: docs/spec/output-manager.spec.md）──────────────────
+
+/**
+ * 接続中の全ディスプレイ情報を返す。
+ * outputManager がセカンダリディスプレイを特定するために使用する。
+ */
+ipcMain.handle('get-displays', () => {
+  return screen.getAllDisplays().map((d) => ({
+    id: d.id,
+    label: d.label ?? `Display ${d.id}`,
+    bounds: d.bounds,
+    isPrimary: d.id === screen.getPrimaryDisplay().id,
+  }))
+})
+
+/**
+ * output popup ウィンドウを指定座標に移動する。
+ * renderer 側の outputManager が openOutput() 内で呼び出す。
+ *
+ * 注意: popup（output window）は renderer が window.open() で開くため、
+ * Electron からは "GeoGraphy Output" タイトルを持つ BrowserWindow として識別する。
+ */
+ipcMain.handle('move-output-window', (_event, x, y, w, h) => {
+  const wins = BrowserWindow.getAllWindows()
+  const outputWin = wins.find((win) => win.getTitle() === 'GeoGraphy Output')
+  if (!outputWin) return
+  outputWin.setBounds({ x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) })
+  outputWin.setFullScreen(true)
 })
 
 // ── アプリライフサイクル ────────────────────────────────────────────

@@ -15,6 +15,7 @@ import { GeometryStandardDnDWindow, CameraStandardDnDWindow, FxStandardDnDWindow
 import { GeoMonitorWindow } from './components/window/geo-monitor'
 import { MidiMonitorWindow } from './components/window/midi-monitor'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
+import { outputManager } from '../application/orchestrator/outputManager'
 import { useAutosave } from './useAutosave'
 import { DEFAULT_WINDOW_MODE } from '../application/schema/windowMode'
 import type { WindowMode } from '../application/schema/windowMode'
@@ -125,6 +126,7 @@ export default function App() {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
         await window.geoAPI.saveRecording(arrayBuffer, `recording-${timestamp}.webm`)
       },
+      onToggleOutput: () => { outputManager.toggleOutput() },
     })
     return () => { window.geoAPI?.removeMenuListeners() }
   }, [])
@@ -144,6 +146,7 @@ export default function App() {
         setPrefsOpen(false)
         document.documentElement.requestFullscreen?.().catch(() => {})
       }
+      if (e.key === 'o' || e.key === 'O') { outputManager.toggleOutput() }
       if (e.key === 'h' || e.key === 'H') setWindowMode(HIDE_ALL)
       if (e.key === 's' || e.key === 'S') setWindowMode(DEFAULT_WINDOW_MODE)
     }
@@ -234,7 +237,7 @@ export default function App() {
         className="fixed bottom-1 right-2 text-[9px] text-[#3a3a5e] select-none pointer-events-none"
         style={{ zIndex: 100 }}
       >
-        P:Prefs 1:Macro 3:Mixer M:MIDI Monitor 6:GeoMonitor | H:Hide S:Show F:全非表示+全画面
+        P:Prefs 1:Macro 3:Mixer M:MIDI Monitor 6:GeoMonitor O:Output | H:Hide S:Show F:全非表示+全画面
       </div>
     </>
   )

@@ -75,6 +75,7 @@ contextBridge.exposeInMainWorld('geoAPI', {
     if (handlers.onShowAllWindows)        ipcRenderer.on('menu:show-all-windows',        () => handlers.onShowAllWindows())
     if (handlers.onStartRecording)        ipcRenderer.on('menu:start-recording',         () => handlers.onStartRecording())
     if (handlers.onStopRecording)         ipcRenderer.on('menu:stop-recording',          () => handlers.onStopRecording())
+    if (handlers.onToggleOutput)          ipcRenderer.on('menu:toggle-output',           () => handlers.onToggleOutput())
   },
 
   // ── 録画 ──────────────────────────────────────────────────
@@ -107,6 +108,14 @@ contextBridge.exposeInMainWorld('geoAPI', {
   clearRecent: () =>
     ipcRenderer.invoke('clear-recent'),
 
+  // ── Output（spec: docs/spec/output-manager.spec.md）──────────────
+
+  getDisplays: () =>
+    ipcRenderer.invoke('get-displays'),
+
+  moveOutputWindow: (x, y, w, h) =>
+    ipcRenderer.invoke('move-output-window', x, y, w, h),
+
   removeMenuListeners: () => {
     ipcRenderer.removeAllListeners('menu:new')
     ipcRenderer.removeAllListeners('menu:open')
@@ -121,5 +130,6 @@ contextBridge.exposeInMainWorld('geoAPI', {
     ipcRenderer.removeAllListeners('menu:show-all-windows')
     ipcRenderer.removeAllListeners('menu:start-recording')
     ipcRenderer.removeAllListeners('menu:stop-recording')
+    ipcRenderer.removeAllListeners('menu:toggle-output')
   },
 })

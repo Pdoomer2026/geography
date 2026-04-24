@@ -1,0 +1,36 @@
+feat: add Output Manager for HDMI/external monitor output (Day79)
+
+spec: docs/spec/output-manager.spec.md を新規作成。
+
+【実装内容】
+- docs/spec/output-manager.spec.md（新規）
+  canvas.captureStream() -> MediaStream -> popup <video> のアーキテクチャを定義
+  Electron / React dev 両環境の差分を明文化
+
+- engine.getOutputCanvas()（追加）
+  最初の非ミュートレイヤーの canvas を返す Output API
+
+- src/application/orchestrator/outputManager.ts（新規）
+  openOutput() / closeOutput() / isOpen() / toggleOutput()
+  Electron 環境: geoAPI.getDisplays() + moveOutputWindow() でセカンダリモニターに自動配置
+  React dev 環境: window.open() のみ（手動ドラッグ）
+
+- geoAPI.d.ts（追記）
+  getDisplays() / moveOutputWindow() / onToggleOutput 型定義
+
+- electron/preload.js（追記）
+  get-displays / move-output-window IPC expose
+  onMenuEvents に onToggleOutput 追加
+
+- electron/main.js（追記）
+  screen モジュール追加
+  get-displays / move-output-window IPC ハンドラー
+  View メニューに Output Window（Cmd+Shift+O）追加
+
+- App.tsx（追記）
+  onToggleOutput メニューイベント接続
+  キーボードショートカット o/O でトグル
+  ショートカット表示バーに O:Output 追記
+
+薄い鏡アーキテクチャにより Electron / React dev で共通コード。
+Electron 固有部分は geoAPI 経由に限定。

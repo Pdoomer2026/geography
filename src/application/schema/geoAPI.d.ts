@@ -69,6 +69,9 @@ declare global {
         // 録画イベント
         onStartRecording?: () => void
         onStopRecording?: () => void
+
+        // Output イベント（spec: docs/spec/output-manager.spec.md）
+        onToggleOutput?: () => void
       }): void
 
       /** onMenuEvents で登録したリスナーをすべて解除する */
@@ -96,6 +99,25 @@ declare global {
 
       /** Recent リストをクリアする */
       clearRecent(): Promise<{ success: boolean }>
+
+      // ── Output（spec: docs/spec/output-manager.spec.md）─────────
+
+      /**
+       * 接続中のディスプレイ一覧を返す。
+       * outputManager が getDisplays() を呼んでセカンダリを特定する。
+       */
+      getDisplays(): Promise<Array<{
+        id: number
+        label: string
+        bounds: { x: number; y: number; width: number; height: number }
+        isPrimary: boolean
+      }>>
+
+      /**
+       * output popup ウィンドウをセカンダリディスプレイに移動する。
+       * Electron の BrowserWindow.setBounds() を使用。
+       */
+      moveOutputWindow(x: number, y: number, width: number, height: number): Promise<void>
 
       // ── CC Map / CC Overrides ─────────────────────────────────
       // spec: docs/spec/cc-mapping.spec.md §6
