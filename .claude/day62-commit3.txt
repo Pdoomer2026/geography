@@ -1,0 +1,22 @@
+refactor(sdk-boundary): route all Window imports through engine facade
+
+Part of SDK boundary design (Day62). Windows must not directly import
+core singletons (transportRegistry, assignRegistry, transportManager).
+
+Added to engine.ts:
+  - getParameters(layerId?)      : transportRegistry.getAll() facade
+  - onRegistryChanged(cb)        : transportRegistry.onChanged() facade
+  - removePluginFromRegistry(id) : transportRegistry.clear() facade
+
+Migrated callers:
+  - App.tsx                : transportRegistry.clear() -> engine.removePluginFromRegistry()
+  - GeometrySimpleWindow   : transportRegistry.* -> engine.getParameters/onRegistryChanged
+  - CameraSimpleWindow     : transportRegistry.* -> engine.getParameters/onRegistryChanged
+  - FxSimpleWindow         : transportRegistry.* -> engine.getParameters/onRegistryChanged
+  - MacroWindow            : assignRegistry.* -> engine.getMacroKnobs/setMacroKnob/...
+  - MacroWindow            : transportManager.receiveModulation -> engine.receiveMidiModulation
+
+Result: no Window/App file imports transportRegistry, assignRegistry,
+or transportManager directly. engine is the sole public boundary.
+
+Baseline: 127 tests, zero tsc errors.

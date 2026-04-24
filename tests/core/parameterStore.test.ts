@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { ParameterStore } from '../../src/core/parameterStore'
+import { ParameterStore } from '../../src/application/registry/state/parameterStore'
 
 describe('ParameterStore', () => {
   let store: ParameterStore

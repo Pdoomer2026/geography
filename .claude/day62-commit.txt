@@ -1,0 +1,15 @@
+fix(transportRegistry): support multiple subscribers for onChanged
+
+Previously onChanged() stored a single callback, causing silent
+subscriber overwrites when multiple WindowPlugins registered listeners.
+GeometrySimpleWindow and CameraSimpleWindow were not receiving
+registry change notifications because FxSimpleWindow's registration
+always overwrote theirs.
+
+Changes:
+- Replace onChangedCallback (single) with listeners: Set<() => void>
+- onChanged() now returns an unsubscribe function (() => void)
+- Add private notify() with snapshot copy for re-entrancy safety
+- Add tests/core/transportRegistry.test.ts (13 tests)
+
+Baseline: 114 tests -> 127 tests, zero tsc errors

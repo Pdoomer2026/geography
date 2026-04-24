@@ -1,6 +1,6 @@
 {
   "version": "0.2",
-  "generatedAt": "2026-04-07T04:17:55.011Z",
+  "generatedAt": "2026-04-22T01:12:53.357Z",
   "generatedFrom": "docs/spec/cc-mapping.md",
   "mappings": [
     {
@@ -9,7 +9,7 @@
       "params": [
         {
           "paramId": "radius",
-          "ccNumber": 101,
+          "ccNumber": 11101,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0.5,
@@ -20,7 +20,7 @@
         },
         {
           "paramId": "detail",
-          "ccNumber": 201,
+          "ccNumber": 11201,
           "block": "FORM",
           "blockName": "Density/Detail",
           "pluginMin": 0,
@@ -31,7 +31,7 @@
         },
         {
           "paramId": "speed",
-          "ccNumber": 300,
+          "ccNumber": 11301,
           "block": "MOTION",
           "blockName": "Temporal Speed",
           "pluginMin": 0,
@@ -42,7 +42,7 @@
         },
         {
           "paramId": "hue",
-          "ccNumber": 400,
+          "ccNumber": 11401,
           "block": "COLOR",
           "blockName": "Hue",
           "pluginMin": 0,
@@ -59,7 +59,7 @@
       "params": [
         {
           "paramId": "radius",
-          "ccNumber": 101,
+          "ccNumber": 11101,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0.5,
@@ -70,7 +70,7 @@
         },
         {
           "paramId": "tube",
-          "ccNumber": 102,
+          "ccNumber": 11102,
           "block": "EXISTENCE",
           "blockName": "Secondary Amount",
           "pluginMin": 0.1,
@@ -81,7 +81,7 @@
         },
         {
           "paramId": "tubularSegs",
-          "ccNumber": 201,
+          "ccNumber": 11201,
           "block": "FORM",
           "blockName": "Density/Detail",
           "pluginMin": 8,
@@ -92,7 +92,7 @@
         },
         {
           "paramId": "radialSegs",
-          "ccNumber": 202,
+          "ccNumber": 11202,
           "block": "FORM",
           "blockName": "Inner Shape",
           "pluginMin": 3,
@@ -103,7 +103,7 @@
         },
         {
           "paramId": "speed",
-          "ccNumber": 300,
+          "ccNumber": 11301,
           "block": "MOTION",
           "blockName": "Temporal Speed",
           "pluginMin": 0,
@@ -114,7 +114,7 @@
         },
         {
           "paramId": "hue",
-          "ccNumber": 400,
+          "ccNumber": 11401,
           "block": "COLOR",
           "blockName": "Hue",
           "pluginMin": 0,
@@ -131,7 +131,7 @@
       "params": [
         {
           "paramId": "radius",
-          "ccNumber": 101,
+          "ccNumber": 11101,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0.5,
@@ -142,7 +142,7 @@
         },
         {
           "paramId": "tube",
-          "ccNumber": 102,
+          "ccNumber": 11102,
           "block": "EXISTENCE",
           "blockName": "Secondary Amount",
           "pluginMin": 0.1,
@@ -153,7 +153,7 @@
         },
         {
           "paramId": "tubularSegs",
-          "ccNumber": 201,
+          "ccNumber": 11201,
           "block": "FORM",
           "blockName": "Density/Detail",
           "pluginMin": 32,
@@ -164,7 +164,7 @@
         },
         {
           "paramId": "radialSegs",
-          "ccNumber": 202,
+          "ccNumber": 11202,
           "block": "FORM",
           "blockName": "Inner Shape",
           "pluginMin": 3,
@@ -175,7 +175,7 @@
         },
         {
           "paramId": "p",
-          "ccNumber": 204,
+          "ccNumber": 11203,
           "block": "FORM",
           "blockName": "Topology A",
           "pluginMin": 1,
@@ -186,18 +186,18 @@
         },
         {
           "paramId": "q",
-          "ccNumber": 205,
+          "ccNumber": 11204,
           "block": "FORM",
           "blockName": "Topology B",
           "pluginMin": 1,
           "pluginMax": 8,
           "ccMin": 0,
           "ccMax": 1,
-          "note": "int値・CC205新設"
+          "note": "int値"
         },
         {
           "paramId": "speed",
-          "ccNumber": 300,
+          "ccNumber": 11301,
           "block": "MOTION",
           "blockName": "Temporal Speed",
           "pluginMin": 0,
@@ -208,7 +208,7 @@
         },
         {
           "paramId": "hue",
-          "ccNumber": 400,
+          "ccNumber": 11401,
           "block": "COLOR",
           "blockName": "Hue",
           "pluginMin": 0,
@@ -225,7 +225,7 @@
       "params": [
         {
           "paramId": "size",
-          "ccNumber": 101,
+          "ccNumber": 11101,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 10,
@@ -236,7 +236,7 @@
         },
         {
           "paramId": "segments",
-          "ccNumber": 201,
+          "ccNumber": 11201,
           "block": "FORM",
           "blockName": "Density/Detail",
           "pluginMin": 10,
@@ -247,7 +247,7 @@
         },
         {
           "paramId": "speed",
-          "ccNumber": 300,
+          "ccNumber": 11301,
           "block": "MOTION",
           "blockName": "Temporal Speed",
           "pluginMin": 0,
@@ -258,7 +258,7 @@
         },
         {
           "paramId": "amplitude",
-          "ccNumber": 302,
+          "ccNumber": 11302,
           "block": "MOTION",
           "blockName": "Deformation",
           "pluginMin": 0.1,
@@ -269,7 +269,7 @@
         },
         {
           "paramId": "scale",
-          "ccNumber": 303,
+          "ccNumber": 11303,
           "block": "MOTION",
           "blockName": "Frequency",
           "pluginMin": 0.1,
@@ -280,7 +280,7 @@
         },
         {
           "paramId": "hue",
-          "ccNumber": 400,
+          "ccNumber": 11401,
           "block": "COLOR",
           "blockName": "Hue",
           "pluginMin": 0,
@@ -297,7 +297,7 @@
       "params": [
         {
           "paramId": "hexSize",
-          "ccNumber": 101,
+          "ccNumber": 11101,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0.5,
@@ -308,7 +308,7 @@
         },
         {
           "paramId": "cols",
-          "ccNumber": 201,
+          "ccNumber": 11201,
           "block": "FORM",
           "blockName": "Density/Detail",
           "pluginMin": 4,
@@ -319,7 +319,7 @@
         },
         {
           "paramId": "rows",
-          "ccNumber": 202,
+          "ccNumber": 11202,
           "block": "FORM",
           "blockName": "Inner Shape",
           "pluginMin": 4,
@@ -330,7 +330,7 @@
         },
         {
           "paramId": "speed",
-          "ccNumber": 300,
+          "ccNumber": 11301,
           "block": "MOTION",
           "blockName": "Temporal Speed",
           "pluginMin": 0,
@@ -341,7 +341,7 @@
         },
         {
           "paramId": "maxHeight",
-          "ccNumber": 302,
+          "ccNumber": 11302,
           "block": "MOTION",
           "blockName": "Deformation",
           "pluginMin": 0,
@@ -352,7 +352,7 @@
         },
         {
           "paramId": "hue",
-          "ccNumber": 400,
+          "ccNumber": 11401,
           "block": "COLOR",
           "blockName": "Hue",
           "pluginMin": 0,
@@ -369,7 +369,7 @@
       "params": [
         {
           "paramId": "radius",
-          "ccNumber": 101,
+          "ccNumber": 11101,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 1,
@@ -380,7 +380,7 @@
         },
         {
           "paramId": "segments",
-          "ccNumber": 201,
+          "ccNumber": 11201,
           "block": "FORM",
           "blockName": "Density/Detail",
           "pluginMin": 3,
@@ -391,7 +391,7 @@
         },
         {
           "paramId": "rings",
-          "ccNumber": 202,
+          "ccNumber": 11202,
           "block": "FORM",
           "blockName": "Inner Shape",
           "pluginMin": 5,
@@ -402,7 +402,7 @@
         },
         {
           "paramId": "speed",
-          "ccNumber": 300,
+          "ccNumber": 11301,
           "block": "MOTION",
           "blockName": "Temporal Speed",
           "pluginMin": 0,
@@ -412,19 +412,8 @@
           "note": ""
         },
         {
-          "paramId": "length",
-          "ccNumber": 507,
-          "block": "SPACE",
-          "blockName": "Depth",
-          "pluginMin": 10,
-          "pluginMax": 100,
-          "ccMin": 0,
-          "ccMax": 1,
-          "note": ""
-        },
-        {
           "paramId": "hue",
-          "ccNumber": 400,
+          "ccNumber": 11401,
           "block": "COLOR",
           "blockName": "Hue",
           "pluginMin": 0,
@@ -432,6 +421,17 @@
           "ccMin": 0,
           "ccMax": 1,
           "note": "度数→CC変換"
+        },
+        {
+          "paramId": "length",
+          "ccNumber": 11501,
+          "block": "SPACE",
+          "blockName": "Depth",
+          "pluginMin": 10,
+          "pluginMax": 100,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
         }
       ]
     },
@@ -441,7 +441,7 @@
       "params": [
         {
           "paramId": "size",
-          "ccNumber": 101,
+          "ccNumber": 11101,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 1,
@@ -452,7 +452,7 @@
         },
         {
           "paramId": "segments",
-          "ccNumber": 201,
+          "ccNumber": 11201,
           "block": "FORM",
           "blockName": "Density/Detail",
           "pluginMin": 10,
@@ -463,7 +463,7 @@
         },
         {
           "paramId": "speed",
-          "ccNumber": 300,
+          "ccNumber": 11301,
           "block": "MOTION",
           "blockName": "Temporal Speed",
           "pluginMin": 0.1,
@@ -474,7 +474,7 @@
         },
         {
           "paramId": "amplitude",
-          "ccNumber": 302,
+          "ccNumber": 11302,
           "block": "MOTION",
           "blockName": "Deformation",
           "pluginMin": 0.1,
@@ -485,7 +485,7 @@
         },
         {
           "paramId": "frequency",
-          "ccNumber": 303,
+          "ccNumber": 11303,
           "block": "MOTION",
           "blockName": "Frequency",
           "pluginMin": 0.1,
@@ -493,6 +493,138 @@
           "ccMin": 0,
           "ccMax": 1,
           "note": ""
+        },
+        {
+          "paramId": "hue",
+          "ccNumber": 11401,
+          "block": "COLOR",
+          "blockName": "Hue",
+          "pluginMin": 0,
+          "pluginMax": 360,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "度数→CC変換"
+        },
+        {
+          "paramId": "posX",
+          "ccNumber": 12501,
+          "block": "SPACE",
+          "blockName": "Position X",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "中心=0.5"
+        },
+        {
+          "paramId": "posY",
+          "ccNumber": 12502,
+          "block": "SPACE",
+          "blockName": "Position Y",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "中心=0.5"
+        },
+        {
+          "paramId": "posZ",
+          "ccNumber": 12503,
+          "block": "SPACE",
+          "blockName": "Position Z",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "中心=0.5"
+        },
+        {
+          "paramId": "lookAtX",
+          "ccNumber": 12504,
+          "block": "SPACE",
+          "blockName": "LookAt X",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "注視点・中心=0.5"
+        },
+        {
+          "paramId": "lookAtY",
+          "ccNumber": 12505,
+          "block": "SPACE",
+          "blockName": "LookAt Y",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "注視点・中心=0.5"
+        },
+        {
+          "paramId": "lookAtZ",
+          "ccNumber": 12506,
+          "block": "SPACE",
+          "blockName": "LookAt Z",
+          "pluginMin": -50,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "注視点・中心=0.5"
+        },
+        {
+          "paramId": "radius",
+          "ccNumber": 12101,
+          "block": "EXISTENCE",
+          "blockName": "Primary Amount",
+          "pluginMin": 1,
+          "pluginMax": 50,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "autoRotate",
+          "ccNumber": 12102,
+          "block": "EXISTENCE",
+          "blockName": "Auto Rotate",
+          "pluginMin": 0,
+          "pluginMax": 1,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "bool型"
+        },
+        {
+          "paramId": "speed",
+          "ccNumber": 12301,
+          "block": "MOTION",
+          "blockName": "Temporal Speed",
+          "pluginMin": 0,
+          "pluginMax": 3,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "height",
+          "ccNumber": 12502,
+          "block": "SPACE",
+          "blockName": "Position Y",
+          "pluginMin": -20,
+          "pluginMax": 30,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": ""
+        },
+        {
+          "paramId": "height",
+          "ccNumber": 12502,
+          "block": "SPACE",
+          "blockName": "Position Y",
+          "pluginMin": 1,
+          "pluginMax": 100,
+          "ccMin": 0,
+          "ccMax": 1,
+          "note": "俯瞰視点の高さ"
         }
       ]
     },
@@ -502,7 +634,7 @@
       "params": [
         {
           "paramId": "size",
-          "ccNumber": 101,
+          "ccNumber": 13101,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0.01,
@@ -513,7 +645,7 @@
         },
         {
           "paramId": "opacity",
-          "ccNumber": 103,
+          "ccNumber": 13102,
           "block": "EXISTENCE",
           "blockName": "Opacity",
           "pluginMin": 0,
@@ -524,7 +656,7 @@
         },
         {
           "paramId": "count",
-          "ccNumber": 201,
+          "ccNumber": 13201,
           "block": "FORM",
           "blockName": "Density/Detail",
           "pluginMin": 500,
@@ -535,7 +667,7 @@
         },
         {
           "paramId": "speed",
-          "ccNumber": 300,
+          "ccNumber": 13301,
           "block": "MOTION",
           "blockName": "Temporal Speed",
           "pluginMin": 0,
@@ -546,7 +678,7 @@
         },
         {
           "paramId": "depth",
-          "ccNumber": 507,
+          "ccNumber": 13501,
           "block": "SPACE",
           "blockName": "Depth",
           "pluginMin": 10,
@@ -559,11 +691,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "bloom",
+      "pluginId": "bloom（X=1）",
       "params": [
         {
           "paramId": "strength",
-          "ccNumber": 101,
+          "ccNumber": 14111,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0,
@@ -574,7 +706,7 @@
         },
         {
           "paramId": "radius",
-          "ccNumber": 603,
+          "ccNumber": 14613,
           "block": "EDGE",
           "blockName": "Sharpness/Blur",
           "pluginMin": 0,
@@ -585,7 +717,7 @@
         },
         {
           "paramId": "threshold",
-          "ccNumber": 700,
+          "ccNumber": 14711,
           "block": "BLEND",
           "blockName": "Blend Amount",
           "pluginMin": 0,
@@ -598,11 +730,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "after-image",
+      "pluginId": "after-image（X=2）",
       "params": [
         {
           "paramId": "damp",
-          "ccNumber": 701,
+          "ccNumber": 14722,
           "block": "BLEND",
           "blockName": "Feedback Amount",
           "pluginMin": 0,
@@ -615,11 +747,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "feedback",
+      "pluginId": "feedback（X=3）",
       "params": [
         {
           "paramId": "amount",
-          "ccNumber": 701,
+          "ccNumber": 14732,
           "block": "BLEND",
           "blockName": "Feedback Amount",
           "pluginMin": 0,
@@ -630,7 +762,7 @@
         },
         {
           "paramId": "decay",
-          "ccNumber": 703,
+          "ccNumber": 14733,
           "block": "BLEND",
           "blockName": "Feedback Scale",
           "pluginMin": 0.9,
@@ -641,7 +773,7 @@
         },
         {
           "paramId": "offsetX",
-          "ccNumber": 500,
+          "ccNumber": 14531,
           "block": "SPACE",
           "blockName": "Position X",
           "pluginMin": -0.05,
@@ -652,7 +784,7 @@
         },
         {
           "paramId": "offsetY",
-          "ccNumber": 501,
+          "ccNumber": 14532,
           "block": "SPACE",
           "blockName": "Position Y",
           "pluginMin": -0.05,
@@ -665,11 +797,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "color-grading",
+      "pluginId": "color-grading（X=4）",
       "params": [
         {
           "paramId": "saturation",
-          "ccNumber": 401,
+          "ccNumber": 14441,
           "block": "COLOR",
           "blockName": "Saturation",
           "pluginMin": 0,
@@ -680,7 +812,7 @@
         },
         {
           "paramId": "brightness",
-          "ccNumber": 402,
+          "ccNumber": 14442,
           "block": "COLOR",
           "blockName": "Brightness",
           "pluginMin": 0,
@@ -691,7 +823,7 @@
         },
         {
           "paramId": "contrast",
-          "ccNumber": 403,
+          "ccNumber": 14443,
           "block": "COLOR",
           "blockName": "Contrast",
           "pluginMin": 0,
@@ -704,11 +836,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "glitch",
+      "pluginId": "glitch（X=5）",
       "params": [
         {
           "paramId": "goWild",
-          "ccNumber": 101,
+          "ccNumber": 14151,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0,
@@ -719,7 +851,7 @@
         },
         {
           "paramId": "interval",
-          "ccNumber": 304,
+          "ccNumber": 14352,
           "block": "MOTION",
           "blockName": "Randomness",
           "pluginMin": 10,
@@ -732,11 +864,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "kaleidoscope",
+      "pluginId": "kaleidoscope（X=6）",
       "params": [
         {
           "paramId": "segments",
-          "ccNumber": 203,
+          "ccNumber": 14261,
           "block": "FORM",
           "blockName": "Symmetry/Repeat",
           "pluginMin": 2,
@@ -747,7 +879,7 @@
         },
         {
           "paramId": "angle",
-          "ccNumber": 301,
+          "ccNumber": 14361,
           "block": "MOTION",
           "blockName": "Phase/Offset",
           "pluginMin": 0,
@@ -760,11 +892,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "rgb-shift",
+      "pluginId": "rgb-shift（X=7）",
       "params": [
         {
           "paramId": "amount",
-          "ccNumber": 101,
+          "ccNumber": 14171,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0,
@@ -775,7 +907,7 @@
         },
         {
           "paramId": "angle",
-          "ccNumber": 301,
+          "ccNumber": 14371,
           "block": "MOTION",
           "blockName": "Phase/Offset",
           "pluginMin": 0,
@@ -788,11 +920,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "zoom-blur",
+      "pluginId": "zoom-blur（X=8）",
       "params": [
         {
           "paramId": "strength",
-          "ccNumber": 101,
+          "ccNumber": 14181,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0,
@@ -805,11 +937,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "mirror",
+      "pluginId": "mirror（X=9）",
       "params": [
         {
           "paramId": "horizontal",
-          "ccNumber": 203,
+          "ccNumber": 14291,
           "block": "FORM",
           "blockName": "Symmetry/Repeat",
           "pluginMin": 0,
@@ -822,11 +954,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "crt",
+      "pluginId": "crt（X=0）",
       "params": [
         {
           "paramId": "scanlineIntensity",
-          "ccNumber": 600,
+          "ccNumber": 14601,
           "block": "EDGE",
           "blockName": "Edge Strength",
           "pluginMin": 0,
@@ -837,7 +969,7 @@
         },
         {
           "paramId": "curvature",
-          "ccNumber": 604,
+          "ccNumber": 14604,
           "block": "EDGE",
           "blockName": "Vignette",
           "pluginMin": 0,
@@ -850,11 +982,11 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "film",
+      "pluginId": "film（X=0）",
       "params": [
         {
           "paramId": "intensity",
-          "ccNumber": 101,
+          "ccNumber": 14101,
           "block": "EXISTENCE",
           "blockName": "Primary Amount",
           "pluginMin": 0,
@@ -865,7 +997,7 @@
         },
         {
           "paramId": "grayscale",
-          "ccNumber": 401,
+          "ccNumber": 14401,
           "block": "COLOR",
           "blockName": "Saturation",
           "pluginMin": 0,
@@ -878,22 +1010,22 @@
     },
     {
       "pluginType": "fx",
-      "pluginId": "frei-chen",
+      "pluginId": "frei-chen（X=0）",
       "params": [
         {
           "paramId": "width",
-          "ccNumber": 600,
+          "ccNumber": 14601,
           "block": "EDGE",
           "blockName": "Edge Strength",
           "pluginMin": 64,
           "pluginMax": 1920,
           "ccMin": 0,
           "ccMax": 1,
-          "note": "aspect.x・小さいほどエッジ太"
+          "note": "aspect.x"
         },
         {
           "paramId": "height",
-          "ccNumber": 601,
+          "ccNumber": 14602,
           "block": "EDGE",
           "blockName": "Edge Thickness",
           "pluginMin": 64,

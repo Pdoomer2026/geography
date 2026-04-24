@@ -1,0 +1,17 @@
+feat: Camera を TransportRegistry に登録・ccMapService 依存を engine 内に集約
+
+## 変更内容
+
+### Camera を TransportRegistry に登録
+- engine.registerCameraToTransportRegistry() を新規追加
+- initTransportRegistry() に Camera 登録を追加（'layer-N:camera' キー）
+- setCameraPlugin() 時に Registry を自動更新
+
+### CameraWindowPlugin を Registry 購読に変更
+- ccMapService の直接 import を除去
+- transportRegistry.onChanged() を購読
+- ParamRow が layerId を付与して engine.handleMidiCC() を呼ぶ
+
+### ccMapService 依存の完全集約
+- ccMapService を呼ぶのは engine.ts 内のみ（Geometry・Camera・FX 全て）
+- WindowPlugin 層から ccMapService が完全に消えた

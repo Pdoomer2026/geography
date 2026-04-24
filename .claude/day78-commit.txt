@@ -1,0 +1,15 @@
+refactor: Electron 薄い鏡化 実装 (Day78)
+
+main.js のメニューハンドラーを sendToRenderer() のみにスリム化。
+dialog / readFile 等のロジックを renderer（App.tsx）側に移譲し、
+IPC は純粋な橋渡しのみにする設計（薄い鏡化）を完成させた。
+
+変更内容:
+- electron/main.js: menuOpen / menuSaveAs / menuOpenRecent を薄くする
+  + add-recent / get-recent / clear-recent の IPC ハンドラーを新設
+- electron/preload.js: onOpen / onSaveAs を引数なしに変更
+  + onOpenRecent を追加 / addRecent・getRecent・clearRecent を追加
+- src/application/schema/geoAPI.d.ts: 型定義を更新
+- src/application/adapter/storage/recentManager.ts: 新規作成
+- src/ui/App.tsx: onOpen / onSaveAs を async に変更 + onOpenRecent を追加
+- src/application/adapter/storage/projectManager.ts: save() の誤ったコールバック登録を削除

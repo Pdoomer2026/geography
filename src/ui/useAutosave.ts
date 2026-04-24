@@ -11,8 +11,8 @@
  */
 
 import { useEffect } from 'react'
-import { engine } from '../core/engine'
-import type { GeoGraphyProject } from '../types'
+import { engine } from '../application/orchestrator/engine'
+import type { GeoGraphyProject } from '../application/schema'
 
 const AUTOSAVE_PROJECT_NAME = 'autosave'
 

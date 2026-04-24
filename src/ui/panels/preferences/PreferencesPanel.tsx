@@ -4,13 +4,21 @@
  *
  * 画面左上の ⚙ ボタンクリック / P キーで開閉するプリファレンスパネル。
  * タブ: Setup / Project / Plugins / Audio / MIDI / Output
+ *
+ * Day60: Preset CRUD ロジックを presetStore.ts に移動
+ *        FX 定数を presetStore.ts から import
+ *        このファイルは UI state + 描画のみを担当する
  */
 
 import { useState, useEffect } from 'react'
-import { engine } from '../../../core/engine'
-import { registry } from '../../../core/registry'
-import type { GeometryPlugin, GeoGraphyProject, MacroKnobConfig } from '../../../types'
-import { PROJECT_FILE_VERSION } from '../../../types'
+import { engine } from '../../../application/orchestrator/engine'
+import { registry } from '../../../application/registry/registry'
+import { presetStore, FX_LABELS, FX_DEFAULTS, FX_ORDER } from '../../../application/adapter/storage/presetStore'
+import type { GeoPreset } from '../../../application/adapter/storage/presetStore'
+import type { GeometryPlugin } from '../../../application/schema'
+import type { WindowMode, GeoWindowMode, MacroWindowMode, MixerWindowMode, LayerId } from '../../../application/schema/windowMode'
+import { LAYER_IDS } from '../../../application/schema/windowMode'
+import { useDraggable } from '../../useDraggable'
 
 // ----------------------------------------------------------------
 // 型定義
@@ -26,37 +34,6 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'output',  label: 'Output'  },
 ]
 
-const FX_LABELS: Record<string, string> = {
-  'after-image':   'AfterImage',
-  'feedback':      'Feedback',
-  'bloom':         'Bloom',
-  'kaleidoscope':  'Kaleidoscope',
-  'mirror':        'Mirror',
-  'zoom-blur':     'Zoom Blur',
-  'rgb-shift':     'RGB Shift',
-  'crt':           'CRT',
-  'glitch':        'Glitch',
-  'color-grading': 'Color Grading',
-}
-
-const FX_DEFAULTS: Record<string, boolean> = {
-  'after-image':   true,
-  'feedback':      false,
-  'bloom':         true,
-  'kaleidoscope':  false,
-  'mirror':        false,
-  'zoom-blur':     false,
-  'rgb-shift':     true,
-  'crt':           false,
-  'glitch':        false,
-  'color-grading': true,
-}
-
-const FX_ORDER = [
-  'after-image', 'feedback', 'bloom', 'kaleidoscope', 'mirror',
-  'zoom-blur', 'rgb-shift', 'crt', 'glitch', 'color-grading',
-]
-
 const CAMERA_LABELS: Record<string, string> = {
   'orbit-camera':  'Orbit',
   'aerial-camera': 'Aerial',
@@ -64,118 +41,10 @@ const CAMERA_LABELS: Record<string, string> = {
 }
 
 // ----------------------------------------------------------------
-// Preset 型（GeoGraphyProject を camera フィールドで拡張）
-// ----------------------------------------------------------------
-
-interface GeoPreset extends GeoGraphyProject {
-  setup: GeoGraphyProject['setup'] & {
-    camera: [string, string, string]
-  }
-}
-
-// ----------------------------------------------------------------
-// Preset Store
-// ----------------------------------------------------------------
-
-const PRESET_STORE_KEY = 'geography:presets-v1'
-type PresetStore = Record<string, GeoPreset>
-
-/** デフォルトプリセット（localStorage が空のときに自動投入） */
-const DEFAULT_PRESETS: PresetStore = {
-  'Default': {
-    version: PROJECT_FILE_VERSION,
-    savedAt: '2026-04-08T00:00:00.000Z',
-    name: 'Default',
-    setup: {
-      geometry: ['icosphere', 'torus', 'contour'],
-      camera:   ['orbit-camera', 'orbit-camera', 'static-camera'],
-      fx:       [],
-    },
-    sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
-    presetRefs: {},
-  },
-  'Orbit Scene': {
-    version: PROJECT_FILE_VERSION,
-    savedAt: '2026-04-08T00:00:00.000Z',
-    name: 'Orbit Scene',
-    setup: {
-      geometry: ['icosphere', 'torusknot', 'torus'],
-      camera:   ['orbit-camera', 'orbit-camera', 'orbit-camera'],
-      fx:       [],
-    },
-    sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
-    presetRefs: {},
-  },
-  'Aerial Scene': {
-    version: PROJECT_FILE_VERSION,
-    savedAt: '2026-04-08T00:00:00.000Z',
-    name: 'Aerial Scene',
-    setup: {
-      geometry: ['hex-grid', 'contour', 'grid-wave'],
-      camera:   ['aerial-camera', 'static-camera', 'static-camera'],
-      fx:       [],
-    },
-    sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
-    presetRefs: {},
-  },
-  'Tunnel': {
-    version: PROJECT_FILE_VERSION,
-    savedAt: '2026-04-08T00:00:00.000Z',
-    name: 'Tunnel',
-    setup: {
-      geometry: ['grid-tunnel', 'icosphere', 'grid-wave'],
-      camera:   ['static-camera', 'orbit-camera', 'static-camera'],
-      fx:       [],
-    },
-    sceneState: { layers: [] },
-    macroKnobAssigns: [] as MacroKnobConfig[],
-    presetRefs: {},
-  },
-}
-
-function loadPresetStore(): PresetStore {
-  try {
-    const raw = localStorage.getItem(PRESET_STORE_KEY)
-    if (!raw) {
-      // 初回：デフォルトプリセットを保存して返す
-      localStorage.setItem(PRESET_STORE_KEY, JSON.stringify(DEFAULT_PRESETS))
-      return { ...DEFAULT_PRESETS }
-    }
-    const stored = JSON.parse(raw) as PresetStore
-    // デフォルトプリセットが欠けていればマージして補完する
-    let merged = false
-    for (const [name, preset] of Object.entries(DEFAULT_PRESETS)) {
-      if (!stored[name]) {
-        stored[name] = preset
-        merged = true
-      }
-    }
-    if (merged) {
-      localStorage.setItem(PRESET_STORE_KEY, JSON.stringify(stored))
-    }
-    return stored
-  } catch {
-    return { ...DEFAULT_PRESETS }
-  }
-}
-
-function savePresetStore(store: PresetStore): void {
-  try {
-    localStorage.setItem(PRESET_STORE_KEY, JSON.stringify(store))
-  } catch {
-    // ignore
-  }
-}
-
-// ----------------------------------------------------------------
 // helpers
 // ----------------------------------------------------------------
 
 const NONE_ID = '__none__'
-const LAYER_IDS = ['layer-1', 'layer-2', 'layer-3'] as const
 
 function resolveCamId(geoId: string | undefined): string {
   if (!geoId || geoId === NONE_ID) return 'static-camera'
@@ -187,15 +56,19 @@ function resolveCamId(geoId: string | undefined): string {
 function applyToEngine(
   geoIds: [string, string, string],
   camIds: [string, string, string],
-  selectedFx: Record<string, boolean>,
+  selectedFx: Record<string, Record<string, boolean>>,
 ): void {
   const selectedGeoIds = geoIds
     .map((id) => (id === NONE_ID ? null : id))
     .filter((id): id is string => id !== null)
   engine.applyGeometrySetup(selectedGeoIds)
   engine.applyCameraSetup([camIds[0], camIds[1], camIds[2]])
-  const enabledFxIds = FX_ORDER.filter((id) => selectedFx[id] ?? false)
-  engine.applyFxSetup(enabledFxIds)
+  // レイヤー別に FX を適用
+  const fxPerLayer: Record<string, string[]> = {}
+  for (const lid of LAYER_IDS) {
+    fxPerLayer[lid] = FX_ORDER.filter((id) => selectedFx[lid]?.[id] ?? false)
+  }
+  engine.applyFxSetupPerLayer(fxPerLayer)
 }
 
 // ----------------------------------------------------------------
@@ -205,20 +78,23 @@ function applyToEngine(
 interface PreferencesPanelProps {
   open: boolean
   onClose: () => void
+  windowMode: WindowMode
+  onWindowModeChange: (mode: WindowMode) => void
 }
 
-export function PreferencesPanel({ open, onClose }: PreferencesPanelProps) {
+export function PreferencesPanel({ open, onClose, windowMode, onWindowModeChange }: PreferencesPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>('setup')
+  const { pos, handleMouseDown } = useDraggable({ x: 8, y: 80 })
 
   if (!open) return null
 
   return (
     <div
       className="fixed z-[200] font-mono text-xs select-none"
-      style={{ top: 48, left: 8, width: 500 }}
+      style={{ left: pos.x, top: pos.y, width: 500 }}
     >
       <div className="bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#2a2a4e]">
+        <div onMouseDown={handleMouseDown} className="flex items-center justify-between px-4 py-2.5 border-b border-[#2a2a4e]" style={{ cursor: 'grab' }}>
           <span className="text-[11px] text-[#7878aa] tracking-widest">⚙ PREFERENCES</span>
           <button
             onClick={onClose}
@@ -242,8 +118,8 @@ export function PreferencesPanel({ open, onClose }: PreferencesPanelProps) {
           ))}
         </div>
 
-        <div className="p-4" style={{ minHeight: 280 }}>
-          {activeTab === 'setup' && <SetupTab onClose={onClose} />}
+        <div className="p-4 overflow-y-auto" style={{ minHeight: 280, maxHeight: 'calc(100vh - 80px)' }}>
+          {activeTab === 'setup' && <SetupTab onClose={onClose} windowMode={windowMode} onWindowModeChange={onWindowModeChange} />}
           {(activeTab === 'plugins' || activeTab === 'audio' ||
             activeTab === 'midi'   || activeTab === 'output') && <ComingSoonTab />}
         </div>
@@ -256,7 +132,7 @@ export function PreferencesPanel({ open, onClose }: PreferencesPanelProps) {
 // SetupTab
 // ----------------------------------------------------------------
 
-function SetupTab({ onClose }: { onClose: () => void }) {
+function SetupTab({ onClose, windowMode, onWindowModeChange }: { onClose: () => void; windowMode: WindowMode; onWindowModeChange: (m: WindowMode) => void }) {
   const allGeometry = engine.getRegisteredPlugins()
   const allCameras  = engine.listCameraPlugins()
 
@@ -283,21 +159,25 @@ function SetupTab({ onClose }: { onClose: () => void }) {
     [false, false, false]
   )
 
-  const [selectedFx, setSelectedFx] = useState<Record<string, boolean>>(() => {
-    const currentFx = engine.getFxPlugins('layer-1')
-    if (currentFx.length > 0) {
-      return Object.fromEntries(currentFx.map((fx) => [fx.id, fx.enabled]))
+  const [selectedFx, setSelectedFx] = useState<Record<string, Record<string, boolean>>>(() => {
+    const result: Record<string, Record<string, boolean>> = {}
+    for (const lid of LAYER_IDS) {
+      const currentFx = engine.getFxPlugins(lid)
+      if (currentFx.length > 0) {
+        result[lid] = Object.fromEntries(currentFx.map((fx) => [fx.id, fx.enabled]))
+      } else {
+        result[lid] = { ...FX_DEFAULTS }
+      }
     }
-    return { ...FX_DEFAULTS }
+    return result
   })
+  const [activeLayer, setActiveLayer] = useState<LayerId>('layer-1')
 
-  // ── Preset state ───────────────────────────────────────────────
-  const [presets, setPresets] = useState<PresetStore>(() => loadPresetStore())
+  // ── Preset state（presetStore から取得）───────────────────────
+  const [presetNames, setPresetNames] = useState<string[]>(() => presetStore.getNames())
   const [selectedPreset, setSelectedPreset] = useState<string>('')
   const [presetName, setPresetName] = useState<string>('')
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
-
-  const presetNames = Object.keys(presets).sort()
 
   function flash(msg: string) {
     setStatusMsg(msg)
@@ -346,7 +226,27 @@ function SetupTab({ onClose }: { onClose: () => void }) {
   }
 
   function toggleFx(id: string) {
-    setSelectedFx((prev) => ({ ...prev, [id]: !prev[id] }))
+    setSelectedFx((prev) => ({
+      ...prev,
+      [activeLayer]: { ...prev[activeLayer], [id]: !prev[activeLayer][id] },
+    }))
+  }
+
+  // ── Window Mode ハンドラー ──────────────────────────────────────
+  function handleWindowChange(kind: 'geometry' | 'camera' | 'fx', value: GeoWindowMode) {
+    onWindowModeChange({ ...windowMode, [kind]: value })
+  }
+
+  function handleMacroChange(value: MacroWindowMode) {
+    onWindowModeChange({ ...windowMode, macro: value })
+  }
+
+  function handleMixerChange(value: MixerWindowMode) {
+    onWindowModeChange({ ...windowMode, mixer: value })
+  }
+
+  function handleMonitorChange(checked: boolean) {
+    onWindowModeChange({ ...windowMode, monitor: checked })
   }
 
   // ── Preset: Save As ────────────────────────────────────────────
@@ -354,19 +254,20 @@ function SetupTab({ onClose }: { onClose: () => void }) {
     const name = presetName.trim()
     if (!name) { flash('⚠ Name required'); return }
 
-    // engine.buildProject() で全シーンステートを収集
     const project = engine.buildProject(name) as GeoPreset
-
-    // UI 側の Geo/Cam/FX state で上書き（APPLY 前でも最新選択を保存）
     project.setup.geometry = geoIds
       .map((id) => (id === NONE_ID ? null : id))
       .filter((id): id is string => id !== null)
     project.setup.camera = [camIds[0], camIds[1], camIds[2]]
-    project.setup.fx = FX_ORDER.filter((id) => selectedFx[id] ?? false)
+    project.setup.fx = Object.fromEntries(
+      LAYER_IDS.map((lid) => [
+        lid,
+        FX_ORDER.filter((id) => selectedFx[lid]?.[id] ?? false),
+      ])
+    )
 
-    const next = { ...presets, [name]: project }
-    setPresets(next)
-    savePresetStore(next)
+    presetStore.add(name, project)
+    setPresetNames(presetStore.getNames())
     setSelectedPreset(name)
     setPresetName('')
     flash(`✓ Saved: "${name}"`)
@@ -374,10 +275,8 @@ function SetupTab({ onClose }: { onClose: () => void }) {
 
   // ── Preset: Load → 即 engine 反映（APPLY 不要）────────────────
   function handleLoad() {
-    if (!selectedPreset || !presets[selectedPreset]) {
-      flash('⚠ Select a preset'); return
-    }
-    const preset = presets[selectedPreset]
+    const preset = presetStore.get(selectedPreset)
+    if (!preset) { flash('⚠ Select a preset'); return }
 
     const newGeoIds: [string, string, string] = [
       preset.setup.geometry[0] ?? NONE_ID,
@@ -387,49 +286,59 @@ function SetupTab({ onClose }: { onClose: () => void }) {
     const newCamIds: [string, string, string] = preset.setup.camera ?? [
       'static-camera', 'static-camera', 'static-camera',
     ]
-    const enabledFx = new Set(preset.setup.fx)
-    const newFx = Object.fromEntries(FX_ORDER.map((id) => [id, enabledFx.has(id)]))
+    const enabledFx = preset.setup.fx
+    // 新形式（Record<string, string[]>）と旧形式（string[]）の両方に対応
+    const getFxForLayer = (lid: string): Record<string, boolean> => {
+      if (Array.isArray(enabledFx)) {
+        // 旧形式: 全レイヤー同じ
+        return Object.fromEntries(FX_ORDER.map((id) => [id, (enabledFx as string[]).includes(id)]))
+      }
+      const ids = (enabledFx as Record<string, string[]>)[lid] ?? []
+      return Object.fromEntries(FX_ORDER.map((id) => [id, ids.includes(id)]))
+    }
+    const newFx: Record<string, Record<string, boolean>> = {
+      'layer-1': getFxForLayer('layer-1'),
+      'layer-2': getFxForLayer('layer-2'),
+      'layer-3': getFxForLayer('layer-3'),
+    }
 
-    // UI state 更新
     setGeoIds(newGeoIds)
     setCamIds(newCamIds)
-    setCamOverridden([true, true, true]) // Preset 優先 → 自動連動を抑制
+    setCamOverridden([true, true, true])
     setSelectedFx(newFx)
 
-    // engine に即時反映（APPLY 不要）
     applyToEngine(newGeoIds, newCamIds, newFx)
-
     flash(`✓ Loaded: "${selectedPreset}"`)
-    // パネルは閉じずに現状を表示したままにする
   }
 
   // ── Preset: Delete ─────────────────────────────────────────────
   function handleDelete() {
-    if (!selectedPreset || !presets[selectedPreset]) {
-      flash('⚠ Select a preset'); return
-    }
-    // デフォルトプリセットも削除可能（ユーザーが管理）
-    const next = { ...presets }
-    delete next[selectedPreset]
-    setPresets(next)
-    savePresetStore(next)
+    if (!presetStore.get(selectedPreset)) { flash('⚠ Select a preset'); return }
+    presetStore.remove(selectedPreset)
+    setPresetNames(presetStore.getNames())
     const deleted = selectedPreset
     setSelectedPreset('')
     flash(`✓ Deleted: "${deleted}"`)
   }
 
-  // ── APPLY（手動で engine に反映したいとき用に残す）───────────
+  // ── APPLY（手動で engine に反映したいとき用）──────────────────
   function handleApply() {
     applyToEngine(geoIds, camIds, selectedFx)
     onClose()
   }
 
-  const layerLabels = ['Layer 1', 'Layer 2', 'Layer 3']
   const selectStyle = {
     background: '#1a1a2e',
     border: '1px solid #2a2a4e',
     color: '#aaaacc',
   }
+  const GEO_WINDOW_OPTIONS: { value: GeoWindowMode; label: string }[] = [
+    { value: 'none',         label: '— none —'     },
+    { value: 'simple',       label: 'Simple'       },
+    { value: 'simple-dnd',   label: 'Simple D&D'  },
+    { value: 'standard',     label: 'Standard'     },
+    { value: 'standard-dnd', label: 'Standard D&D' },
+  ]
 
   return (
     <div className="flex flex-col gap-4">
@@ -438,7 +347,6 @@ function SetupTab({ onClose }: { onClose: () => void }) {
       <section>
         <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">PRESETS</div>
 
-        {/* プリセット選択 + Load / Delete */}
         <div className="flex items-center gap-2 mb-2">
           <select
             value={selectedPreset}
@@ -451,19 +359,10 @@ function SetupTab({ onClose }: { onClose: () => void }) {
               <option key={name} value={name}>{name}</option>
             ))}
           </select>
-          <button
-            onClick={handleLoad}
-            className="px-3 py-1 text-[10px] rounded border whitespace-nowrap"
-            style={{ background: '#1a2a1e', borderColor: '#3a6e4a', color: '#7aaa8a' }}
-          >Load</button>
-          <button
-            onClick={handleDelete}
-            className="px-3 py-1 text-[10px] rounded border whitespace-nowrap"
-            style={{ background: '#2a1a1a', borderColor: '#6e3a3a', color: '#aa7a7a' }}
-          >Delete</button>
+          <button onClick={handleLoad} className="px-3 py-1 text-[10px] rounded border whitespace-nowrap" style={{ background: '#1a2a1e', borderColor: '#3a6e4a', color: '#7aaa8a' }}>Load</button>
+          <button onClick={handleDelete} className="px-3 py-1 text-[10px] rounded border whitespace-nowrap" style={{ background: '#2a1a1a', borderColor: '#6e3a3a', color: '#aa7a7a' }}>Delete</button>
         </div>
 
-        {/* 名前入力 + Save As */}
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -474,38 +373,31 @@ function SetupTab({ onClose }: { onClose: () => void }) {
             className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
             style={{ ...selectStyle, color: '#ccccee' }}
           />
-          <button
-            onClick={handleSaveAs}
-            className="px-3 py-1 text-[10px] rounded border whitespace-nowrap"
-            style={{ background: '#1a1a2e', borderColor: '#5a5aaa', color: '#9999cc' }}
-          >Save As</button>
+          <button onClick={handleSaveAs} className="px-3 py-1 text-[10px] rounded border whitespace-nowrap" style={{ background: '#1a1a2e', borderColor: '#5a5aaa', color: '#9999cc' }}>Save As</button>
         </div>
 
         {statusMsg && (
-          <div className="mt-1.5 text-[9px]" style={{
-            color: statusMsg.startsWith('⚠') ? '#aa6666' : '#6aaa7a'
-          }}>{statusMsg}</div>
+          <div className="mt-1.5 text-[9px]" style={{ color: statusMsg.startsWith('⚠') ? '#aa6666' : '#6aaa7a' }}>{statusMsg}</div>
         )}
       </section>
 
       <div className="border-t border-[#1a1a3e]" />
 
-      {/* ── GEOMETRY ── */}
+      {/* ── WINDOWS ── */}
       <section>
-        <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">GEOMETRY</div>
+        <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">WINDOWS</div>
         <div className="flex flex-col gap-1.5">
-          {layerLabels.map((label, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <span className="text-[10px] text-[#4a4a6e] w-14 shrink-0">{label}</span>
+          {(['geometry', 'camera', 'fx'] as const).map((kind) => (
+            <div key={kind} className="flex items-center gap-3">
+              <span className="text-[10px] text-[#4a4a6e] w-16 shrink-0 capitalize">{kind}</span>
               <select
-                value={geoIds[i]}
-                onChange={(e) => handleGeoChange(i, e.target.value)}
+                value={windowMode[kind]}
+                onChange={(e) => handleWindowChange(kind, e.target.value as GeoWindowMode)}
                 className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
                 style={selectStyle}
               >
-                <option value={NONE_ID}>None</option>
-                {allGeometry.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                {GEO_WINDOW_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
             </div>
@@ -513,54 +405,126 @@ function SetupTab({ onClose }: { onClose: () => void }) {
         </div>
       </section>
 
-      {/* ── CAMERA ── */}
-      <section>
-        <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">CAMERA</div>
-        <div className="flex flex-col gap-1.5">
-          {layerLabels.map((label, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <span className="text-[10px] text-[#4a4a6e] w-14 shrink-0">{label}</span>
-              <select
-                value={camIds[i]}
-                onChange={(e) => handleCamChange(i, e.target.value)}
-                className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
-                style={{ ...selectStyle, color: camOverridden[i] ? '#aaaaee' : '#aaaacc' }}
-              >
-                {allCameras.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {CAMERA_LABELS[c.id] ?? c.id}
-                  </option>
-                ))}
-              </select>
-              {camOverridden[i] && (
-                <span className="text-[9px] text-[#5a5aaa] shrink-0">manual</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="border-t border-[#1a1a3e]" />
 
-      {/* ── FX ── */}
+      {/* ── 共有レイヤータブ（SETUP用）── */}
+      <div className="flex gap-1">
+        {LAYER_IDS.map((id, i) => (
+          <button
+            key={id}
+            onClick={() => setActiveLayer(id)}
+            className="text-[9px] rounded px-2.5 py-1 border transition-colors"
+            style={{
+              background: activeLayer === id ? '#2a2a6e' : '#1a1a2e',
+              borderColor: activeLayer === id ? '#5a5aaa' : '#2a2a4e',
+              color: activeLayer === id ? '#aaaaee' : '#4a4a6e',
+            }}
+          >
+            L{i + 1}
+          </button>
+        ))}
+      </div>
+
+      {/* ── SETUP ── */}
       <section>
-        <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">FX</div>
+        <div className="text-[10px] text-[#7878aa] tracking-widest mb-2">SETUP</div>
+        <div className="flex flex-col gap-1.5 mb-3">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#4a4a6e] w-16 shrink-0">Geometry</span>
+            <select
+              value={geoIds[LAYER_IDS.indexOf(activeLayer)]}
+              onChange={(e) => handleGeoChange(LAYER_IDS.indexOf(activeLayer), e.target.value)}
+              className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
+              style={selectStyle}
+            >
+              <option value={NONE_ID}>None</option>
+              {allGeometry.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#4a4a6e] w-16 shrink-0">Camera</span>
+            <select
+              value={camIds[LAYER_IDS.indexOf(activeLayer)]}
+              onChange={(e) => handleCamChange(LAYER_IDS.indexOf(activeLayer), e.target.value)}
+              className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
+              style={{ ...selectStyle, color: camOverridden[LAYER_IDS.indexOf(activeLayer)] ? '#aaaaee' : '#aaaacc' }}
+            >
+              {allCameras.map((c) => (
+                <option key={c.id} value={c.id}>{CAMERA_LABELS[c.id] ?? c.id}</option>
+              ))}
+            </select>
+            {camOverridden[LAYER_IDS.indexOf(activeLayer)] && (
+              <span className="text-[9px] text-[#5a5aaa] shrink-0">manual</span>
+            )}
+          </div>
+        </div>
+
+        {/* FX チェックボックス */}
+        <div className="text-[10px] text-[#4a4a6e] mb-1.5">FX</div>
         <div className="grid grid-cols-2 gap-1.5">
           {FX_ORDER.map((fxId) => (
             <CheckItem
               key={fxId}
               id={fxId}
               label={FX_LABELS[fxId] ?? fxId}
-              checked={selectedFx[fxId] ?? false}
+              checked={selectedFx[activeLayer]?.[fxId] ?? false}
               onChange={() => toggleFx(fxId)}
             />
           ))}
         </div>
       </section>
 
+      <div className="border-t border-[#1a1a3e]" />
+
+      {/* ── レイヤー非依存 Window ── */}
+      <section>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#4a4a6e] w-16 shrink-0">Macro</span>
+            <select
+              value={windowMode.macro}
+              onChange={(e) => handleMacroChange(e.target.value as MacroWindowMode)}
+              className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
+              style={selectStyle}
+            >
+              <option value="none">— none —</option>
+              <option value="macro-8-window">Macro 8</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-[#4a4a6e] w-16 shrink-0">Mixer</span>
+            <select
+              value={windowMode.mixer}
+              onChange={(e) => handleMixerChange(e.target.value as MixerWindowMode)}
+              className="flex-1 text-[11px] rounded px-2 py-1 outline-none"
+              style={selectStyle}
+            >
+              <option value="none">— none —</option>
+              <option value="mixer-simple">MixerSimple</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Monitor（debug）── */}
+      <div className="flex items-center gap-2">
+        <input
+          id="pref-monitor"
+          type="checkbox"
+          checked={windowMode.monitor}
+          onChange={(e) => handleMonitorChange(e.target.checked)}
+          className="accent-[#5a5aff] cursor-pointer"
+        />
+        <label htmlFor="pref-monitor" className="text-[10px] cursor-pointer" style={{ color: windowMode.monitor ? '#aaaacc' : '#4a4a6e' }}>
+          Monitor <span className="text-[8px] text-[#3a3a5e]">(debug)</span>
+        </label>
+      </div>
+
       {/* ── ボタン行 ── */}
       <div className="flex items-center justify-between pt-1">
-        <span className="text-[9px] text-[#3a3a5e]">
-          Load: engine に即反映 / Apply: 手動で反映して閉じる
-        </span>
+        <span className="text-[9px] text-[#3a3a5e]">Load: engine に即反映 / Apply: 手動で反映して閉じる</span>
         <button
           onClick={handleApply}
           className="px-5 py-1.5 text-[11px] rounded border transition-colors"

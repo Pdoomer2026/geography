@@ -38,8 +38,8 @@ export function useDraggable(initialPos: Position) {
     const onMouseMove = (ev: MouseEvent) => {
       if (!dragging.current) return
       setPos({
-        x: ev.clientX - offset.current.x,
-        y: ev.clientY - offset.current.y,
+        x: Math.max(0, ev.clientX - offset.current.x),
+        y: Math.max(0, ev.clientY - offset.current.y),
       })
     }
 

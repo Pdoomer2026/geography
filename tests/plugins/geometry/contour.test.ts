@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import contourPlugin from '../../../src/plugins/geometry/terrain/contour'
-import { defaultParams } from '../../../src/plugins/geometry/terrain/contour/contour.config'
+import contourPlugin from '../../../src/engine/geometry/terrain/contour'
+import { defaultParams } from '../../../src/engine/geometry/terrain/contour/contour.config'
 
 describe('Contour Plugin', () => {
   let scene: THREE.Scene

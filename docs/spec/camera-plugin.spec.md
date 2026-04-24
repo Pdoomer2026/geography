@@ -3,7 +3,7 @@
 > SSoT: このファイル
 > 対応実装: `src/plugins/cameras/` / `src/core/layerManager.ts` / `src/types/index.ts`
 > 担当エージェント: Claude Code
-> 状態: ⬜ Day44 設計確定・実装は Day45
+> 状態: Day45 実装完了・Day58 engine API 更新
 
 ---
 
@@ -419,6 +419,7 @@ interface Layer {
 
 ## 13. References
 
+- `docs/spec/transport-architecture.spec.md` — Transport Architecture 全体仕様
 - `docs/spec/macro-knob.spec.md` — MacroKnob / D&D アサイン
 - `docs/spec/cc-standard.spec.md` — CC Standard（CC100 / CC300 / CC500〜502）
 - `docs/spec/layer-system.spec.md` — レイヤーシステム

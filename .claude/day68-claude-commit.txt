@@ -1,0 +1,11 @@
+docs: 各モジュール CLAUDE.md を新パスに更新 (Day68)
+
+src/core/ 解体・src/plugins/ → engine/ application/ ui/ 移行に伴い
+各 CLAUDE.md のタイトル・ファイルパス・import パスを新パスに更新。
+- src/core/CLAUDE.md: 廃止注記を先頭に追加（歴史的記録として保持）
+- engine/geometry|fx|lights|particles: タイトルを src/plugins/ → src/engine/ に
+- ui/CLAUDE.md: Simple Window パス・コンポーネント一覧を新構造に
+- ui/components/window|mixers: タイトル・ディレクトリ構成を新パスに
+- ui/panels/preferences: import パスを application/orchestrator/engine に
+- application/command/geo-transitions: タイトルを新パスに
+- application/adapter/input: タイトルを src/drivers/input → 新パスに

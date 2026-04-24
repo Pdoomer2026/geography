@@ -1,95 +1,122 @@
-import { useEffect, useRef, useState } from 'react'
-import { engine } from '../core/engine'
-import type { MidiCCEvent } from '../types'
-import { MixerSimpleWindow } from '../plugins/mixers/simple-mixer/MixerSimpleWindow'
-import { MacroKnobPanel } from './panels/macro-knob/MacroKnobPanel'
-import { FxSimpleWindow } from './FxSimpleWindow'
-import { CameraSimpleWindow } from './CameraSimpleWindow'
-import { GeometrySimpleWindow } from './GeometrySimpleWindow'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { throttleTime } from 'rxjs/operators'
+import { engine } from '../application/orchestrator/engine'
+import { midiInputWrapper } from '../application/adapter/input/MidiInputWrapper'
+import { projectManager } from '../application/adapter/storage/projectManager'
+import { paramCommand$ } from '../application/command/commandStream'
+import { useGeoStore } from './store/geoStore'
+import { MixerSimpleWindow } from './components/mixers/simple-mixer/MixerSimpleWindow'
+import { Macro8Window } from './components/window/macro-8-window'
+import { Macro8MidiWindow } from './components/window/macro-8-window/Macro8MidiWindow'
+import { GeometrySimpleWindow, CameraSimpleWindow, FxSimpleWindow } from './components/window/simple-window'
+import { GeometryStandardWindow, CameraStandardWindow, FxStandardWindow } from './components/window/standard-window'
+import { GeometrySimpleDnDWindow, CameraSimpleDnDWindow, FxSimpleDnDWindow } from './components/window/simple-dnd-window'
+import { GeometryStandardDnDWindow, CameraStandardDnDWindow, FxStandardDnDWindow } from './components/window/standard-dnd-window'
+import { GeoMonitorWindow } from './components/window/geo-monitor'
+import { MidiMonitorWindow } from './components/window/midi-monitor'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
+import { outputManager } from '../application/orchestrator/outputManager'
 import { useAutosave } from './useAutosave'
-import type { GeoGraphyProject } from '../types'
+import { DEFAULT_WINDOW_MODE } from '../application/schema/windowMode'
+import type { WindowMode } from '../application/schema/windowMode'
+import type { MidiMonitorEvent } from '../application/schema'
+
+const HIDE_ALL: WindowMode = {
+  geometry:    'none',
+  camera:      'none',
+  fx:          'none',
+  macro:       'none',
+  mixer:       'none',
+  monitor:     false,
+  midiMonitor: false,
+}
 
 export default function App() {
   const mountRef = useRef<HTMLDivElement>(null)
-  const [uiVisible, setUiVisible] = useState({ macro: true, fx: true, mixer: true, camera: true, geometry: true })
+  const [windowMode, setWindowMode] = useState<WindowMode>(DEFAULT_WINDOW_MODE)
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
-  const currentFilePathRef = useRef<string | null>(null)
+  const midiMonitorCallbackRef = useRef<((event: MidiMonitorEvent) => void) | null>(null)
+
+  const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
+    engine.registerPluginToTransportRegistry(layerId, pluginId)
+  }, [])
+
+  const removePluginFromRegistry = useCallback((layerId: string) => {
+    engine.removePluginFromRegistry(layerId)
+  }, [])
 
   useAutosave()
 
   useEffect(() => {
-    if (!navigator.requestMIDIAccess) return
-    let midiAccess: MIDIAccess | null = null
-    const onMidiMessage = (event: MIDIMessageEvent) => {
-      const data = event.data
-      if (!data || data.length < 3) return
-      const statusType = data[0] & 0xf0
-      if (statusType !== 0xb0) return
-      const cc = data[1]
-      const rawValue = data[2]
-      const midiEvent: MidiCCEvent = { cc, value: rawValue / 127, protocol: 'midi1', resolution: 128 }
-      engine.handleMidiCC(midiEvent)
-    }
-    const setupMidi = (access: MIDIAccess) => {
-      midiAccess = access
-      access.inputs.forEach((input) => { input.onmidimessage = onMidiMessage })
-      access.onstatechange = () => {
-        access.inputs.forEach((input) => { input.onmidimessage = onMidiMessage })
-      }
-    }
-    navigator.requestMIDIAccess({ sysex: false }).then(setupMidi).catch((err) => {
-      console.warn('[GeoGraphy] Web MIDI API アクセス失敗:', err)
-    })
-    return () => {
-      if (midiAccess) {
-        midiAccess.inputs.forEach((input) => { input.onmidimessage = null })
-      }
-    }
+    midiInputWrapper.init(
+      (event) => engine.handleMidiCC(event),
+      (event) => midiMonitorCallbackRef.current?.(event),
+    )
+    return () => midiInputWrapper.dispose()
   }, [])
 
   useEffect(() => {
     if (!mountRef.current) return
     const container = mountRef.current
-    engine.initialize(container).then(() => { engine.start() })
+    engine.initialize(container).then(() => {
+      engine.start()
+      engine.setFxEnabled('after-image', engine.getFxPlugins('layer-1').find(f => f.id === 'after-image')?.enabled ?? false, 'layer-1')
+
+      // engine → Zustand store を接続（unsubscribe を cleanup で返す）
+      const syncMacroKnobs = () => useGeoStore.getState().syncMacroKnobs()
+      const unsubParam = engine.onParamChanged(syncMacroKnobs)
+      syncMacroKnobs()
+
+      // commandStream → engine（throttle 16ms = 60fps 相当）
+      const sub = paramCommand$.pipe(
+        throttleTime(16, undefined, { leading: true, trailing: true })
+      ).subscribe((event) => engine.handleMidiCC(event))
+
+      return () => { sub.unsubscribe(); unsubParam() }
+    })
     return () => { engine.dispose() }
   }, [])
 
   useEffect(() => {
     if (!window.geoAPI) return
     window.geoAPI.onMenuEvents({
-      onNew: () => {
-        engine.restoreProject({
-          version: '1.0.0', name: 'untitled', savedAt: '',
-          setup: { geometry: [], fx: [] }, sceneState: { layers: [] },
-          macroKnobAssigns: [], presetRefs: {},
-        })
-        currentFilePathRef.current = null
+      onNew:        () => projectManager.newProject(),
+      // Day78: 薄い鏡化→ renderer 側が dialog + fs 操作を実行する
+      onOpen: async () => {
+        if (!window.geoAPI) return
+        const result = await window.geoAPI.showOpenDialog()
+        if (result.canceled || result.filePaths.length === 0) return
+        const filePath = result.filePaths[0]
+        const data = await window.geoAPI.loadFile(filePath)
+        projectManager.openProject(filePath, data)
+        await window.geoAPI.addRecent(filePath)
       },
-      onOpen: (filePath: string, data: string) => {
+      onSave:       () => projectManager.save(),
+      // Day78: 薄い鏡化→ renderer 側が showSaveDialog を実行する
+      onSaveAs: async () => {
+        if (!window.geoAPI) return
+        const result = await window.geoAPI.showSaveDialog()
+        if (result.canceled || !result.filePath) return
+        await projectManager.saveAs(result.filePath)
+      },
+      // Day78: 新規→ renderer 側が loadFile + addRecent を実行する
+      onOpenRecent: async (filePath: string) => {
+        if (!window.geoAPI) return
         try {
-          const project = JSON.parse(data) as GeoGraphyProject
-          engine.restoreProject(project)
-          currentFilePathRef.current = filePath
-        } catch (e) {
-          console.warn('[GeoGraphy] プロジェクトの読み込みに失敗:', e)
+          const data = await window.geoAPI.loadFile(filePath)
+          projectManager.openProject(filePath, data)
+          await window.geoAPI.addRecent(filePath)
+        } catch {
+          console.warn('[GeoGraphy] ファイルが見つかりません:', filePath)
         }
       },
-      onSave: async () => {
-        if (!window.geoAPI) return
-        const filePath = currentFilePathRef.current
-        if (!filePath) { window.geoAPI.onMenuEvents({ onSaveAs: handleSaveAs }); return }
-        const project = engine.buildProject(filePath.split('/').pop()?.replace(/\.geography$/, '') ?? 'untitled')
-        await window.geoAPI.saveProjectFile(filePath, JSON.stringify(project, null, 2))
-      },
-      onSaveAs: handleSaveAs,
       onPreferences: () => setPrefsOpen((o) => !o),
-      onToggleMixerWindow: () => setUiVisible((v) => ({ ...v, mixer: !v.mixer })),
-      onToggleFxWindow: () => setUiVisible((v) => ({ ...v, fx: !v.fx })),
-      onToggleMacroKnobWindow: () => setUiVisible((v) => ({ ...v, macro: !v.macro })),
-      onHideAllWindows: () => setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false }),
-      onShowAllWindows: () => setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true }),
+      onToggleMixerWindow: () => setWindowMode((v) => ({ ...v, mixer: v.mixer === 'none' ? 'mixer-simple' : 'none' })),
+      onToggleFxWindow: () => setWindowMode((v) => ({ ...v, fx: v.fx === 'none' ? 'standard' : 'none' })),
+      onToggleMacroKnobWindow: () => setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-8-window' : 'none' })),
+      onHideAllWindows: () => setWindowMode(HIDE_ALL),
+      onShowAllWindows: () => setWindowMode(DEFAULT_WINDOW_MODE),
       onStartRecording: () => { engine.startRecording(); setIsRecording(true) },
       onStopRecording: async () => {
         const blob = await engine.stopRecording()
@@ -99,47 +126,32 @@ export default function App() {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
         await window.geoAPI.saveRecording(arrayBuffer, `recording-${timestamp}.webm`)
       },
+      onToggleOutput: () => { outputManager.toggleOutput() },
     })
     return () => { window.geoAPI?.removeMenuListeners() }
   }, [])
 
-  async function handleSaveAs(filePath: string) {
-    if (!window.geoAPI) return
-    const name = filePath.split('/').pop()?.replace(/\.geography$/, '') ?? 'untitled'
-    const project = engine.buildProject(name)
-    await window.geoAPI.saveProjectFile(filePath, JSON.stringify(project, null, 2))
-    currentFilePathRef.current = filePath
-  }
-
-  // キーボードショートカット
-  // 1:MacroKnob 2:FX 3:Mixer 4:Camera 5:Geometry P:Prefs H:Hide S:Show F:全画面
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
 
-      if (e.key === '1') setUiVisible((v) => ({ ...v, macro: !v.macro }))
-      if (e.key === '2') setUiVisible((v) => ({ ...v, fx: !v.fx }))
-      if (e.key === '3') setUiVisible((v) => ({ ...v, mixer: !v.mixer }))
-      if (e.key === '4') setUiVisible((v) => ({ ...v, camera: !v.camera }))
-      if (e.key === '5') setUiVisible((v) => ({ ...v, geometry: !v.geometry }))
+      if (e.key === '1') setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-8-window' : 'none' }))
+      if (e.key === '3') setWindowMode((v) => ({ ...v, mixer: v.mixer === 'none' ? 'mixer-simple' : 'none' }))
+      if (e.key === '6') setWindowMode((v) => ({ ...v, monitor: !v.monitor }))
+      if (e.key === 'm' || e.key === 'M') setWindowMode((v) => ({ ...v, midiMonitor: !v.midiMonitor }))
       if (e.key === 'p' || e.key === 'P') setPrefsOpen((o) => !o)
       if (e.key === 'f' || e.key === 'F') {
-        setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false })
+        setWindowMode(HIDE_ALL)
         setPrefsOpen(false)
         document.documentElement.requestFullscreen?.().catch(() => {})
       }
-      if (e.key === 'h' || e.key === 'H') {
-        setUiVisible({ macro: false, fx: false, mixer: false, camera: false, geometry: false })
-      }
-      if (e.key === 's' || e.key === 'S') {
-        setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true })
-      }
+      if (e.key === 'o' || e.key === 'O') { outputManager.toggleOutput() }
+      if (e.key === 'h' || e.key === 'H') setWindowMode(HIDE_ALL)
+      if (e.key === 's' || e.key === 'S') setWindowMode(DEFAULT_WINDOW_MODE)
     }
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        setUiVisible({ macro: true, fx: true, mixer: true, camera: true, geometry: true })
-      }
+      if (!document.fullscreenElement) setWindowMode(DEFAULT_WINDOW_MODE)
     }
     window.addEventListener('keydown', handleKey)
     document.addEventListener('fullscreenchange', handleFullscreenChange)
@@ -164,13 +176,53 @@ export default function App() {
         }}
       />
 
-      <PreferencesPanel open={prefsOpen} onClose={() => setPrefsOpen(false)} />
+      <PreferencesPanel
+        open={prefsOpen}
+        onClose={() => setPrefsOpen(false)}
+        windowMode={windowMode}
+        onWindowModeChange={setWindowMode}
+      />
 
-      {uiVisible.macro && <MacroKnobPanel />}
-      {uiVisible.fx && <FxSimpleWindow />}
-      {uiVisible.mixer && <MixerSimpleWindow />}
-      {uiVisible.camera && <CameraSimpleWindow />}
-      {uiVisible.geometry && <GeometrySimpleWindow />}
+      {/* Macro */}
+      {windowMode.macro === 'macro-8-window' && <Macro8Window />}
+      {windowMode.macro === 'macro-8-window' && <Macro8MidiWindow />}
+
+      {/* Mixer */}
+      {windowMode.mixer === 'mixer-simple' && <MixerSimpleWindow />}
+
+      {/* Geometry */}
+      {windowMode.geometry === 'simple' && (
+        <GeometrySimpleWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
+      )}
+      {windowMode.geometry === 'standard' && (
+        <GeometryStandardWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
+      )}
+      {windowMode.geometry === 'simple-dnd' && (
+        <GeometrySimpleDnDWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
+      )}
+      {windowMode.geometry === 'standard-dnd' && (
+        <GeometryStandardDnDWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
+      )}
+
+      {/* Camera */}
+      {windowMode.camera === 'simple'      && <CameraSimpleWindow />}
+      {windowMode.camera === 'standard'    && <CameraStandardWindow />}
+      {windowMode.camera === 'simple-dnd'  && <CameraSimpleDnDWindow />}
+      {windowMode.camera === 'standard-dnd' && <CameraStandardDnDWindow />}
+
+      {/* FX */}
+      {windowMode.fx === 'simple'      && <FxSimpleWindow />}
+      {windowMode.fx === 'standard'    && <FxStandardWindow />}
+      {windowMode.fx === 'simple-dnd'  && <FxSimpleDnDWindow />}
+      {windowMode.fx === 'standard-dnd' && <FxStandardDnDWindow />}
+
+      {/* Monitor */}
+      {windowMode.monitor && <GeoMonitorWindow />}
+      {windowMode.midiMonitor && (
+        <MidiMonitorWindow
+          onMount={(cb) => { midiMonitorCallbackRef.current = cb }}
+        />
+      )}
 
       {isRecording && (
         <div
@@ -185,7 +237,7 @@ export default function App() {
         className="fixed bottom-1 right-2 text-[9px] text-[#3a3a5e] select-none pointer-events-none"
         style={{ zIndex: 100 }}
       >
-        P:Prefs 1:MacroKnob 2:FX 3:Mixer 4:Camera 5:Geometry | H:Hide S:Show F:全非表示+全画面
+        P:Prefs 1:Macro 3:Mixer M:MIDI Monitor 6:GeoMonitor O:Output | H:Hide S:Show F:全非表示+全画面
       </div>
     </>
   )

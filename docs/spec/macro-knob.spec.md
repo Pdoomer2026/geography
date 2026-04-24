@@ -1,9 +1,9 @@
 # Macro Knob System Spec
 
 > SSoT: このファイル
-> 対応実装: `src/core/macroKnob.ts` / `src/core/midiManager.ts` / `engine.ts` / MacroKnobPanel UI
+> 対応実装: `src/core/macroKnob.ts` / `src/core/transportManager.ts` / `engine.ts` / MacroKnobPanel UI
 > 担当エージェント: Claude Code
-> 状態: ✅ Day13実装済み・Day35壁打ちで大幅更新・Day37 CC Standard 統合・Day41 大幅更新（D&D アサイン・内部バス統一・永続化・CC Map・MIDI デバイス接続）・Day44 MIDI 受信設計を renderer 直接に修正・Day50 責務分離（MidiManager 新設）
+> 状態: Day58 更新（TransportEvent / TransportManager / TransportRegistry への移行を反映）
 
 ---
 
@@ -14,68 +14,73 @@
 32個のマクロノブで複数のパラメーターを同時に操作する。
 MIDIコントローラーのノブ・フェーダーに物理対応し、1ノブで最大3パラメーターを制御できる。
 
-### アーキテクチャ（Day50 確定）
+### アーキテクチャ（Day58 確定）
 
 ```
-【UI層】（全部同列・engine 経由・MIDI 2.0 で統一）
+【外側の世界】
+  MidiInputWrapper（src/drivers/input/）
+    MIDI 受信 → CC番号を Slot に変換 → TransportEvent 生成
+    → engine.handleMidiCC(event)
+
+【UI層】（全部同列・engine 経由・TransportEvent で統一）
 
 GeometrySimpleWindow  CameraSimpleWindow  FxSimpleWindow  MacroKnobPanel
         ↓                     ↓                 ↓               ↓
-        ↓←────── engine.handleMidiCC(MidiCCEvent) ──────────────↓
+        engine.handleMidiCC(TransportEvent)  ← 全UIの唯一の入り口
                               ↓
-                  ┌───────────────────────┐
-                  │  MidiManager          │  ← コア内部・新設（Day50）
-                  │  src/core/midiManager │  ← CC入力の唯一の通路
-                  └───────────────────────┘
+                  ┌───────────────────────────┐
+                  │  TransportManager          │  ← コア内部（Day58 昇格）
+                  │  src/core/transportManager │  ← プロトコル非依存
+                  └───────────────────────────┘
                               ↓ CC番号でルーティング
                               ↓ MacroKnobManager のアサイン設定を参照（読み取りのみ）
                               ↓ rangeMap(value, min, max)
-                        ParameterStore
+                        ParameterStore（slot番号をキーとして保持）
+                              ↓
+                    engine.flushParameterStore()
+                              ↓ transportRegistry.getAll() で slot→param を解決
                               ↓
                     ModulatablePlugin.params.value
-
-【物理MIDIコントローラー】
-App.tsx（Web MIDI API 受信）→ engine.handleMidiCC() ← SimpleWindow と同じ入り口
 
 【Sequencer / LFO / AI（将来）】
 → engine.handleMidiCC() or engine.receiveMidiModulation() ← 同じ入り口
 ```
 
-### 責務の分離（Day50 確定）
+### 責務の分離（Day58 確定）
 
 | クラス | ファイル | 責務 |
 |---|---|---|
 | `MacroKnobManager` | `src/core/macroKnob.ts` | 32ノブのUI設定管理（名前・MIDI CC番号・アサイン・現在値キャッシュ） |
-| `MidiManager` | `src/core/midiManager.ts` | CC入力の唯一の通路（handleMidiCC / receiveModulation） |
+| `TransportManager` | `src/core/transportManager.ts` | 全入力の唯一の通路（プロトコル非依存・旧 MidiManager） |
+| `TransportRegistry` | `src/core/transportRegistry.ts` | slot→paramId 対応表・コアシングルトン |
 
 - `MacroKnobPanel` は `engine` 経由でのみ `MacroKnobManager` にアクセスする
 - `macroKnobManager` への直接参照は UI 層から禁止
-- `MidiManager` は `MacroKnobManager` のアサイン設定を読み取り専用で参照する
+- `TransportManager` は `MacroKnobManager` のアサイン設定を読み取り専用で参照する
 
-> **外部受信 と 内部バス の分離（Day44確定）**
-> - **外部コントローラー → GeoGraphy 入り口**: Web MIDI API 経由のため MIDI 1.0 プロトコルで受信。
->   rawValue（0〜127）を 0.0〜1.0 に正規化して MidiCCEvent に変換する。
-> - **GeoGraphy 内部バス**: MidiCCEvent フォーマット（MIDI 2.0 準拠・0.0〜1.0 float）で統一。
+> **外部受信と内部バスの分離（Day58 確定）**
+> - **外部コントローラー → GeoGraphy 入り口**: `MidiInputWrapper` が Web MIDI API で受信。
+>   rawValue（0〜127）を 0.0〜1.0 に正規化して TransportEvent に変換する。
+> - **GeoGraphy 内部バス**: TransportEvent フォーマット（slot + value・0.0〜1.0 float）で統一。
 >   Sequencer / LFO / AI からの入力も同じフォーマットで流れる。
 > - **MIDI 2.0 ネイティブ受信**（CoreMIDI 等）は Electron から C++ addon なしでは呼び出せないため将来タスク。
 
-### 内部バス統一ルール（Day41確立）
+### 内部バス統一ルール（Day58 確定）
 
-全ての入力源は `MidiCCEvent` フォーマットに統一して `engine.handleMidiCC()` に渡す。
+全ての入力源は `TransportEvent` フォーマットに統一して `engine.handleMidiCC()` に渡す。
 
+```typescript
+// 内部バス固定フォーマット
+interface TransportEvent {
+  slot: number    // CC Standard の番号（例: 101）
+  value: number   // 0.0〜1.0（正規化済み）
+  source?: 'window' | 'plugin' | 'midi' | 'osc'
+  time?: number
+}
 ```
-内部バス固定フォーマット：
-  MidiCCEvent {
-    cc: number,               // CC Standard の番号（例: CC101）
-    value: number,            // 0.0〜1.0（正規化済み）
-    protocol: 'midi2',        // 内部バスは常に midi2 固定
-    resolution: 4294967296    // 32bit 精度の宣言（処理コストに影響しない）
-  }
-```
 
-外部 MIDI Controller は renderer (App.tsx) の Web MIDI API で受信し、0.0〜1.0 に正規化して
-`engine.handleMidiCC()` を直接呼ぶ。IPC 経由は不要。
-Sequencer / LFO / AI は最初から 0.0〜1.0 なので `protocol: 'midi2'` 固定で流す。
+外部 MIDI Controller は `MidiInputWrapper` の Web MIDI API で受信し、`TransportEvent` に変換して
+`engine.handleMidiCC()` を呼ぶ。IPC 経由は不要。
 
 ---
 
@@ -83,18 +88,18 @@ Sequencer / LFO / AI は最初から 0.0〜1.0 なので `protocol: 'midi2'` 固
 
 - MUST: ノブ数は32個固定（8ノブ × 4行）・config.ts の `MACRO_KNOB_COUNT = 32` を参照
 - MUST: 1ノブに最大3パラメーターまで割り当て可能
-- MUST: value は renderer (App.tsx) の Web MIDI API 受信時に 0.0〜1.0 に正規化する（rawValue / 127）
-- MUST: MacroKnobManager / MidiManager は Plugin 化しない・コア固定・コントリビューターが触れない
+- MUST: value は MidiInputWrapper の Web MIDI API 受信時に 0.0〜1.0 に正規化する（rawValue / 127）
+- MUST: MacroKnobManager / TransportManager は Plugin 化しない・コア固定・コントリビューターが触れない
 - MUST: MIDI マッピングは `settings/mappings/midi/` に保存する
-- MUST: MIDI 受信は renderer (App.tsx) の Web MIDI API で行う・IPC 経路は使わない
+- MUST: MIDI 受信は MidiInputWrapper（src/drivers/input/）で行う・IPC 経路は使わない
 - NOTE: MIDI 2.0 ネイティブ受信は将来タスク（C++ addon が必要・現時点では MIDI 1.0 互換モードで動作）
 - MUST: Sequencer / LFO からの値は `engine.receiveMidiModulation(knobId, value)` 経由で受け取る（疎結合）
 - MUST: CC Standard の CC 番号を MacroAssign.ccNumber に対応させること
-- MUST: MIDI 1.0・MIDI 2.0 どちらも renderer (App.tsx) の Web MIDI API で受信する（IPC 経路は使わない）
+- MUST: MIDI 1.0・MIDI 2.0 どちらも MidiInputWrapper の Web MIDI API で受信する（IPC 経路は使わない）
 - MUST: MacroKnobPanel のファイルパスは `src/ui/panels/macro-knob/MacroKnobPanel.tsx`
 - MUST: MacroKnobPanel は `engine` 経由でのみ MacroKnob 情報にアクセスすること（直接参照禁止）
 - MUST: アサイン情報は `GeoGraphyProject.macroKnobAssigns` に含めて永続化する
-- MUST: 全 SimpleWindow のパラメーター変更は `engine.handleMidiCC()` 経由で行うこと（Day50確定）
+- MUST: 全 SimpleWindow のパラメーター変更は `engine.handleMidiCC(TransportEvent)` 経由で行うこと
 - MUST: Sequencer にも同じ D&D アサイン構造を採用する（将来・疎結合を保つ）
 
 ---
@@ -110,24 +115,25 @@ interface MacroKnobManager {
   addAssign(knobId: string, assign: MacroAssign): void    // D&D アサイン追加
   removeAssign(knobId: string, paramId: string): void     // アサイン解除
   getValue(knobId: string): number                        // 0.0〜1.0（表示用キャッシュ）
-  setValue(knobId: string, value: number): void           // MidiManager から書かれる（Day50新設）
+  setValue(knobId: string, value: number): void           // TransportManager から書かれる
 }
 
-// ── CC入力の唯一の通路（midiManager.ts・新設 Day50）────────
+// ── 全入力の唯一の通路（transportManager.ts・Day58 昇格）────────
 
-interface MidiManager {
+interface TransportManager {
   init(store: ParameterStore, knobManager: MacroKnobManager): void
-  handleMidiCC(event: MidiCCEvent): void
+  handle(event: TransportEvent): void
   receiveModulation(knobId: string, value: number): void  // Sequencer / LFO 経由
 }
 
 // ── engine の公開 API（UI層が使う）─────────────────────────
 
-// engine.handleMidiCC(event)                   ← 全UIの唯一の入り口
-// engine.getMacroKnobs()                        ← MacroKnobPanel 表示用
-// engine.setMacroKnob(id, config)               ← MacroKnobPanel 編集用
-// engine.getMacroKnobValue(knobId)              ← MacroKnobPanel 値取得用
-// engine.receiveMidiModulation(knobId, value)   ← Sequencer / LFO 用（将来）
+// engine.handleMidiCC(event)                              ← 全UIの唯一の入り口
+// engine.getMacroKnobs()                                  ← MacroKnobPanel 表示用
+// engine.setMacroKnob(id, config)                         ← MacroKnobPanel 編集用
+// engine.getMacroKnobValue(knobId)                        ← MacroKnobPanel 値取得用
+// engine.receiveMidiModulation(knobId, value)             ← Sequencer / LFO 用（将来）
+// engine.registerPluginToTransportRegistry(layerId, pluginId) ← Plugin 切り替え時
 
 // ── 共通型 ──────────────────────────────────────────────────
 
@@ -142,14 +148,14 @@ interface MacroAssign {
 }
 
 /**
- * MIDI CC イベント（MIDI 1.0 / MIDI 2.0 / 内部バス 共通フォーマット）
- * 内部バス（Sequencer / LFO / AI）は protocol: 'midi2' 固定で生成する
+ * TransportEvent（旧 MidiCCEvent・Day58 Step1 で改名）
+ * 全入力源（物理MIDI / UI / Sequencer / LFO / AI）が engine.handleMidiCC() に渡す形式
  */
-interface MidiCCEvent {
-  cc: number                      // CC Standard 番号
-  value: number                   // 正規化済み: 0.0〜1.0
-  protocol: 'midi1' | 'midi2'
-  resolution: 128 | 4294967296   // MIDI 1.0 = 7bit / MIDI 2.0 = 32bit
+interface TransportEvent {
+  slot: number                        // CC Standard 番号（プロトコル非依存の抽象 ID）
+  value: number                       // 正規化済み: 0.0〜1.0
+  source?: 'window' | 'plugin' | 'midi' | 'osc'
+  time?: number
 }
 
 interface MacroKnobConfig {
@@ -166,6 +172,8 @@ interface MacroKnobConfig {
 interface DragPayload {
   type: 'param' | 'macroKnob'   // 将来: | 'sequencerLane'
   id: string                     // paramId or knobId
+  layerId: string                // アサイン元のレイヤー ID
+  pluginId: string               // アサイン元の Plugin ID（表示用）
   ccNumber: number               // CC Standard の番号
   min: number                    // スライダー可動域 min
   max: number                    // スライダー可動域 max
@@ -203,13 +211,14 @@ CC番号 paramId  可動域min  max 現在値 D&Dハンドル
 - **現在値**: 数値表示のみ（v2 でクリック → 数値直接入力 box を追加予定）
 - **`[≡]`**: D&D ハンドル（ドラッグ元になる）
 
-スライダー操作時のフロー（Day50確定）：
+スライダー操作時のフロー（Day58確定）：
 ```
 スライダー onChange
   → normalized = (value - param.min) / (param.max - param.min)
-  → engine.handleMidiCC({ cc, value: normalized, protocol: 'midi2', resolution: 4294967296 })
-  → MidiManager が ParameterStore に書く
-  → 200ms ポーリングで plugin.params[key].value を読んで表示を追従
+  → engine.handleMidiCC({ slot: ccNumber, value: normalized, source: 'window' })
+  → TransportManager が ParameterStore に書く
+  → flushParameterStore が transportRegistry 経由で plugin.params に反映
+  → paramChangedCallback → UI 更新
 ```
 
 ### 4-2. MacroKnob ビジュアル
@@ -304,8 +313,8 @@ Layer 1: docs/spec/cc-standard.spec.md
   → 開発者・Claude Desktop が参照（既存・SSoT）
 
 Layer 2: settings/cc-map.json
-  → ランタイムで AI が参照できる機械可読フォーマット（未実装）
-  → cc-standard.spec.md から生成・同期する
+  → ランタイムで AI が参照できる機械可読フォーマット
+  → cc-mapping.md から自動生成（pnpm gen:cc-map）
 
 Layer 3: Preferences > CC Map タブ（UI）
   → ユーザーがアプリ内で確認できる（未実装）
@@ -345,14 +354,17 @@ Layer 3: Preferences > CC Map タブ（UI）
 ```
 ユーザー「ネオン廃墟の夜にして」
   ↓
-AI が settings/cc-map.json を読む
+AI が settings/cc-map.json を読む（セマンティック情報付き）
   ↓
 Block 9xx → Block 1xx〜7xx の値を決定
   ↓
-MidiCCEvent として engine.handleMidiCC() に流す（内部バス経由）
+TransportEvent として engine.handleMidiCC() に流す（内部バス経由）
   ↓
-MidiManager → ParameterStore 更新 → 映像が変わる
+TransportManager → ParameterStore 更新 → 映像が変わる
 ```
+
+cc-mapping.md（人間が書く・セマンティック情報あり）→ cc-map.json（機械が動く・意味を知らない）
+という「外側と内側の分離」が自然言語 AI 対応の基盤になる。
 
 ---
 
@@ -380,7 +392,7 @@ Preferences > MIDI タブ（現在 Coming Soon）に実装する。
 
 ---
 
-## 8. 欠けている実装（Day41時点・Day50更新）
+## 8. 欠けている実装
 
 | 優先度 | 内容 | 場所 |
 |---|---|---|
@@ -399,24 +411,23 @@ Preferences > MIDI タブ（現在 Coming Soon）に実装する。
 ### MIDI 値の正規化
 
 ```typescript
-// renderer (App.tsx) での正規化
-const normalizeForBus = (raw: number): number => raw / 127
-// MIDI 1.0: raw 0〜127 → 0.0〜1.0
+// MidiInputWrapper での正規化
+const value = rawValue / 127  // MIDI 1.0: raw 0〜127 → 0.0〜1.0
 
-// midiManager.ts 内での range mapping
+// transportManager.ts 内での range mapping
 const rangeMap = (v: number, min: number, max: number): number =>
   min + v * (max - min)
 ```
 
-### handleMidiCC の処理（MidiManager）
-1. `event.cc` が一致する KnobConfig を MacroKnobManager から検索
+### TransportManager.handle() の処理
+1. `event.slot` が一致する KnobConfig を MacroKnobManager から検索
 2. `event.value`（0.0〜1.0 正規化済み）を受け取る
 3. MacroKnobManager の `setValue()` で現在値キャッシュを更新（表示用）
 4. 各 `assign` に対して `rangeMap(event.value, assign.min, assign.max)` で対応値を算出
 5. `paramId` の値を ParameterStore に書く
 
 ### MIDI 1.0 / MIDI 2.0 共存ルール
-- `midiManager.ts` は protocol を意識しない（どちらも同じ `handleMidiCC` を呼ぶ）
+- `TransportManager` は protocol を意識しない（どちらも同じ `handle()` を呼ぶ）
 - 同一 CC 番号への同時受信: last-write-wins
 - MIDI 1.0 CC 0〜127 と MIDI 2.0 AC 0〜32767 は空間が異なる → 衝突なし
 
@@ -480,20 +491,23 @@ expect(() => manager.addAssign('macro-1', { ... })).toThrow()
 | CC701 | BLEND | Feedback Amount | — | amount（Feedback）|
 
 全内容: `docs/spec/cc-standard.spec.md`
-機械可読: `settings/cc-map.json`（未実装）
+機械可読: `settings/cc-map.json`
 
 ---
 
 ## 12. References
 
 - `docs/spec/cc-standard.spec.md` — CC Standard v0.2（SSoT）
-- `docs/spec/cc-mapping.spec.md` — Plugin × paramId × CC 番号の対応表
+- `docs/spec/cc-mapping.md` — Plugin × paramId × CC 番号の対応表（SSoT）
+- `docs/spec/transport-architecture.spec.md` — Transport Architecture 全体仕様
 - `docs/spec/simple-window.spec.md` — Simple Window 全体方針
 - `docs/spec/project-file.spec.md` — GeoGraphyProject 拡張
 - `docs/spec/sequencer.spec.md` — Sequencer → D&D 接続（将来）
 - `src/core/macroKnob.ts` — UI設定管理の実装
-- `src/core/midiManager.ts` — CC入力通路の実装（Day50 新設）
+- `src/core/transportManager.ts` — 全入力通路の実装（Day58 昇格）
+- `src/core/transportRegistry.ts` — slot→param 対応表（Day58 新設）
 - `src/core/engine.ts` — 公開 API（getMacroKnobs / handleMidiCC 等）
+- `src/drivers/input/MidiInputWrapper.ts` — MIDI Input Wrapper（Day58 新設）
 - `src/ui/panels/macro-knob/MacroKnobPanel.tsx` — UI
-- `settings/cc-map.json` — AI 参照用 CC Map（未実装）
+- `settings/cc-map.json` — AI 参照用 CC Map
 - `settings/mappings/midi/` — MIDI マッピング Preset 保存先

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CameraPlugin, GeometryPlugin } from '../../src/types'
-import { LayerManager } from '../../src/core/layerManager'
+import type { CameraPlugin, GeometryPlugin } from '../../src/application/schema'
+import { LayerManager } from '../../src/application/orchestrator/layerManager'
 
 // ============================================================
 // Three.js モック
@@ -137,7 +137,7 @@ function makeOrbitCamera(): CameraPlugin {
 // Camera Plugin Registry モック
 // ============================================================
 
-vi.mock('../../src/plugins/cameras', () => ({
+vi.mock('../../src/engine/cameras', () => ({
   getCameraPlugin: (id: string) => {
     // 毎回新しいインスタンスを返す（実装のファクトリパターンを再現）
     if (id === 'static-camera') return makeStaticCamera()

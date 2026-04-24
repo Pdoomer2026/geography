@@ -1,4 +1,4 @@
-# GeoGraphy - CLAUDE.md v11
+# GeoGraphy - CLAUDE.md v12
 
 ## プロジェクト概要
 
@@ -84,6 +84,17 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 9. セッション終了時に git commit + Day タグを打つ（MUST）
 ```
 
+**⚠️ HANDOVER.md / dev-log の更新タイミング（MUST・Day72確立）**
+
+HANDOVER.md と Obsidian dev-log はセッション終了直前にのみ更新する。
+git push 完了後に自動で更新を始めてはいけない。
+
+- git push 後 → **次の作業があるか慎太郎さんに確認する**
+- 「終業する」「引き継ぎ制作」「まとめ制作」と明示されたとき → HANDOVER.md 更新 → dev-log 作成
+- コンテキストウィンドウに余裕がある限り作業を続けることを優先する
+- 理由: push 後すぐに HANDOVER.md を更新するとトークンを無駄に消費し、
+  追加作業の余地があるのに終業フローに入ってしまう
+
 ### 始業時の CLAUDE.md 読み方（MUST）
 
 ルート CLAUDE.md はプロジェクト全体の方針確認のみに使う。
@@ -93,9 +104,10 @@ GeoGraphy は **SDD（Spec-Driven Development）× CDD（Compiler-Driven Develop
 1. HANDOVER.md を読んで今日の作業対象モジュールを特定する
 2. このファイル（ルート）で全体方針を確認する
 3. 作業対象モジュールの CLAUDE.md を必ず読む
-   例）src/plugins/fx/ を触る → src/plugins/fx/CLAUDE.md を読む
-       src/ui/ を触る       → src/ui/CLAUDE.md を読む
-       src/core/ を触る     → src/core/CLAUDE.md を読む
+   例）src/engine/geometry/ を触る → src/engine/geometry/CLAUDE.md を読む
+       src/engine/fx/ を触る       → src/engine/fx/CLAUDE.md を読む
+       src/ui/ を触る             → src/ui/CLAUDE.md を読む
+       src/application/ を触る    → 該当サブディレクトリの CLAUDE.md を読む
 4. その CLAUDE.md が参照している spec ファイルを読む
 4.5. 下記「ファイル更新時の鉄則」を確認する（毎回）
 5. 実装開始
@@ -317,6 +329,9 @@ Icosphere / Torus / Torusknot の 3 Plugin に cameraPreset を追加。"
 | `docs/spec/project-file.spec.md` | プロジェクトファイル | Claude Code | ✅ |
 | `docs/spec/plugin-lifecycle.spec.md` | Plugin ライフサイクル | Claude Code | ⬜ |
 | `docs/spec/shader-plugin.spec.md` | Shader Plugin（疎結合・GeoGraffiコア） | Claude Code | ⬜ 設計済み・実装はシーケンサー後 |
+| `docs/spec/midi-registry.spec.md` | MIDI Registry（動的状態管理） | Claude Desktop | ⬜ Day55 設計確定 |
+| `docs/spec/plugin-manager.spec.md` | Plugin Manager（Phase A/B フロー） | Claude Desktop | ⬜ Day55 設計確定 |
+| `docs/spec/execution-planner.spec.md` | ExecutionPlanner（Sync/Async 判断・BullMQ への道） | Claude Code | ⬜ Day72 設計確定・Phase 1 実装待ち |
 
 ---
 
@@ -348,22 +363,52 @@ Icosphere / Torus / Torusknot の 3 Plugin に cameraPreset を追加。"
 
 ---
 
-## アーキテクチャ
+## アーキテクチャ（Day68確定・3ゾーン構造）
 
 ```
-src/plugins/
-  geometry/    ← 何を描画するか（主役）・Geometry Agent担当
-  particles/   ← 背景・雰囲気
-  fx/          ← エフェクト・FX Agent担当
-  lights/      ← ライト
-  transitions/ ← トランジション（UI なし・処理のみ）・Transition Agent担当
-  mixers/      ← MixerPlugin（Simple Window 含む）・Mixer Agent担当
-  windows/     ← Window Plugin（カスタム UI）・v2〜
-src/drivers/
-  tempo/       ← テンポ取得
-  input/       ← デバイス操作
-  output/      ← 出力先
-  modulator/   ← パラメーター値の供給元
+src/
+  engine/              Three.js プラグイン（疎結合）
+    geometry/          何を描画するか（主役）
+    fx/                エフェクト
+    cameras/           カメラ
+    lights/            ライト
+    particles/         背景・雰囲気
+
+  application/         意思決定・Registry・Transport
+    orchestrator/      エンジン中枢
+      engine.ts        レンダーループ・初期化
+      layerManager.ts  レイヤー管理
+      fxStack.ts       FX スタック管理
+      programBus.ts    Program バス
+      previewBus.ts    Preview バス（SceneState のみ）
+      tempo/clock.ts   BPM クロック
+    registry/          パラメータ管理
+      registry.ts      Plugin Registry（自動登録）
+      transportManager.ts   全入力の唯一の通路
+      transportRegistry.ts  slot→paramId 対応表
+      assignRegistry.ts     CC→パラメータのアサイン定義
+      state/parameterStore.ts  パラメーター一元管理
+    catalog/           CC マッピング
+      ccMapService.ts  将来 paramCatalog に昇格予定
+    command/           Command パターン
+      command.ts
+      geo-transitions/ GeoGraphy 独自 Transition
+    adapter/           入出力ドライバ
+      input/MidiInputWrapper.ts
+      storage/projectManager.ts
+      storage/presetStore.ts
+    schema/            型定義 SSoT
+      index.ts  config.ts  midi-registry.ts
+      windowMode.ts  geoAPI.d.ts  midiRegistry.ts
+
+  ui/                  表示・操作
+    components/
+      window/          Window コンポーネント群
+      mixers/          Mixer コンポーネント群
+    panels/            Preferences 等
+    hooks/             useParam 等
+
+  types/               自動生成ファイルのみ（geo-cc-map.generated.ts 等）
 ```
 
 ---
@@ -375,20 +420,21 @@ src/drivers/
 実装時は必ず対応するモジュールの CLAUDE.md を読むこと（上記「始業時の読み方」参照）。
 
 ```
-geography/CLAUDE.md               ← このファイル（全体方針・SDD×CDD原則）
-docs/spec/                        ← SSoT（仕様ファイル群・マルチエージェント定義）
-docs/progress/                    ← 自律開発の進捗ログ
-docs/recipes/                     ← 成功した実装パターンの蓄積
-src/core/CLAUDE.md                ← エンジン固定部分・Clock・LayerManager・Bus・Command設計
-src/plugins/geometry/CLAUDE.md    ← renderer・enabled フィールドの扱い
-src/plugins/transitions/CLAUDE.md ← UI を持たない・execute() 純粋関数
-src/plugins/mixers/CLAUDE.md      ← MixerPlugin 定義・Simple Window との関係・MUST ルール
-src/plugins/windows/CLAUDE.md     ← Window Plugin 定義（v2〜）
-src/plugins/fx/CLAUDE.md          ← FX スタック順序・FX Plugin Interface
-src/plugins/lights/CLAUDE.md      ← Light Plugin Interface
-src/plugins/particles/CLAUDE.md   ← Particle Plugin Interface
-src/drivers/
-src/ui/CLAUDE.md                  ← Window/Panel 命名原則・Simple Window 一覧・View メニュー連携
+geography/CLAUDE.md                             <- このファイル（全体方針・SDD x CDD原則）
+docs/spec/                                      <- SSoT（仕様ファイル群・マルチエージェント定義）
+docs/progress/                                  <- 自律開発の進捗ログ
+docs/recipes/                                   <- 成功した実装パターンの蓄積
+
+src/core/CLAUDE.md                             <- WARNING: src/core/ は Day68 で解体済み
+                                                   実装ファイルは application/ 以下に移行完了
+
+src/engine/geometry/CLAUDE.md                  <- Geometry Plugin 実装詳細
+src/engine/fx/CLAUDE.md                        <- FX Plugin / FX スタック順序
+
+src/ui/CLAUDE.md                               <- Window/Panel 命名原則 / Simple Window 一覧
+src/ui/panels/CLAUDE.md                        <- Panels 全般
+src/ui/panels/preferences/CLAUDE.md           <- Preferences Panel
+src/ui/panels/macro-knob/CLAUDE.md            <- MacroKnob Panel
 ```
 
 ---

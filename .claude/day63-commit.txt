@@ -1,0 +1,22 @@
+feat: Standard Window + Preferences redesign (Day63)
+
+- Add StandardWindow (Geometry/Camera/Fx) with lo/hi RangeSlider
+  - Custom div drag handles for range boundaries
+  - Value slider remaps full range to lo~hi before sending to engine
+  - param.value sync via useEffect (fixes post-APPLY freeze)
+  - Fix FxStandardWindow onFxChanged missing unsubscribe (tab switch bug)
+
+- Add WindowMode type (src/types/windowMode.ts)
+  - geometry/camera/fx: none | simple | standard
+  - macro: none | macro-window
+  - mixer: none | mixer-simple
+  - Replaces scattered uiVisible booleans in App.tsx
+
+- Redesign PreferencesPanel SetupTab layout
+  - Order: PRESETS → WINDOWS → [L1/L2/L3] → SETUP → Macro/Mixer → Monitor
+  - WINDOWS: layer-independent dropdowns (none/Simple/Standard)
+  - SETUP: shared layer tab drives Geometry/Camera/FX plugin selection
+  - Panel is now draggable and vertically scrollable
+  - Monitor moved to bottom as debug-only checkbox
+
+- Simplify keybindings: 1=Macro 3=Mixer 6=Monitor (2/4/5/7/8/9 removed)

@@ -1,0 +1,11 @@
+fix: Camera/Fx StdDnD Window の Macro 連動修正 + FxStack applySetup バグ修正
+
+【Camera StdDnD Window】
+- ポーリングに getParametersLive() を追加し Macro 操作がスライダーに反映されるよう修正
+- Geometry と同じ毎フレーム live 値取得パターンに統一
+
+【FxStack.applySetup() バグ修正】
+- APPLY 後に enabled 外の FX の pass が null になり
+  Window から ON にしても描画されない問題を修正
+- 全 FX を create() して pass を維持し enabled だけで ON/OFF 制御するよう変更
+- これにより Preferences APPLY 後も FX Window から正常に切替可能に

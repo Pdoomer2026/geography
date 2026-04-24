@@ -1,11 +1,12 @@
-# GeoGraphy 引き継ぎメモ｜Day52（MacroKnob D&D UI + RangeSlider + Geometry Preset）｜2026-04-08
+# GeoGraphy 引き継ぎメモ｜Day76｜2026-04-22
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
 - **目的**: No-Texture・Plugin駆動・マルチライブラリ対応の映像制作プラットフォーム
-- **スタック**: Vite / React 18 / TypeScript / Three.js r160+ / pnpm v10.32+ / Electron 41
+- **スタック**: Vite / React 18 / TypeScript / Three.js r160+ / pnpm / Electron 41 / RxJS 7.8.2 / Zustand 5.0.12 / Zod 4.3.6
 - **開発スタイル**: SDD × CDD（仕様駆動 × コンパイラ駆動）
 - **GitHub**: https://github.com/Pdoomer2026/geography
+- **ブランチ**: `refactor/day53-design`
 - **プロジェクトルート**: `/Users/shinbigan/geography`
 
 ---
@@ -14,141 +15,151 @@
 
 | ファイル | パス |
 |---|---|
-| CLAUDE.md（全体方針） | `CLAUDE.md`（v11） |
-| MidiManager | `src/core/midiManager.ts` |
-| MacroKnobManager | `src/core/macroKnob.ts` |
-| Engine | `src/core/engine.ts` |
-| 型定義 | `src/types/index.ts` |
-| GeometrySimpleWindow | `src/ui/GeometrySimpleWindow.tsx` |
-| MacroKnobPanel | `src/ui/panels/macro-knob/MacroKnobPanel.tsx` |
+| CLAUDE.md | `CLAUDE.md` |
+| MidiInputWrapper | `src/application/adapter/input/MidiInputWrapper.ts` |
+| MidiLearnService | `src/application/registry/midiLearnService.ts` |
+| MidiLearnTarget schema | `src/application/schema/zod/midiLearnTarget.schema.ts` |
+| schema/index.ts | `src/application/schema/index.ts` |
+| engine.ts | `src/application/orchestrator/engine.ts` |
+| MixerSimpleWindow | `src/ui/components/mixers/simple-mixer/MixerSimpleWindow.tsx` |
+| Macro8MidiWindow | `src/ui/components/window/macro-8-window/Macro8MidiWindow.tsx` |
+| APC40 デバイス仕様 | `docs/spec/devices/apc40mk2.md` |
+| MIDI Learn spec | `docs/spec/midi-learn.spec.md` |
+
+---
+
+## 今回のセッションで完了したこと
+
+### slot エンコーディング永続設計（Day76 最重要成果）
+- **CC 空間**: `slot = channel * 128 + cc`（0〜2047）
+- **Note 空間**: `slot = 2048 + channel * 128 + note`（2048〜4095）
+- 4096 スロットで MIDI 1.0 の全アドレス空間を完全分離・衝突なし
+- `MidiInputWrapper.ts` に実装済み（CC + Note-On/Off 両方）
+
+### MidiLearnTarget Zod 化
+- `src/application/schema/zod/midiLearnTarget.schema.ts` 新規作成
+- `schema/index.ts` の手書き interface → Zod 派生型に差し替え
+
+### Mixer Output フェーダー MIDI Learn（実機確認済み）
+- `MixerSimpleWindow.tsx` に右クリック MIDI Learn 追加
+- CC バッジ・点滅アニメーション実装
+- Track Fader 3本（CC7, ch0/1/2 → slot 7/135/263）が独立動作 ✅
+- `engine.ts dispatchToLearned()` に `layer-opacity` 分岐実装
+
+### Note → TransportEvent 対応（Day76 確定）
+- Note-On/Off が初めて `engine.handleMidiCC()` に届くようになった
+- Scene Launch ボタンの MIDI Learn が技術的に可能になった
+
+### APC40 mk2 デバイス仕様 v3.0（ほぼ全確定）
+- Transport ボタン全確認（PAN/SEND/USER/PLAY/RECORD/NUDGE±/BANK SELECT/SHIFT/BANK 等）
+- Track ボタン（Mute NT50・Solo NT49・RecordArm NT48・A/B NT66）ch:0確認
+- Track Selection = **Bank Snapshot 機能**確認（8bank × 8knob = 64 slot）
+- Clip Stop: Note 52, ch per track（slot 2100/2228/2356...）確認
+- Stop All Clips: Note 81（slot 2129）確認
+- Master Fader CC14・Crossfader CC15・CUE LEVEL CC47 全確認
 
 ---
 
 ## 現在の状態
 
-- **ブランチ**: `main`
-- **タグ**: `day52`（未打）
-- **テスト**: 114 tests グリーン・tsc エラーゼロ
-- **コミット**: 05fd545（WIP）
+- **ブランチ**: `refactor/day53-design`
+- **タグ**: `day74`（day75・day76 はまだ未タグ）
+- **テスト**: 129 tests グリーン・tsc エラーゼロ
+- **コミット**: `.claude/day76-commit.txt` に記載済み・未コミット
 
 ---
 
-## Day52 で完了したこと
+## slot エンコーディング（SSoT: docs/spec/midi-learn.spec.md §slot-encoding）
 
-### 1. MacroKnob D&D アサイン UI（完成）
-- `GeometrySimpleWindow` の各パラメーター行に CC番号表示 + `≡` D&D ハンドル追加
-- `MacroKnobPanel` の KnobCell にドロップ受け口 + AssignDialog（min/max 設定）
-- アサイン済みノブは弧が紫で点灯
-- `≡` 右クリック → アサイン解除メニュー
-- EditDialog の ASSIGNS 欄に CC番号表示 + `×` ボタンで個別 Remove
-- `DragPayload` に `layerId` / `pluginId` を追加
+```
+CC 空間（slot 0〜2047）:
+  slot = channel * 128 + cc
+  ch0, CC48 → slot 48    Track Knob 1（既存・変わらず）
+  ch0, CC7  → slot 7     Track Fader 1
+  ch1, CC7  → slot 135   Track Fader 2
 
-### 2. MacroKnob ノブ操作（完成）
-- 上下ドラッグで値をリアルタイム変更
-- クリック（移動量ゼロ）→ EditDialog を開く
-- `receiveMidiModulation(knobId, val)` 経由で Geometry に反映
-
-### 3. Geometry Param Preset（完成）
-- Save / Load / Delete
-- `localStorage: geography:geo-presets-v1`（便宜的・将来 `GeoGraphyProject` に統合）
-- pluginId 単位でフィルタリング
-
-### 4. RangeSlider（ParamRow）（実装済み・同期の設計確定）
-- `PluginParam` に `rangeMin`/`rangeMax` を追加（UI 専用）
-- HTML range input 3本重ねで実装（rangeMin つまみ / rangeMax つまみ / 値スライダー）
-- レール色分け（範囲外：暗い / 範囲内：明るい紫）
-- D&D 時に `rangeMin`/`rangeMax` を `DragPayload.min`/`max` として渡す
-
-### 5. MacroKnob ↔ SimpleWindow 双方向同期（実装済み・設計 WIP）
-- MacroKnob → SimpleWindow は動作確認済み ✅
-- SimpleWindow → MacroKnob は動作確認済み ✅
-
-### 6. localStorage 使用方針を CLAUDE.md に明文化
-- `src/ui/CLAUDE.md` に localStorage 使用方針セクション新設
-- ルート `CLAUDE.md` の MUST に localStorage 例外ルール追記
-
----
-
-## Day53 の最重要タスク（設計確定・未実装）
-
-### MidiCCEvent に rangeMin/rangeMax を追加する
-
-**確定した設計：**
-
-```typescript
-interface MidiCCEvent {
-  cc: number
-  value: number           // 0.0〜1.0（相対値）
-  protocol: 'midi1' | 'midi2'
-  resolution: 128 | 4294967296
-  rangeMin?: number       // 変化幅の下限（絶対値）= assign.min = rangeMin
-  rangeMax?: number       // 変化幅の上限（絶対値）= assign.max = rangeMax
-}
+Note 空間（slot 2048〜4095）:
+  slot = 2048 + channel * 128 + note
+  ch0, Note 82 → slot 2130  Scene Launch 1
+  ch0, Note 52 → slot 2100  Clip Stop Track 1
+  ch1, Note 52 → slot 2228  Clip Stop Track 2
 ```
 
-**各入力源：**
+## APC40 mk2 推奨マッピング（確定版）
 
-| 入力源 | value | rangeMin | rangeMax |
-|---|---|---|---|
-| SimpleWindow スライダー | 0.0〜1.0 | rangeMin | rangeMax |
-| MacroKnob UI ドラッグ | 0.0〜1.0 | assign.min | assign.max |
-| 物理MIDI（アサイン済み） | 0.0〜1.0 | assign.min | assign.max |
-
-**設計の根拠（Day52 壁打ちで確定）：**
-- `rangeMin`/`rangeMax` は UI 専用・engine 側には伝えない
-- スライダーノブ と MacroKnob ノブ は同じ 0.0〜1.0 の相対値
-- 変化幅（rangeMin/rangeMax = assign.min/max）は MidiCCEvent で渡す
-- engine 側は実値を受け取るだけ・特別な変換不要
-
-**midiManager 側：**
 ```
-実値 = rangeMin + value * (rangeMax - rangeMin)
-store に実値を書く
-```
-
-**resolveParamValue：**
-```
-store から実値をそのまま取り出す（変換不要）
-```
-
-**修正が必要なファイル：**
-1. `src/types/index.ts` — `MidiCCEvent` に `rangeMin?`/`rangeMax?` を追加
-2. `src/core/midiManager.ts` — `handleMidiCC` / `receiveModulation` で実値変換
-3. `src/core/engine.ts` — `resolveParamValue` から assign 分岐・effective 分岐を削除
-4. `src/ui/GeometrySimpleWindow.tsx` — `handleParam` で `rangeMin`/`rangeMax` を渡す
-5. `src/ui/panels/macro-knob/MacroKnobPanel.tsx` — `onKnobChange` で `assign.min`/`max` を渡す
-
----
-
-## 確立した新ルール（Day52）
-
-- **仮説を話してすぐに実装しない**: 設計の合意を得てから実装する
-- **rangeMin/rangeMax は UI 専用**: engine 側の `defaultParams` には書かない
-- **MidiCCEvent の未定義フィールドで変化幅を渡す**: `rangeMin?`/`rangeMax?` を追加
-
----
-
-## 次回セッション開始時の確認コマンド
-
-```bash
-cd /Users/shinbigan/geography && pnpm tsc --noEmit && pnpm test --run
+Track Knob 1〜8（CC48〜55, ch0） → Macro #1〜8
+Track Fader 1〜3（CC7, ch0〜2 → slot 7/135/263） → Mixer Output L1〜L3 ✅実装済み
+Device Knob（CC16〜23, ch0〜7） → 8bank × 8knob = 64スロット
+Scene Launch 1〜5（Note 82〜86 → slot 2130〜2134） → UI トグル（将来実装）
 ```
 
 ---
 
-## 環境メモ（累積）
+## 発生した問題と解決策
 
-- **セッション開始時は全ファイルを読んでから分析**（Day51確立）
-- **差分保持ルール**（Day50確立）
-- **ブラウザ確認フロー**（Day47確立）: `pnpm dev` → `open http://localhost:5173`
-- **localStorage は Preset 永続化のみ例外許可**（Day52確立）: `src/ui/CLAUDE.md` 参照
-- **git タグは commit 後に打つこと**
-- **tsc が反映ズレで失敗する場合**: 2回実行すると解消する
+- **問題**: Track Fader（全て CC7）が同じ slot に衝突 → **解決**: `slot = ch*128 + cc` でチャンネル分離
+- **問題**: Note が engine に届いていなかった → **解決**: `MidiInputWrapper` で Note-On/Off を `onEvent` に追加
+- **問題**: Clip Stop も Note 番号が ch で変わる → **解決**: Note 空間に `channel * 128` を含める設計で完全分離
+- **問題**: `MixerSimpleWindow` JSX の閉じタグ不足でtscエラー → **解決**: return 全体を書き直し
+
+---
+
+## 次回やること
+
+### 優先度 高
+1. **git commit + tag**
+   ```bash
+   git add -A
+   git commit -F .claude/day76-commit.txt
+   git tag day75 HEAD~3  # Day75相当コミットに
+   git tag day76
+   git push origin refactor/day53-design --tags
+   ```
+
+2. **Macro8MidiWindow → Macro8Window 統合**
+   - 動作確認済み → `Macro8Window.tsx` をアーカイブ
+   - `Macro8MidiWindow.tsx` を `Macro8Window.tsx` として統合
+   - App.tsx の並列表示を解消
+
+3. **Scene Launch → UI トグル実装**（`MidiLearnTargetType` に `'command'` を追加）
+   - Note-On が engine に届くようになったので実装可能
+   - `engine.dispatchToLearned()` に `type === 'command'` 分岐追加
+   - `windowMode` のトグルを呼ぶ
+
+### 優先度 中
+4. **MIDI Learn 永続化**
+   - `GeoGraphyProject.midiLearnAssigns` への保存・復元
+5. **docs/spec/midi-learn.spec.md §slot-encoding 更新**
+   - NFC 正規化後に Note 空間を追記（`python3 /Users/shinbigan/nfc_normalize.py` → `edit_file`）
+6. **film / frei-chen の `FX_STACK_ORDER` 未登録警告修正**
+
+### 優先度 低
+7. **Sequencer Window spec 作成**（Phase 16）
+
+---
+
+## APC40 mk2 残り未確認
+
+- STOP ボタンの Note 番号（公式 PDF は 92）
+- MASTER ボタン（Scene 列最下部）の Note 番号
+- SHIFT との組み合わせ動作
+- Scene Launch LED の Host 制御（SysEx）
+
+---
+
+## 環境メモ
+
+- **ブラウザ確認**: `pnpm dev` → `open http://localhost:5174`（ポート 5174 で起動中）
+- **NFC 正規化**: 日本語ファイル edit_file 失敗時は `python3 /Users/shinbigan/nfc_normalize.py`
+- **コミット**: 日本語長文は `.claude/dayN-commit.txt` に書いて `git commit -F` で実行
+- **Macro8MidiWindow**: 現在 Macro8Window と並列表示中（統合前の動作確認用）
+- **slot エンコーディング**: MidiLearnService の assigns Map のキーは slot 値（number）
 
 ---
 
 ## 次回チャット用スタートプロンプト
 
 ```
-Day53開始
+Day77開始
 ```

@@ -1,0 +1,20 @@
+refactor: Day58 Step3 イベント駆動化（ポーリング廃止）
+
+Plugin → Window 逆流を 200ms ポーリングからイベント駆動に置き換え。
+
+engine.ts:
+- onParamChanged(cb) コールバック登録 API を追加
+- flushParameterStore() 内で値変更時に paramChangedCallback を呼ぶ
+- changed フラグで「実際に値が変わったときだけ」発火する
+
+App.tsx:
+- 200ms setInterval（syncValues ポーリング）を廃止
+- engine.onParamChanged + 16ms throttle に置き換え
+- 変化がないフレームでは setMidiRegistry が呼ばれない
+
+効果:
+- Registry 更新が「値変化時のみ」になった
+- Plugin 数・Layer 数が増えても劣化しにくい設計に
+- 応答速度が 200ms → 最大 16ms に改善
+
+テスト: 114 tests グリーン・tsc エラーゼロ

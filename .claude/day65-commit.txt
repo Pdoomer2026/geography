@@ -1,0 +1,8 @@
+fix: StandardD&D Window の lo/hi が Macro アサインに正しく反映されるよう修正
+
+- GeometryStandardDnDWindow: lo/hi を親の loHiMapRef で管理し
+  200ms ポーリングによるリセットを防止
+- Macro8Window AssignDialog: payload.lo ?? payload.min を初期値に使用し、
+  assign.min/max を正規化値で保存するよう修正
+- transportManager.receiveModulation: rangeMap(value, assign.min, assign.max)
+  を適用し assign.min/max の稼働幅が plugin.params に正しく反映されるよう修正

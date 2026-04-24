@@ -1,4 +1,4 @@
-# src/ui - CLAUDE.md v3
+# src/ui - CLAUDE.md v4
 
 ## 役割
 
@@ -12,7 +12,7 @@ Three.js Canvas の上に React UI をオーバーレイする。
 | 名称 | 定義 | 例 |
 |---|---|---|
 | **Window** | Plugin エコシステムの UI・コントリビューターがデザインできる | Mixer Simple Window / FX Simple Window |
-| **Panel** | アプリ固定の小窓・コントリビューターが触れない | Preferences Panel / MacroKnob Panel |
+| **Panel** | アプリ固定の小窓・コントリビューターが触れない | Preferences Panel |
 | **Simple Window** | 各 Plugin のデフォルト最小 UI・カスタム Window Plugin がないときのフォールバック | Mixer Simple Window |
 
 すべての Window は **View メニュー**から表示/非表示を切り替えられる。
@@ -22,15 +22,16 @@ Three.js Canvas の上に React UI をオーバーレイする。
 ## Simple Window 命名原則
 
 Simple Window のファイル名は `[Name]SimpleWindow.tsx`。
+**配置場所: `src/ui/components/window/simple-window/`（Day67 移動済み）**
 
-### Simple Window 一覧（v1・実装済み）
+### Simple Window 一覧（Day61 確定）
 
 | Simple Window 名 | 対応 Plugin | ファイル |
 |---|---|---|
-| Mixer Simple Window | MixerPlugin | `src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx` |
-| FX Simple Window | FX Plugin | `src/ui/FxSimpleWindow.tsx` |
-| Geometry Simple Window | Geometry Plugin | `src/ui/GeometrySimpleWindow.tsx` |
-| Camera Simple Window | Camera Plugin | `src/ui/CameraSimpleWindow.tsx` |
+| Mixer Simple Window | MixerPlugin | `src/ui/components/mixers/simple-mixer/MixerSimpleWindow.tsx` |
+| FX Simple Window | FX Plugin | `src/ui/components/window/simple-window/FxSimpleWindow.tsx` |
+| Geometry Simple Window | Geometry Plugin | `src/ui/components/window/simple-window/GeometrySimpleWindow.tsx` |
+| Camera Simple Window | Camera Plugin | `src/ui/components/window/simple-window/CameraSimpleWindow.tsx` |
 
 ---
 
@@ -38,12 +39,13 @@ Simple Window のファイル名は `[Name]SimpleWindow.tsx`。
 
 Panel のファイル名は `[Name]Panel.tsx`。`src/ui/panels/` に配置。各 Panel は固有の CLAUDE.md を持つ。
 
-### Panel 一覧（v1・実装済み）
+### Panel 一覧（Day61 確定）
 
 | Panel 名 | 内容 | ファイル |
 |---|---|---|
 | Preferences Panel | Setup / Plugins / MIDI / Output 等 | `src/ui/panels/preferences/PreferencesPanel.tsx` |
-| MacroKnob Panel | MacroKnob 32個・MIDI 2.0 アサイン・MIDI Learn | `src/ui/panels/macro-knob/MacroKnobPanel.tsx` |
+
+> MacroKnob Panel は Day61 で `src/plugins/windows/macro-window/MacroWindow.tsx` に格下げ済み。Panel ではなく Window として扱う。
 
 ---
 
@@ -53,7 +55,7 @@ Panel のファイル名は `[Name]Panel.tsx`。`src/ui/panels/` に配置。各
 
 | キー / メニュー | 対象 |
 |---|---|
-| `1` / View > MacroKnob Panel（⌘1） | MacroKnobPanel |
+| `1` / View > MacroWindow（⌘1） | MacroWindow |
 | `2` / View > FX Simple Window（⌘2） | FxSimpleWindow |
 | `3` / View > Mixer Simple Window（⌘3） | MixerSimpleWindow |
 | `4` / View > Camera Simple Window（⌘4） | CameraSimpleWindow |
@@ -71,22 +73,27 @@ View メニューのイベントは `electron/main.js` → IPC → `electron/pre
 
 ```
 src/ui/
-├── App.tsx                    ← Canvas + Window / Panel 群のルートレイアウト
-├── FxSimpleWindow.tsx         ← FX Simple Window
-├── GeometrySimpleWindow.tsx   ← Geometry Simple Window（Day45新設）
-├── CameraSimpleWindow.tsx     ← Camera Simple Window（Day45新設）
-├── useAutosave.ts             ← 終了時保存・起動時復元
-├── useDraggable.ts            ← フローティングウィンドウのドラッグ
+├── App.tsx                    <- Canvas + Window / Panel 群のルートレイアウト
+├── useAutosave.ts             <- 終了時保存・起動時復元
+├── useDraggable.ts            <- フローティングウィンドウのドラッグ
+├── hooks/
+│   └── useParam.ts            <- TransportRegistry 購読 Hook
+├── components/
+│   ├── window/                <- Window コンポーネント群（Day67 移動済み）
+│   │   ├── simple-window/
+│   │   ├── standard-window/
+│   │   ├── simple-dnd-window/
+│   │   ├── standard-dnd-window/
+│   │   ├── macro-window/
+│   │   ├── macro-8-window/
+│   │   └── geo-monitor/
+│   └── mixers/                <- Mixer コンポーネント群（Day67 移動済み）
+│       └── simple-mixer/
 └── panels/
-    ├── CLAUDE.md              ← Panel 共通ルール
-    ├── preferences/
-    │   ├── CLAUDE.md          ← Preferences 固有
-    │   └── PreferencesPanel.tsx
-    └── macro-knob/
-        ├── CLAUDE.md          ← MacroKnob + MIDI 2.0 固有（最重要）
-        └── MacroKnobPanel.tsx
-
-※ Mixer Simple Window は src/plugins/mixers/simple-mixer/MixerSimpleWindow.tsx
+    ├── CLAUDE.md
+    └── preferences/
+        ├── CLAUDE.md
+        └── PreferencesPanel.tsx
 ```
 
 ---
@@ -103,7 +110,7 @@ src/ui/
 │  FX Simple Window（フローティング）  │
 │  Geometry Simple Window（フローティング）│
 │  Camera Simple Window（フローティング）│
-│  MacroKnob Panel（フローティング）   │
+│  MacroWindow（フローティング）       │
 │  Preferences Panel（フローティング） │
 │                                     │
 └─────────────────────────────────────┘
@@ -111,12 +118,13 @@ src/ui/
 
 ---
 
-## MUST ルール（Day50 追加・Day52 更新）
+## MUST ルール（Day50 追加・Day52 更新・Day61 更新）
 
-- MUST: パラメーター変更は `engine.handleMidiCC(MidiCCEvent)` 経由で行うこと
-- MUST: `macroKnobManager` を直接 import しないこと・`engine` 経由のみ許可
+- MUST: パラメーター変更は `engine.handleMidiCC(TransportEvent)` 経由で行うこと（source: 'window' を付与）
+- MUST: `macroKnobManager` を直接 import しないこと・`engine` 経由のみ許可（MacroWindow は例外・直接アクセス可）
 - MUST: `<form>` タグは使用しない（onClick / onChange で代替）
 - MUST: Preferences Panel は Panel（アプリ固定）であり Window ではない
+- MUST: App.tsx の Window import は全て `src/ui/components/` 配下から行うこと
 
 ## localStorage 使用方針（Day52 確定）
 
@@ -137,7 +145,7 @@ src/ui/
 | キー | 用途 | 実装場所 |
 |---|---|---|
 | `geography:presets-v1` | Preferences Preset | `PreferencesPanel.tsx` |
-| `geography:geo-presets-v1` | Geometry Param Preset | `GeometrySimpleWindow.tsx`（Day52 新設予定） |
+| `geography:geo-presets-v1` | Geometry Param Preset | `GeometrySimpleWindow.tsx` |
 
 上記以外で localStorage を使う場合は必ずこの CLAUDE.md に追記すること。
 

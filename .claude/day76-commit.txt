@@ -1,0 +1,29 @@
+feat: Day76 — slot encoding 完全確定 + Mixer MIDI Learn + Note TransportEvent 対応
+
+## 実装内容
+
+### MidiLearnTarget Zod 化
+- src/application/schema/zod/midiLearnTarget.schema.ts 新規作成
+- schema/index.ts の手書き interface → Zod 派生型に差し替え
+
+### Mixer Output フェーダー MIDI Learn
+- MixerSimpleWindow.tsx に右クリックコンテキストメニュー追加
+- Output L1/L2/L3 フェーダーに CC バッジ・点滅アニメーション追加
+- engine.ts dispatchToLearned() に layer-opacity 分岐実装
+
+### slot エンコーディング永続設計（Day76 確定）
+- CC 空間:   slot = channel * 128 + cc        （0〜2047）
+- Note 空間: slot = 2048 + channel * 128 + note（2048〜4095）
+- MidiInputWrapper.ts: CC slot 計算を channel * 128 + cc に変更
+- MidiInputWrapper.ts: Note-On/Off を onEvent（TransportEvent）に追加
+- schema/index.ts TransportEvent コメント正式更新
+- docs/spec/midi-learn.spec.md §slot-encoding 追記
+
+### APC40 mk2 デバイス仕様 完全確定
+- Transport ボタン全確認（PAN/SEND/USER/PLAY/RECORD等 16個）
+- Track ボタン（Mute/Solo/RecordArm/A/B）Note+ch構造確認
+- Track Selection = Bank Snapshot 機能確認（8bank×8knob=64slot）
+- Fader全確認（Master CC14・Crossfader CC15・CUE LEVEL CC47）
+- Clip Stop: Note 52, ch per track 確認（slot 2100/2228/2356...）
+- Stop All Clips: Note 81（slot 2129）確認
+- docs/spec/devices/apc40mk2.md v3.0 に更新

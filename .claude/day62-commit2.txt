@@ -1,0 +1,13 @@
+refactor(simple-windows): add unsubscribe cleanup to onChanged useEffect
+
+transportRegistry.onChanged() now returns an unsubscribe function
+(Day62). Return it from useEffect so React calls it on cleanup,
+preventing stale listener accumulation when activeLayer changes
+or when a Window is unmounted.
+
+Affected:
+  - GeometrySimpleWindow.tsx
+  - CameraSimpleWindow.tsx
+  - FxSimpleWindow.tsx
+
+No logic change. Baseline: 127 tests, zero tsc errors.

@@ -11,7 +11,7 @@
  * IMPORTANT: electron/ ディレクトリは CommonJS モード（electron/package.json で指定）
  */
 
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, Menu, screen } = require('electron')
 const { join } = require('path')
 const { readFile, writeFile, mkdir } = require('fs/promises')
 const { existsSync } = require('fs')
@@ -65,6 +65,7 @@ function sendToRenderer(channel, ...args) {
 
 /**
  * メニューから呼び出す Save 処理
+ * Day78: 薄い鏡化→ sendToRenderer のみ
  */
 async function menuSave() {
   sendToRenderer('menu:save')
@@ -72,56 +73,27 @@ async function menuSave() {
 
 /**
  * メニューから呼び出す Save As... 処理
+ * Day78: 薄い鏡化→ dialog は renderer 側が持つ。sendToRenderer のみに変更
  */
 async function menuSaveAs() {
-  const win = BrowserWindow.getAllWindows()[0]
-  if (!win) return
-  const result = await dialog.showSaveDialog(win, {
-    title: 'プロジェクトを保存',
-    defaultPath: join(PROJECTS_DIR, 'my-scene.geography'),
-    filters: [{ name: 'GeoGraphy Project', extensions: ['geography'] }],
-  })
-  if (result.canceled || !result.filePath) return
-  sendToRenderer('menu:save-as', result.filePath)
+  sendToRenderer('menu:save-as')
 }
 
 /**
  * メニューから呼び出す Open... 処理
+ * Day78: 薄い鏡化→ dialog + readFile は renderer 側が持つ。sendToRenderer のみに変更
  */
 async function menuOpen() {
-  const win = BrowserWindow.getAllWindows()[0]
-  if (!win) return
-  const result = await dialog.showOpenDialog(win, {
-    title: 'プロジェクトを開く',
-    defaultPath: PROJECTS_DIR,
-    filters: [{ name: 'GeoGraphy Project', extensions: ['geography'] }],
-    properties: ['openFile'],
-  })
-  if (result.canceled || result.filePaths.length === 0) return
-  const filePath = result.filePaths[0]
-  const data = await readFile(filePath, 'utf-8')
-  sendToRenderer('menu:open', filePath, data)
-  await addRecent(filePath)
+  sendToRenderer('menu:open')
 }
 
 /**
  * Recent エントリからファイルを開く
+ * Day78: 薄い鏡化→ readFile + addRecent は renderer 側が持つ。
+ *        filePath だけを renderer に渡す
  */
 async function menuOpenRecent(filePath) {
-  try {
-    const data = await readFile(filePath, 'utf-8')
-    sendToRenderer('menu:open', filePath, data)
-    await addRecent(filePath)
-  } catch {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (win) {
-      dialog.showMessageBox(win, {
-        type: 'info',
-        message: 'ファイルが見つかりません',
-        detail: filePath,
-      })
-    }
-  }
+  sendToRenderer('menu:open-recent', filePath)
 }
 
 /**
@@ -251,6 +223,12 @@ function buildMenu(recentItems = []) {
           label: 'Show All Windows',
           accelerator: 'S',
           click: () => sendToRenderer('menu:show-all-windows'),
+        },
+        { type: 'separator' },
+        {
+          label: 'Output Window',
+          accelerator: 'Cmd+Shift+O',
+          click: () => sendToRenderer('menu:toggle-output'),
         },
         { type: 'separator' },
         ...(isDev
@@ -415,6 +393,59 @@ ipcMain.handle('save-cc-overrides', async (_event, data) => {
   const overridesPath = join(GEO_DIR, 'cc-overrides.json')
   await writeFile(overridesPath, data, 'utf-8')
   return { success: true }
+})
+
+// ── Recent ファイル管理 IPC（Day78新設）────────────────────────────
+
+/**
+ * filePath を Recent に追加して recent.json を更新する。
+ * 更新後に buildMenu() を呼び直してメニューを再構築する。
+ */
+ipcMain.handle('add-recent', async (_event, filePath) => {
+  await addRecent(filePath)
+  return { success: true }
+})
+
+/** Recent リストを返す（最大5件） */
+ipcMain.handle('get-recent', async () => {
+  return await loadRecent()
+})
+
+/** Recent リストをクリアしてメニューを再構築する */
+ipcMain.handle('clear-recent', async () => {
+  await writeFile(RECENT_PATH, '[]', 'utf-8')
+  buildMenu([])
+  return { success: true }
+})
+
+// ── Output 機能（spec: docs/spec/output-manager.spec.md）──────────────────
+
+/**
+ * 接続中の全ディスプレイ情報を返す。
+ * outputManager がセカンダリディスプレイを特定するために使用する。
+ */
+ipcMain.handle('get-displays', () => {
+  return screen.getAllDisplays().map((d) => ({
+    id: d.id,
+    label: d.label ?? `Display ${d.id}`,
+    bounds: d.bounds,
+    isPrimary: d.id === screen.getPrimaryDisplay().id,
+  }))
+})
+
+/**
+ * output popup ウィンドウを指定座標に移動する。
+ * renderer 側の outputManager が openOutput() 内で呼び出す。
+ *
+ * 注意: popup（output window）は renderer が window.open() で開くため、
+ * Electron からは "GeoGraphy Output" タイトルを持つ BrowserWindow として識別する。
+ */
+ipcMain.handle('move-output-window', (_event, x, y, w, h) => {
+  const wins = BrowserWindow.getAllWindows()
+  const outputWin = wins.find((win) => win.getTitle() === 'GeoGraphy Output')
+  if (!outputWin) return
+  outputWin.setBounds({ x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) })
+  outputWin.setFullScreen(true)
 })
 
 // ── アプリライフサイクル ────────────────────────────────────────────
