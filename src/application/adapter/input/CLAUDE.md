@@ -105,10 +105,18 @@ container.addEventListener('pointermove', (e) => {
 
 ---
 
-## デバイスの役割分担
+## 推奨 MIDI コントローラー（Day75 実機確認済み）
 
-- **APC40 Mk2**: Resolume Arena 専用（GeoGraphy では使用しない）
-- **別途 MIDI コントローラー**: GeoGraphy 専用（BCR2000 推奨）
+**APC40 mk2**: GeoGraphy の推奨コントローラー。USB Class Compliant（ドライバー不要）。
+
+| コントロール | CC / Note | GeoGraphy 用途 |
+|---|---|---|
+| Track Knob 1～8（CC48～55, ch0） | slot 48～55 | Macro #1～8 |
+| Track Fader 1～3（CC7, ch0～2） | slot 7/135/263 | Mixer Output L1～3 Opacity |
+| Device Knob（CC16～23, ch0～7） | 8bank×8knob = 64 slot | 将来: Bank 別マッピング |
+| Scene Launch 1～5（Note 82～86） | slot 2130～2134 | 将来: UI トグル |
+
+詳細: `docs/spec/devices/apc40mk2.md`（v3.0 実機確認済み）
 
 ---
 

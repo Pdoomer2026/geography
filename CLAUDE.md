@@ -5,9 +5,9 @@
 - **アプリ名**: GeoGraphy（Geometry×地形×Graph のダブルミーニング）
 - **目的**: No-Texture・Plugin駆動・マルチライブラリ対応の映像制作プラットフォーム
 - **スタック**: Vite / React 18 / TypeScript / Three.js r160+ / pnpm / Electron 41
-- **要件定義書**: docs/要件定義書_v1.9.md
-- **実装計画書**: docs/実装計画書_v3.1.md
-  → フェーズ詳細・ロードマップはこちらを参照すること（CLAUDE.md には書かない）
+- **要件定義書**: docs/要件定義書_v2.1.md（v2.2 相当）
+- **実装計画書**: docs/実装計画書_v5.0.md
+  → フェーズ詳細・Day 実績・アーキテクチャ実装原則・ハマりポイントはこちらを参照すること（CLAUDE.md には書かない）
 
 ---
 

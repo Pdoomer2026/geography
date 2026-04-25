@@ -9,38 +9,56 @@ spec: `docs/spec/window-plugin.spec.md`
 
 ---
 
-## Window 分類体系（Day61 確定）
+## Window 分類体系（Day65 全層完成）
 
 | 分類 | 定義 | 状態 |
 |---|---|---|
-| **Simple Window** | 複雑な機構を持たないデフォルト最小 UI | ✅ 実装済み |
-| **Macro Window** | AssignRegistry へのノブ UI | ✅ 実装済み |
-| **Standard Window** | スライダーの稼働幅を持つ Window | 将来 |
-| **DnD Window** | D&D 機能を持つ Window | 将来 |
+| **Simple Window** | 最小 UI・ min～max フル範囲 | ✅ Day59 実装済み |
+| **Standard Window** | RangeSlider で lo/hi 稼働幅を設定可能 | ✅ Day63 実装済み |
+| **Simple D&D Window** | D&D ハンドル付き・MacroKnob アサイン対応 | ✅ Day64 実装済み |
+| **Standard D&D Window** | lo/hi + D&D 両方対応・最多機能 | ✅ Day65 実装済み |
+| **Macro 8 Window** | 8ノブ・3重リング SVG | ✅ Day64 実装済み |
+| **GeoMonitor Window** | 全パラメーターリアルタイム表示 | ✅ Day62 実装済み |
+| **MIDI Monitor Window** | MIDI 信号リアルタイム表示 | ✅ Day75 実装済み |
 
 ---
 
-## ディレクトリ構成（Day61 確定）
+## ディレクトリ構成（Day65 全層完成）
 
 ```
 src/ui/components/window/
 ├── CLAUDE.md
-├── simple-window/               <- Simple Window の格納場所
+├── simple-window/               <- 全てデフォルト OFF・min～max フル範囲
 │   ├── GeometrySimpleWindow.tsx
 │   ├── CameraSimpleWindow.tsx
 │   ├── FxSimpleWindow.tsx
 │   └── index.ts
-├── standard-window/
-├── simple-dnd-window/
-├── standard-dnd-window/
-├── macro-window/                <- AssignRegistry のノブ UI
-│   ├── MacroWindow.tsx
-│   ├── index.ts
-│   └── CLAUDE.md
-├── macro-8-window/
-├── geo-monitor/
-├── standard-dnd-window/
-└── dnd-window/                  <- 将来（D&D 機能あり）
+├── standard-window/             <- RangeSlider（lo/hi）付き
+│   ├── RangeSlider.tsx
+│   ├── GeometryStandardWindow.tsx
+│   ├── CameraStandardWindow.tsx
+│   ├── FxStandardWindow.tsx
+│   └── index.ts
+├── simple-dnd-window/           <- D&D ハンドル付き
+│   ├── GeometrySimpleDnDWindow.tsx
+│   ├── CameraSimpleDnDWindow.tsx
+│   ├── FxSimpleDnDWindow.tsx
+│   └── index.ts
+├── standard-dnd-window/         <- lo/hi + D&D 両方対応
+│   ├── GeometryStandardDnDWindow.tsx
+│   ├── CameraStandardDnDWindow.tsx
+│   ├── FxStandardDnDWindow.tsx
+│   └── index.ts
+├── macro-8-window/              <- 8ノブ・3重リング SVG
+│   ├── Macro8Window.tsx
+│   ├── Macro8MidiWindow.tsx
+│   └── index.ts
+├── geo-monitor/                 <- 全パラメーターリアルタイム表示
+│   ├── GeoMonitorWindow.tsx
+│   └── index.ts
+└── midi-monitor/                <- MIDI 信号リアルタイム表示
+    ├── MidiMonitorWindow.tsx
+    └── index.ts
 ```
 
 ---

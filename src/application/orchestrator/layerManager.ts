@@ -9,6 +9,16 @@ import type { CameraPlugin, CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from
 export class LayerManager {
   private layers: Layer[] = []
   private composers: Map<string, EffectComposer> = new Map()
+  private styleChangedListeners: Set<() => void> = new Set()
+
+  onStyleChanged(cb: () => void): () => void {
+    this.styleChangedListeners.add(cb)
+    return () => this.styleChangedListeners.delete(cb)
+  }
+
+  private notifyStyleChanged(): void {
+    for (const cb of this.styleChangedListeners) cb()
+  }
 
   initialize(container: HTMLElement): void {
     this.dispose()
@@ -184,6 +194,7 @@ export class LayerManager {
     if (!layer) return
     layer.opacity = opacity
     layer.canvas.style.opacity = String(opacity)
+    this.notifyStyleChanged()
   }
 
   setBlendMode(layerId: string, blendMode: CSSBlendMode): void {
@@ -191,6 +202,7 @@ export class LayerManager {
     if (!layer) return
     layer.blendMode = blendMode
     layer.canvas.style.mixBlendMode = blendMode
+    this.notifyStyleChanged()
   }
 
   setMute(layerId: string, mute: boolean): void {
@@ -198,6 +210,7 @@ export class LayerManager {
     if (!layer) return
     layer.mute = mute
     layer.canvas.style.display = mute ? 'none' : 'block'
+    this.notifyStyleChanged()
   }
 
   update(delta: number, beat: number): void {
