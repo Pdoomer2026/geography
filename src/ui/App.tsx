@@ -16,8 +16,6 @@ import { GeoMonitorWindow } from './components/window/geo-monitor'
 import { MidiMonitorWindow } from './components/window/midi-monitor'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
 import { outputManager } from '../application/orchestrator/outputManager'
-import { OUTPUT_CHANNEL_NAME } from '../application/sync/outputSync'
-import type { OutputSyncMessage } from '../application/sync/outputSync'
 import { useAutosave } from './useAutosave'
 import { DEFAULT_WINDOW_MODE } from '../application/schema/windowMode'
 import type { WindowMode } from '../application/schema/windowMode'
@@ -50,18 +48,6 @@ export default function App() {
 
   useAutosave()
 
-  // BroadcastChannel: OutputPage への状態配信
-  useEffect(() => {
-    const ch = new BroadcastChannel(OUTPUT_CHANNEL_NAME)
-    ch.onmessage = (e: MessageEvent<OutputSyncMessage>) => {
-      if (e.data.type === 'REQUEST_STATE') {
-        const project = engine.buildProject('output-sync')
-        ch.postMessage({ type: 'STATE_SNAPSHOT', project } satisfies OutputSyncMessage)
-      }
-    }
-    return () => ch.close()
-  }, [])
-
   useEffect(() => {
     midiInputWrapper.init(
       (event) => engine.handleMidiCC(event),
@@ -83,15 +69,13 @@ export default function App() {
       syncMacroKnobs()
 
       // commandStream → engine（throttle 16ms = 60fps 相当）
-      const ch = new BroadcastChannel(OUTPUT_CHANNEL_NAME)
       const sub = paramCommand$.pipe(
         throttleTime(16, undefined, { leading: true, trailing: true })
       ).subscribe((event) => {
         engine.handleMidiCC(event)
-        ch.postMessage({ type: 'PARAM_EVENT', event } satisfies OutputSyncMessage)
       })
 
-      return () => { sub.unsubscribe(); unsubParam(); ch.close() }
+      return () => { sub.unsubscribe(); unsubParam() }
     })
     return () => { engine.dispose() }
   }, [])

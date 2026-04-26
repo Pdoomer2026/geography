@@ -295,6 +295,27 @@ function createWindow() {
     win.loadFile(join(__dirname, '../dist/index.html'))
   }
 
+  // ── 案C: Output Window のフレームレス化（Day80確立）────────────────────
+  // outputManager が window.open('about:blank', 'GeoGraphy Output', ...) を呼ぶとき
+  // Electron がここで interceptして frame:false の BrowserWindow として作成する。
+  // これにより VJ 本番用の完全なウィンドウ chrome なし出力を実現する。
+  // setFullScreen(true) は move-output-window IPC ハンドラー側で行う。
+  win.webContents.setWindowOpenHandler(({ frameName }) => {
+    if (frameName === 'GeoGraphy Output') {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          frame: false,
+          titleBarStyle: 'hidden',
+          alwaysOnTop: true,
+          backgroundColor: '#000000',
+        },
+      }
+    }
+    // その他の window.open() はすべて拒否する
+    return { action: 'deny' }
+  })
+
   return win
 }
 

@@ -5,25 +5,21 @@
  * Three.js の canvas 映像を外部モニター / プロジェクターにリアルタイム送出する。
  *
  * 案B（ブラウザ開発用）:
- *   L1〜L3 の canvas それぞれから captureStream() → window.open() popup で
- *   <video> × 3 を CSS mixBlendMode で重ねて表示。
- *   popup はブラウザのウィンドウ chrome あり。手動でドラッグして外部モニターへ移動する。
+ *   L1〜L3 の canvas それぞれから captureStream() → popup で <video> × 3 を
+ *   CSS mixBlendMode で重ねて表示。App と同じ合成方式をブラウザ側で再現する。
  *
- * 案C（Electron VJ 本番用）:
- *   window.geoAPI 検出時に使用。window.open() を呼ぶが、main.js の
- *   setWindowOpenHandler が BrowserWindow を frame:false で作成するため
- *   ウィンドウ chrome が最初から存在しない。
- *   geoAPI.moveOutputWindow() でセカンダリディスプレイに自動配置し、
- *   setFullScreen(true) で完全なフルスクリーン出力を実現する。
+ * 案C（Electron 本番用・未実装）:
+ *   BrowserWindow で layerManager の canvas を直接レンダリング。遅延なし。
+ *   TODO: Electron 実装時に window.geoAPI 判定で分岐する。
  *
- * レンダリングパイプライン（案B / 案C 共通）:
- *   captureStream(60) x L1〜L3 → <video> × 3 + CSS mixBlendMode
- *   layerManager.onStyleChanged → postMessage で opacity / blendMode / mute をリアルタイム同期
+ * 環境差分:
+ *   Electron: window.geoAPI.getDisplays() / moveOutputWindow() でセカンダリモニターに自動配置
+ *   React dev: window.open() のみ。手動でドラッグして外部モニターへ移動する
  */
 
 import { layerManager } from './layerManager'
 
-/** popup へのスタイル同期メッセージ型 */
+/** popup への style 同期メッセージ型 */
 interface LayerStyleState {
   id: string
   blendMode: string
@@ -31,7 +27,7 @@ interface LayerStyleState {
   mute: boolean
 }
 
-/** 各レイヤーの現在状態から Output Window 用 HTML を生成する */
+/** CSS blendMode → video の mix-blend-mode スタイル値（そのまま使用可） */
 const buildOutputHTML = (layers: { id: string; blendMode: string; opacity: number; mute: boolean }[]) => {
   const videoTags = layers.map(({ id, blendMode, opacity, mute }) => `
     <video
@@ -73,10 +69,11 @@ const buildOutputHTML = (layers: { id: string; blendMode: string; opacity: numbe
 ${videoTags}
 </div>
 <script>
-  // 親ウィンドウから MediaStream を受け取り <video> に注入する
+  // 親ウィンドウから streams を受け取る
+  // streams: Array<{ id: string, stream: MediaStream }>
   window.__setStreams = function(streams) {
     streams.forEach(function({ id, stream }) {
-      var video = document.getElementById(id);
+      const video = document.getElementById(id);
       if (!video) return;
       video.srcObject = stream;
       video.play().catch(function(e) {
@@ -85,11 +82,11 @@ ${videoTags}
     });
   };
 
-  // App から postMessage でスタイル変化を受け取り <video> に反映する
+  // App から postMessage でスタイル変化を受け取り video に反映
   window.addEventListener('message', function(e) {
     if (!e.data || e.data.type !== 'STYLE_UPDATE') return;
     e.data.styles.forEach(function(layer) {
-      var video = document.getElementById(layer.id);
+      const video = document.getElementById(layer.id);
       if (!video) return;
       video.style.opacity = layer.opacity;
       video.style.mixBlendMode = layer.blendMode;
@@ -105,85 +102,28 @@ class OutputManager {
   private popup: Window | null = null
   private unsubStyleChanged: (() => void) | null = null
 
-  // ── 公開 API ──────────────────────────────────────────────────────
-
   /**
-   * Output ウィンドウを開く。
-   * window.geoAPI が存在する場合は案C（Electron VJ 本番用）、
-   * 存在しない場合は案B（ブラウザ開発用）にディスパッチする。
+   * Output ウィンドウを開いて映像を送出する。（案B: ブラウザ開発用）
+   *
+   * 処理フロー:
+   * 1. layerManager.getLayers() で L1〜L3 の canvas を取得
+   * 2. 各 canvas から captureStream(60) で MediaStream を生成
+   * 3. window.open() で popup を開く
+   * 4. popup に <video> × レイヤー数 を CSS blend で重ねた HTML を書き込む
+   * 5. popup.__setStreams(streams) で映像を注入
+   * 6. Electron 環境: geoAPI でセカンダリモニターに自動配置
    */
   async openOutput(): Promise<void> {
+    // 既に開いている場合はフォーカスするだけ
     if (this.popup && !this.popup.closed) {
       this.popup.focus()
       return
     }
 
-    if (window.geoAPI) {
-      await this._openOutputElectron()
-    } else {
-      await this._openOutputBrowser()
-    }
-  }
-
-  /** Output ウィンドウを閉じる */
-  closeOutput(): void {
-    if (this.popup && !this.popup.closed) {
-      this.popup.close()
-    }
-    this.popup = null
-    this.unsubStyleChanged?.()
-    this.unsubStyleChanged = null
-  }
-
-  /** Output ウィンドウが現在開いているか返す */
-  isOpen(): boolean {
-    return this.popup !== null && !this.popup.closed
-  }
-
-  /** Output ウィンドウをトグル（開閉）する */
-  async toggleOutput(): Promise<void> {
-    if (this.isOpen()) {
-      this.closeOutput()
-    } else {
-      await this.openOutput()
-    }
-  }
-
-  // ── 内部実装 ──────────────────────────────────────────────────────
-
-  /**
-   * 案B: ブラウザ開発用
-   * window.open() で popup を開く。ブラウザのウィンドウ chrome あり。
-   * セカンダリディスプレイへの配置は手動（ドラッグ）。
-   */
-  private async _openOutputBrowser(): Promise<void> {
-    const popup = await this._openPopupWithStreams()
-    if (!popup) return
-    console.info('[OutputManager] 案B: popup を開きました。外部モニターへ手動でドラッグしてください。')
-  }
-
-  /**
-   * 案C: Electron VJ 本番用
-   * window.open() を呼ぶが、main.js の setWindowOpenHandler が
-   * frameName 'GeoGraphy Output' を検出して frame:false の BrowserWindow を作成する。
-   * geoAPI.moveOutputWindow() でセカンダリディスプレイに自動配置する。
-   */
-  private async _openOutputElectron(): Promise<void> {
-    const popup = await this._openPopupWithStreams()
-    if (!popup) return
-    await this._moveToSecondaryDisplay()
-    console.info('[OutputManager] 案C: Electron フレームレスウィンドウで出力開始。')
-  }
-
-  /**
-   * 共通コア: popup 生成 → HTML 書き込み → stream 注入 → style 同期開始
-   * 成功時は popup 参照を返す。失敗時は null を返す。
-   */
-  private async _openPopupWithStreams(): Promise<Window | null> {
     const layers = layerManager.getLayers()
     if (layers.length === 0) {
       console.warn('[OutputManager] レイヤーが存在しません。engine が初期化済みか確認してください。')
-      return null
+      return
     }
 
     // 各レイヤーの canvas から MediaStream を生成
@@ -192,7 +132,7 @@ class OutputManager {
       stream: layer.canvas.captureStream(60),
     }))
 
-    // 現在のレイヤー状態で HTML を生成
+    // popup 用の HTML を現在のレイヤー状態で生成
     const layerInfo = layers.map((l) => ({
       id: l.id,
       blendMode: l.blendMode,
@@ -201,10 +141,7 @@ class OutputManager {
     }))
     const html = buildOutputHTML(layerInfo)
 
-    // popup を開く
-    // 案B: ブラウザが通常の popup として作成（chrome あり）
-    // 案C: main.js の setWindowOpenHandler が frameName を検出し
-    //      frame:false の BrowserWindow として作成する（chrome なし）
+    // popup を開く（about:blank で同一オリジン扱いにして srcObject 代入を可能にする）
     const popup = window.open(
       'about:blank',
       'GeoGraphy Output',
@@ -213,7 +150,7 @@ class OutputManager {
 
     if (!popup) {
       console.warn('[OutputManager] popup がブロックされました。ブラウザのポップアップ許可を確認してください。')
-      return null
+      return
     }
 
     this.popup = popup
@@ -253,7 +190,7 @@ class OutputManager {
       }
     }, 500)
 
-    // layerManager のスタイル変化を postMessage で popup に同期（イベント駆動）
+    // layerManager のスタイル変化を postMessage で popup に同期
     this.unsubStyleChanged = layerManager.onStyleChanged(() => {
       if (!this.popup || this.popup.closed) return
       const styles: LayerStyleState[] = layerManager.getLayers().map((l) => ({
@@ -265,26 +202,68 @@ class OutputManager {
       this.popup.postMessage({ type: 'STYLE_UPDATE', styles }, '*')
     })
 
-    return popup
+    // Electron 環境: セカンダリディスプレイに自動配置
+    if (window.geoAPI && 'getDisplays' in window.geoAPI) {
+      await this._moveToSecondaryDisplay()
+    }
   }
 
   /**
-   * 案C 専用: Electron でセカンダリディスプレイに popup を移動する。
-   * geoAPI.getDisplays() でセカンダリを特定し、
-   * geoAPI.moveOutputWindow() → main.js で setBounds + setFullScreen(true) を実行する。
+   * Output ウィンドウを閉じる。
+   */
+  closeOutput(): void {
+    if (this.popup && !this.popup.closed) {
+      this.popup.close()
+    }
+    this.popup = null
+    this.unsubStyleChanged?.()
+    this.unsubStyleChanged = null
+  }
+
+  /**
+   * Output ウィンドウが現在開いているか返す。
+   */
+  isOpen(): boolean {
+    return this.popup !== null && !this.popup.closed
+  }
+
+  /**
+   * Output ウィンドウをトグル（開閉）する。
+   */
+  async toggleOutput(): Promise<void> {
+    if (this.isOpen()) {
+      this.closeOutput()
+    } else {
+      await this.openOutput()
+    }
+  }
+
+  /**
+   * Electron 環境でセカンダリディスプレイに popup を移動する。
+   * geoAPI.getDisplays() / moveOutputWindow() を使用。
    */
   private async _moveToSecondaryDisplay(): Promise<void> {
-    if (!window.geoAPI) return
+    const geoAPI = window.geoAPI as (typeof window.geoAPI & {
+      getDisplays: () => Promise<Array<{
+        id: number
+        label: string
+        bounds: { x: number; y: number; width: number; height: number }
+        isPrimary: boolean
+      }>>
+      moveOutputWindow: (x: number, y: number, w: number, h: number) => Promise<void>
+    }) | undefined
+
+    if (!geoAPI?.getDisplays || !geoAPI?.moveOutputWindow) return
 
     try {
-      const displays = await window.geoAPI.getDisplays()
+      const displays = await geoAPI.getDisplays()
       const secondary = displays.find((d) => !d.isPrimary)
       if (!secondary) {
         console.info('[OutputManager] セカンダリディスプレイが見つかりません。手動でドラッグしてください。')
         return
       }
       const { x, y, width, height } = secondary.bounds
-      await window.geoAPI.moveOutputWindow(x, y, width, height)
+      await geoAPI.moveOutputWindow(x, y, width, height)
     } catch (e) {
       console.warn('[OutputManager] セカンダリディスプレイへの移動に失敗しました:', e)
     }
