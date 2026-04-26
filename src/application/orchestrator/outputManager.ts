@@ -19,9 +19,13 @@
  * レンダリングパイプライン（案B / 案C 共通）:
  *   captureStream(60) x L1〜L3 → <video> × 3 + CSS mixBlendMode
  *   layerManager.onStyleChanged → postMessage で opacity / blendMode / mute をリアルタイム同期
+ *   setAspectMode() → postMessage で object-fit をリアルタイム同期
  */
 
 import { layerManager } from './layerManager'
+
+/** contain: 黒帯あり・映像全体表示 / cover: 黒帯なし・はみ出しクリップ */
+export type AspectMode = 'contain' | 'cover'
 
 /** popup へのスタイル同期メッセージ型 */
 interface LayerStyleState {
@@ -32,7 +36,10 @@ interface LayerStyleState {
 }
 
 /** 各レイヤーの現在状態から Output Window 用 HTML を生成する */
-const buildOutputHTML = (layers: { id: string; blendMode: string; opacity: number; mute: boolean }[]) => {
+const buildOutputHTML = (
+  layers: { id: string; blendMode: string; opacity: number; mute: boolean }[],
+  aspectMode: AspectMode,
+) => {
   const videoTags = layers.map(({ id, blendMode, opacity, mute }) => `
     <video
       id="${id}"
@@ -43,7 +50,7 @@ const buildOutputHTML = (layers: { id: string; blendMode: string; opacity: numbe
         position: absolute;
         top: 0; left: 0;
         width: 100%; height: 100%;
-        object-fit: contain;
+        object-fit: ${aspectMode};
         mix-blend-mode: ${blendMode};
         opacity: ${opacity};
         display: ${mute ? 'none' : 'block'};
@@ -87,14 +94,26 @@ ${videoTags}
 
   // App から postMessage でスタイル変化を受け取り <video> に反映する
   window.addEventListener('message', function(e) {
-    if (!e.data || e.data.type !== 'STYLE_UPDATE') return;
-    e.data.styles.forEach(function(layer) {
-      var video = document.getElementById(layer.id);
-      if (!video) return;
-      video.style.opacity = layer.opacity;
-      video.style.mixBlendMode = layer.blendMode;
-      video.style.display = layer.mute ? 'none' : 'block';
-    });
+    if (!e.data) return;
+
+    // レイヤーごとの opacity / blendMode / mute 同期
+    if (e.data.type === 'STYLE_UPDATE') {
+      e.data.styles.forEach(function(layer) {
+        var video = document.getElementById(layer.id);
+        if (!video) return;
+        video.style.opacity = layer.opacity;
+        video.style.mixBlendMode = layer.blendMode;
+        video.style.display = layer.mute ? 'none' : 'block';
+      });
+    }
+
+    // aspect ratio 同期: 全 <video> の object-fit を一括更新
+    if (e.data.type === 'ASPECT_UPDATE') {
+      var videos = document.querySelectorAll('video');
+      videos.forEach(function(video) {
+        video.style.objectFit = e.data.aspectMode;
+      });
+    }
   });
 </script>
 </body>
@@ -104,6 +123,7 @@ ${videoTags}
 class OutputManager {
   private popup: Window | null = null
   private unsubStyleChanged: (() => void) | null = null
+  private aspectMode: AspectMode = 'contain'
 
   // ── 公開 API ──────────────────────────────────────────────────────
 
@@ -149,6 +169,28 @@ class OutputManager {
     }
   }
 
+  /** 現在の AspectMode を返す */
+  getAspectMode(): AspectMode {
+    return this.aspectMode
+  }
+
+  /**
+   * AspectMode を設定する。
+   * Output ウィンドウが開いている場合は postMessage で即時反映する。
+   */
+  setAspectMode(mode: AspectMode): void {
+    this.aspectMode = mode
+    if (this.popup && !this.popup.closed) {
+      this.popup.postMessage({ type: 'ASPECT_UPDATE', aspectMode: mode }, '*')
+    }
+    console.info(`[OutputManager] AspectMode: ${mode}`)
+  }
+
+  /** AspectMode を contain ↔ cover でトグルする */
+  toggleAspectMode(): void {
+    this.setAspectMode(this.aspectMode === 'contain' ? 'cover' : 'contain')
+  }
+
   // ── 内部実装 ──────────────────────────────────────────────────────
 
   /**
@@ -192,14 +234,14 @@ class OutputManager {
       stream: layer.canvas.captureStream(60),
     }))
 
-    // 現在のレイヤー状態で HTML を生成
+    // 現在のレイヤー状態 + aspectMode で HTML を生成
     const layerInfo = layers.map((l) => ({
       id: l.id,
       blendMode: l.blendMode,
       opacity: l.opacity,
       mute: l.mute,
     }))
-    const html = buildOutputHTML(layerInfo)
+    const html = buildOutputHTML(layerInfo, this.aspectMode)
 
     // popup を開く
     // 案B: ブラウザが通常の popup として作成（chrome あり）

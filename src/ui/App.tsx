@@ -149,6 +149,7 @@ export default function App() {
         document.documentElement.requestFullscreen?.().catch(() => {})
       }
       if (e.key === 'o' || e.key === 'O') { outputManager.toggleOutput() }
+      if (e.key === 'a' || e.key === 'A') { outputManager.toggleAspectMode() }
       if (e.key === 'h' || e.key === 'H') setWindowMode(HIDE_ALL)
       if (e.key === 's' || e.key === 'S') setWindowMode(DEFAULT_WINDOW_MODE)
     }
@@ -239,7 +240,7 @@ export default function App() {
         className="fixed bottom-1 right-2 text-[9px] text-[#3a3a5e] select-none pointer-events-none"
         style={{ zIndex: 100 }}
       >
-        P:Prefs 1:Macro 3:Mixer M:MIDI Monitor 6:GeoMonitor O:Output | H:Hide S:Show F:全非表示+全画面
+        P:Prefs 1:Macro 3:Mixer M:MIDI Monitor 6:GeoMonitor O:Output A:Aspect(contain/cover) | H:Hide S:Show F:全非表示+全画面
       </div>
     </>
   )

@@ -1,0 +1,23 @@
+feat: add AspectMode (contain/cover) toggle to Output Window (Day80)
+
+Output ウィンドウの映像スケーリングを実行時に切り替えられるようにした。
+
+AspectMode: 'contain' | 'cover'
+  contain: 黒帯あり・映像全体を表示（デフォルト）
+  cover:   黒帯なし・アスペクト比を保ちつつウィンドウ全面に拡大
+
+実装:
+  outputManager.setAspectMode(mode) — 設定変更
+  outputManager.toggleAspectMode()  — contain <-> cover トグル
+  outputManager.getAspectMode()     — 現在値を取得
+
+Output ウィンドウが開いている状態で切り替えると
+postMessage({ type: 'ASPECT_UPDATE', aspectMode }) で即時反映。
+popup 側は querySelectorAll('video') で全 <video> の
+object-fit を一括更新する。
+
+buildOutputHTML() に aspectMode 引数を追加し、
+popup 生成時の初期値にも反映される。
+
+App.tsx: 'A' キーで toggleAspectMode() を呼び出す。
+ヒントバーに A:Aspect(contain/cover) を追記。

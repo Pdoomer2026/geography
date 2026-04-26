@@ -1,0 +1,19 @@
+feat: implement Case C Electron frameless output window (Day80)
+
+案B（ブラウザ開発用）と案C（Electron VJ 本番用）を分離。
+
+案C の核心は main.js の setWindowOpenHandler。
+outputManager が window.open('about:blank', 'GeoGraphy Output', ...) を
+呼ぶと Electron がここで intercept し、frame:false / alwaysOnTop:true の
+BrowserWindow として作成する。これにより VJ 本番でウィンドウ chrome が
+最初から存在しない出力を実現する。
+
+outputManager.openOutput() は window.geoAPI の有無で自動分岐：
+  - geoAPI あり → _openOutputElectron()（案C: frameless + 自動配置）
+  - geoAPI なし → _openOutputBrowser()（案B: 通常 popup + 手動配置）
+
+レンダリングパイプライン（captureStream + postMessage style 同期）は
+両案で共通。_openPopupWithStreams() に抽出した。
+
+同時に BroadcastChannel（OutputPage / outputSync）を削除。
+Day65b で captureStream 方式に移行済みのため完全な dead code だった。
