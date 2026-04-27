@@ -4,11 +4,9 @@
  * Application 層のストア。UI 層・Electron・ブラウザすべてからの
  * Preset 操作はここを経由する。
  *
- * Electron 環境: window.geoAPI 経由でファイル保存
- * ブラウザ環境: localStorage にフォールバック
- *
- * UI 層・Electron は「薄い鏡」として機能し、
- * ロジックはすべてこのファイルに集約する。
+ * 保存先: localStorage に一本化（Electron・ブラウザ共通）
+ * Electron は「薄い鏡」として機能し、ロジックはすべてこのファイルに集約する。
+ * geoAPI の役割は showSaveDialog / showOpenDialog / saveFile / loadFile のみ。
  *
  * spec: docs/spec/layer-window.spec.md §5
  */
@@ -40,26 +38,9 @@ const SCENE_KEY = 'geography:scene-presets-v2'
 
 /**
  * 保存済み LayerPreset を Geometry 名フォルダ単位で返す。
- * Electron: geoAPI 経由でファイルから読む
- * ブラウザ: localStorage から読み、geometryPluginId でグループ化
+ * localStorage から読み、geometryPluginId でグループ化する。
  */
 export async function loadLayerPresetFolders(): Promise<PresetFolder[]> {
-  if (window.geoAPI) {
-    const folders = await window.geoAPI.presetList('layer') as Array<{
-      folder: string
-      presets: Array<{ name: string; data: string }>
-    }>
-    return folders
-      .map((f) => ({
-        folder: f.folder,
-        presets: f.presets
-          .map((p) => parseLayerPresetSafe(JSON.parse(p.data)))
-          .filter((p): p is LayerPreset => p !== null),
-      }))
-      .filter((f) => f.presets.length > 0)
-  }
-
-  // ブラウザ: localStorage から geometryPluginId でグループ化
   try {
     const raw = localStorage.getItem(LAYER_KEY)
     if (!raw) return []
@@ -82,17 +63,8 @@ export async function loadLayerPresetFolders(): Promise<PresetFolder[]> {
 
 /**
  * LayerPreset を保存する。
- * subfolder は自動的に preset.geometryPluginId を使う。
  */
 export async function saveLayerPreset(name: string, preset: LayerPreset): Promise<void> {
-  const subfolder = preset.geometryPluginId || undefined
-  const data = JSON.stringify({ ...preset, name, id: `preset-${Date.now()}` }, null, 2)
-
-  if (window.geoAPI) {
-    await window.geoAPI.presetSave('layer', name, data, subfolder)
-    return
-  }
-
   try {
     const raw = localStorage.getItem(LAYER_KEY)
     const prev = raw ? JSON.parse(raw) as Record<string, unknown> : {}
@@ -103,14 +75,8 @@ export async function saveLayerPreset(name: string, preset: LayerPreset): Promis
 
 /**
  * LayerPreset を削除する。
- * subfolder は preset.geometryPluginId から自動解決する。
  */
-export async function deleteLayerPreset(name: string, subfolder?: string): Promise<void> {
-  if (window.geoAPI) {
-    await window.geoAPI.presetDelete('layer', name, subfolder)
-    return
-  }
-
+export async function deleteLayerPreset(name: string): Promise<void> {
   try {
     const raw = localStorage.getItem(LAYER_KEY)
     if (!raw) return
@@ -128,13 +94,6 @@ export async function deleteLayerPreset(name: string, subfolder?: string): Promi
  * 保存済み ScenePreset の一覧を返す。
  */
 export async function loadScenePresets(): Promise<ScenePreset[]> {
-  if (window.geoAPI) {
-    const files = await window.geoAPI.presetList('scene') as Array<{ name: string; data: string }>
-    return files
-      .map((f) => parseScenePresetSafe(JSON.parse(f.data)))
-      .filter((p): p is ScenePreset => p !== null)
-  }
-
   try {
     const raw = localStorage.getItem(SCENE_KEY)
     if (!raw) return []
@@ -151,13 +110,6 @@ export async function loadScenePresets(): Promise<ScenePreset[]> {
  * ScenePreset を保存する。
  */
 export async function saveScenePreset(name: string, preset: ScenePreset): Promise<void> {
-  const data = JSON.stringify(preset, null, 2)
-
-  if (window.geoAPI) {
-    await window.geoAPI.presetSave('scene', name, data)
-    return
-  }
-
   try {
     const raw = localStorage.getItem(SCENE_KEY)
     const prev = raw ? JSON.parse(raw) as Record<string, unknown> : {}
@@ -169,11 +121,6 @@ export async function saveScenePreset(name: string, preset: ScenePreset): Promis
  * ScenePreset を削除する。
  */
 export async function deleteScenePreset(name: string): Promise<void> {
-  if (window.geoAPI) {
-    await window.geoAPI.presetDelete('scene', name)
-    return
-  }
-
   try {
     const raw = localStorage.getItem(SCENE_KEY)
     if (!raw) return

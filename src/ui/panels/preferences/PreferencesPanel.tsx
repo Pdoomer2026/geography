@@ -632,8 +632,7 @@ function PresetsTab() {
 
   async function handleDeleteLayer() {
     if (!selectedLayer) { flash('⚠ Select a preset'); return }
-    const preset = layerPresets.find((p) => p.name === selectedLayer)
-    await deleteLayerPreset(selectedLayer, preset?.geometryPluginId)
+    await deleteLayerPreset(selectedLayer)
     flash(`✓ Deleted: "${selectedLayer}"`)
     setSelectedLayer('')
     await loadAll()

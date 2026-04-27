@@ -13,7 +13,7 @@
 
 const { app, BrowserWindow, ipcMain, dialog, Menu, screen } = require('electron')
 const { join } = require('path')
-const { readFile, writeFile, mkdir, readdir, unlink } = require('fs/promises')
+const { readFile, writeFile, mkdir } = require('fs/promises')
 const { existsSync } = require('fs')
 const { homedir } = require('os')
 
@@ -23,8 +23,6 @@ const isDev = !app.isPackaged
 const GEO_DIR        = join(homedir(), 'Documents', 'GeoGraphy')
 const PROJECTS_DIR   = join(GEO_DIR, 'projects')
 const PRESETS_DIR    = join(GEO_DIR, 'presets')
-const LAYER_PRESETS_DIR = join(PRESETS_DIR, 'layer')
-const SCENE_PRESETS_DIR = join(PRESETS_DIR, 'scene')
 const RECORDINGS_DIR = join(GEO_DIR, 'recordings')
 const AUTOSAVE_PATH  = join(GEO_DIR, 'autosave.geography')
 const RECENT_PATH    = join(GEO_DIR, 'recent.json')
@@ -264,7 +262,7 @@ function buildMenu(recentItems = []) {
 
 /** アプリ起動時に必要なディレクトリを作成 */
 async function ensureDirectories() {
-  for (const dir of [GEO_DIR, PROJECTS_DIR, PRESETS_DIR, LAYER_PRESETS_DIR, SCENE_PRESETS_DIR, RECORDINGS_DIR]) {
+  for (const dir of [GEO_DIR, PROJECTS_DIR, PRESETS_DIR, RECORDINGS_DIR]) {
     if (!existsSync(dir)) {
       await mkdir(dir, { recursive: true })
     }
@@ -418,85 +416,6 @@ ipcMain.handle('save-cc-overrides', async (_event, data) => {
   return { success: true }
 })
 
-// ── Preset ファイル管理（spec: docs/spec/layer-window.spec.md §5）──────────
-
-/**
- * Preset を JSON ファイルとして保存する。
- * type: 'layer' → LAYER_PRESETS_DIR / 'scene' → SCENE_PRESETS_DIR
- * subfolder: layer Preset の場合は geometryPluginId（例: 'icosphere'）
- */
-ipcMain.handle('preset:save', async (_event, type, name, data, subfolder) => {
-  const base = type === 'layer' ? LAYER_PRESETS_DIR : SCENE_PRESETS_DIR
-  const dir = subfolder ? join(base, subfolder) : base
-  await mkdir(dir, { recursive: true })
-  const filePath = join(dir, `${name}.json`)
-  await writeFile(filePath, data, 'utf-8')
-  return { success: true, filePath }
-})
-
-/**
- * Preset 一覧を返す。
- * layer: 階層構造 { folder: string, presets: { name, data }[] }[]
- * scene: フラット { name, data }[]
- */
-ipcMain.handle('preset:list', async (_event, type) => {
-  if (type === 'scene') {
-    const dir = SCENE_PRESETS_DIR
-    if (!existsSync(dir)) return []
-    const files = await readdir(dir)
-    const result = []
-    for (const file of files.filter((f) => f.endsWith('.json'))) {
-      try {
-        const raw = await readFile(join(dir, file), 'utf-8')
-        result.push({ name: file.replace(/\.json$/, ''), data: raw })
-      } catch { /* skip */ }
-    }
-    return result
-  }
-
-  // layer: サブフォルダごとに返す
-  const base = LAYER_PRESETS_DIR
-  if (!existsSync(base)) return []
-  const entries = await readdir(base, { withFileTypes: true })
-  const folders = []
-
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      // サブフォルダ = geometryPluginId
-      const subDir = join(base, entry.name)
-      const files = await readdir(subDir)
-      const presets = []
-      for (const file of files.filter((f) => f.endsWith('.json'))) {
-        try {
-          const raw = await readFile(join(subDir, file), 'utf-8')
-          presets.push({ name: file.replace(/\.json$/, ''), data: raw })
-        } catch { /* skip */ }
-      }
-      if (presets.length > 0) folders.push({ folder: entry.name, presets })
-    } else if (entry.isFile() && entry.name.endsWith('.json')) {
-      // フラットな JSON（旧形式互換）→ 'uncategorized' フォルダに包む
-      try {
-        const raw = await readFile(join(base, entry.name), 'utf-8')
-        let unc = folders.find((f) => f.folder === 'uncategorized')
-        if (!unc) { unc = { folder: 'uncategorized', presets: [] }; folders.push(unc) }
-        unc.presets.push({ name: entry.name.replace(/\.json$/, ''), data: raw })
-      } catch { /* skip */ }
-    }
-  }
-  return folders
-})
-
-/**
- * Preset ファイルを削除する。
- * subfolder があれば layer/subfolder/name.json、なければ type/name.json
- */
-ipcMain.handle('preset:delete', async (_event, type, name, subfolder) => {
-  const base = type === 'layer' ? LAYER_PRESETS_DIR : SCENE_PRESETS_DIR
-  const dir = subfolder ? join(base, subfolder) : base
-  const filePath = join(dir, `${name}.json`)
-  if (existsSync(filePath)) await unlink(filePath)
-  return { success: true }
-})
 
 // ── Recent ファイル管理 IPC（Day78新設）────────────────────────────
 

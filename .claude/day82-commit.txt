@@ -1,0 +1,25 @@
+refactor: localStorage 一本化 — preset の保存先を統一（Day82）
+
+Day81 で導入した layerPresetStore.ts が window.geoAPI の有無で
+分岐する設計になっており、Electron とブラウザでデータが分散する
+致命的な設計ミスがあった。Day82 でこれを修正する。
+
+修正内容:
+- layerPresetStore.ts: window.geoAPI 分岐を全削除。
+  常に localStorage のみを使用する。
+  deleteLayerPreset() の subfolder 引数を廃止（第1引数の name のみ）。
+- electron/preload.js: presetSave / presetList / presetDelete を削除。
+- electron/main.js: preset:save / preset:list / preset:delete IPC
+  ハンドラーを削除。LAYER_PRESETS_DIR / SCENE_PRESETS_DIR 変数、
+  ensureDirectories() のリストからも除外。
+  不要になった readdir / unlink import も削除。
+- geoAPI.d.ts: presetSave / presetList / presetDelete 型定義を削除。
+  Day82 の設計原則をコメントに追記。
+- PreferencesPanel.tsx: deleteLayerPreset() 呼び出しの
+  不要な第2引数（subfolder）と未使用変数を削除。
+
+設計原則（薄い鏡）:
+  Application 層（localStorage）が SSoT。
+  Electron も ブラウザ も同じコードパスで動作する。
+  geoAPI の役割は showSaveDialog / showOpenDialog /
+  saveFile / loadFile のみに限定する。

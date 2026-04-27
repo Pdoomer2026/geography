@@ -9,6 +9,11 @@
  *   if (window.geoAPI) {
  *     const result = await window.geoAPI.showSaveDialog()
  *   }
+ *
+ * 保存先の原則（Day82確立）:
+ *   Application 層（localStorage）が SSoT。geoAPI の役割は
+ *   showSaveDialog / showOpenDialog / saveFile / loadFile のみ。
+ *   Preset の CRUD は layerPresetStore.ts が localStorage で完結する。
  */
 
 export {}
@@ -84,25 +89,6 @@ declare global {
        * 保存先パスを返す。
        */
       saveRecording(buffer: ArrayBuffer, defaultName: string): Promise<{ filePath?: string; canceled: boolean }>
-
-      // ── CC Map / CC Overrides ─────────────────────────────────
-      // spec: docs/spec/cc-mapping.spec.md §6
-
-      // ── Preset ファイル管理（spec: docs/spec/layer-window.spec.md §5）──────
-
-      /** Preset を JSON ファイルとして保存する */
-      presetSave(type: 'layer' | 'scene', name: string, data: string, subfolder?: string): Promise<{ success: boolean; filePath: string }>
-
-      /** Preset ファイル一覧を返す
-       * layer: { folder: string, presets: { name: string, data: string }[] }[]
-       * scene: { name: string, data: string }[]
-       */
-      presetList(type: 'layer'): Promise<Array<{ folder: string; presets: Array<{ name: string; data: string }> }>>
-      presetList(type: 'scene'): Promise<Array<{ name: string; data: string }>>
-      presetList(type: 'layer' | 'scene'): Promise<unknown>
-
-      /** Preset ファイルを削除する */
-      presetDelete(type: 'layer' | 'scene', name: string, subfolder?: string): Promise<{ success: boolean }>
 
       // ── Recent ファイル管理（Day78追加）─────────────────────────
       // spec: docs/spec/electron.spec.md §4
