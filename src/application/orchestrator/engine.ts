@@ -830,6 +830,34 @@ export class Engine {
     return listCameraPlugins()
   }
 
+  /**
+   * Preset を元にレイヤーを差し替える（ダブルバッファ経由）。
+   * UI からは必ずこのメソッドを呼ぶ（layerManager を直接呼ばない）。
+   * spec: docs/spec/layer-window.spec.md §3
+   */
+  replaceLayerPreset(layerId: string, preset: import('../schema').LayerPreset): void {
+    layerManager.replaceLayerPreset(layerId, preset)
+  }
+
+  /**
+   * 現在のレイヤー状態を LayerPreset として切り取る。
+   * Clip セルの [ + ] クリック時に呼ぶ。
+   * spec: docs/spec/layer-window.spec.md §3
+   */
+  captureLayerPreset(layerId: string, name: string): import('../schema').LayerPreset {
+    const geom = this.getGeometryPlugin(layerId)
+    const cam = this.getCameraPlugin(layerId)
+    const fxPlugins = this.getFxPlugins(layerId)
+    return {
+      id: `preset-${Date.now()}`,
+      name,
+      geometryPluginId: geom?.id ?? '',
+      cameraPluginId:   cam?.id  ?? 'static-camera',
+      fxPluginIds: fxPlugins.filter((f) => f.enabled).map((f) => f.id),
+      createdAt: new Date().toISOString(),
+    }
+  }
+
   getGeometryPlugin(layerId: string): GeometryPlugin | null {
     const layer = layerManager.getLayers().find((l) => l.id === layerId)
     return layer?.plugin ?? null

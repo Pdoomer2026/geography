@@ -15,6 +15,7 @@ import { GeometryStandardDnDWindow, CameraStandardDnDWindow, FxStandardDnDWindow
 import { GeoMonitorWindow } from './components/window/geo-monitor'
 import { MidiMonitorWindow } from './components/window/midi-monitor'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
+import { Inspector } from './components/inspector/Inspector'
 import { outputManager } from '../application/orchestrator/outputManager'
 import { useAutosave } from './useAutosave'
 import { DEFAULT_WINDOW_MODE } from '../application/schema/windowMode'
@@ -22,6 +23,7 @@ import type { WindowMode } from '../application/schema/windowMode'
 import type { MidiMonitorEvent } from '../application/schema'
 
 const HIDE_ALL: WindowMode = {
+  inspector:   false,
   geometry:    'none',
   camera:      'none',
   fx:          'none',
@@ -138,6 +140,7 @@ export default function App() {
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
 
+      if (e.key === 'i' || e.key === 'I') setWindowMode((v) => ({ ...v, inspector: !v.inspector }))
       if (e.key === '1') setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-8-window' : 'none' }))
       if (e.key === '3') setWindowMode((v) => ({ ...v, mixer: v.mixer === 'none' ? 'mixer-simple' : 'none' }))
       if (e.key === '6') setWindowMode((v) => ({ ...v, monitor: !v.monitor }))
@@ -184,6 +187,12 @@ export default function App() {
         onClose={() => setPrefsOpen(false)}
         windowMode={windowMode}
         onWindowModeChange={setWindowMode}
+      />
+
+      {/* Inspector（右固定パネル・Phase 18〜） */}
+      <Inspector
+        open={windowMode.inspector}
+        onToggle={() => setWindowMode((v) => ({ ...v, inspector: !v.inspector }))}
       />
 
       {/* Macro */}

@@ -8,6 +8,7 @@ export type MacroWindowMode = 'none' | 'macro-8-window'
 export type MixerWindowMode = 'none' | 'mixer-simple'
 
 export interface WindowMode {
+  inspector:   boolean      // Inspector パネル（右固定・Phase 18〜）
   geometry:    GeoWindowMode
   camera:      GeoWindowMode
   fx:          GeoWindowMode
@@ -21,11 +22,12 @@ export const LAYER_IDS = ['layer-1', 'layer-2', 'layer-3'] as const
 export type LayerId = typeof LAYER_IDS[number]
 
 export const DEFAULT_WINDOW_MODE: WindowMode = {
-  geometry:    'standard-dnd',
-  camera:      'standard-dnd',
-  fx:          'standard-dnd',
-  macro:       'macro-8-window',
-  mixer:       'mixer-simple',
+  inspector:   true,    // Inspector デフォルト開
+  geometry:    'none',  // 旧 Window は Inspector が代替（Phase 18〜）
+  camera:      'none',
+  fx:          'none',
+  macro:       'none',
+  mixer:       'none',
   monitor:     false,
   midiMonitor: false,
 }

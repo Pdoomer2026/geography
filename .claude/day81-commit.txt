@@ -1,0 +1,24 @@
+feat: Layer Window 設計・Phase 1-2 実装 (Day81)
+
+Phase 1: 型定義
+- LayerPreset / LayerInstance / LayerRuntime を schema/index.ts に追加
+- layerPreset.schema.ts（Zod）新規作成
+  - parseLayerPresetSafe() でリアルタイム処理中の壊れた JSON を安全にスキップ
+  - ClipSchema への拡張ルートを確保（LayerPresetSchema.extend()）
+- scenePreset.schema.ts（Zod）新規作成
+  - ScenePreset = LayerPreset × 3（tuple で固定長を保証）
+  - loadLayerPresetsFromStorage() / loadScenePresetsFromStorage()
+  - 壊れたエントリは個別スキップ・正常なものだけ返す
+
+Phase 2: layerManager ダブルバッファ
+- replaceLayerPreset(layerId, preset): 次の Instance を裏で準備
+- _applyPresetToLayer(): Geometry / Camera / FX を一括差し替え
+- update() 先頭に swap ロジック追加（next → active → dispose）
+- dispose() に runtimes / pendingPresets クリア追加
+
+設計確定事項（Day81 壁打ち）:
+- Inspector パネル（画面右側固定・開閉）に Mixer + Layer を統合
+- Mixer タブ: 3×5 Clip グリッド + Opacity Fader + BlendMode
+- Layer タブ: L1/L2/L3 タブ + アコーディオン
+- LayerPreset → Clip → Sequencer への拡張ルートを設計段階で確保
+- params は維持（Preset は Plugin 構成のみを変える）
