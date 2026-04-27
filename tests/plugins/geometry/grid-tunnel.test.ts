@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import gridTunnelPlugin from '../../../src/engine/geometry/tunnel/grid-tunnel'
+import createGridTunnelPlugin from '../../../src/engine/geometry/tunnel/grid-tunnel'
+import type { GeometryPlugin } from '../../../src/application/schema'
 import { defaultParams } from '../../../src/engine/geometry/tunnel/grid-tunnel/grid-tunnel.config'
 
 describe('Grid Tunnel Plugin', () => {
   let scene: THREE.Scene
+  let gridTunnelPlugin: GeometryPlugin
 
   beforeEach(() => {
     scene = new THREE.Scene()
+    // factory を呼んで独立したインスタンスを生成
+    gridTunnelPlugin = createGridTunnelPlugin()
     gridTunnelPlugin.params = structuredClone(defaultParams)
   })
 

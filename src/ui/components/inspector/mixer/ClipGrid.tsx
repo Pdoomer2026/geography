@@ -124,7 +124,7 @@ export function ClipGrid() {
         <div key={rowIndex} className="flex items-center mb-1" style={{ gap: 3 }}>
           {/* 3セル */}
           {LAYER_IDS.map((layerId, layerIndex) => (
-            <div key={layerId} className="flex-1">
+            <div key={layerId} className="flex-1" style={{ minWidth: 0, overflow: 'hidden' }}>
               <ClipCell
                 preset={grid[layerIndex]?.[rowIndex] ?? null}
                 isActive={activeCells[layerIndex] === rowIndex}

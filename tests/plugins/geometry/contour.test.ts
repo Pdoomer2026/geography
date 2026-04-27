@@ -1,14 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import contourPlugin from '../../../src/engine/geometry/terrain/contour'
+import createContourPlugin from '../../../src/engine/geometry/terrain/contour'
+import type { GeometryPlugin } from '../../../src/application/schema'
 import { defaultParams } from '../../../src/engine/geometry/terrain/contour/contour.config'
 
 describe('Contour Plugin', () => {
   let scene: THREE.Scene
+  let contourPlugin: GeometryPlugin
 
   beforeEach(() => {
     scene = new THREE.Scene()
-    // 各テスト前に params をリセット
+    // factory を呼んで独立したインスタンスを生成
+    contourPlugin = createContourPlugin()
     contourPlugin.params = structuredClone(defaultParams)
   })
 

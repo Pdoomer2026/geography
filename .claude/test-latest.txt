@@ -5,25 +5,25 @@
 
  RUN  v3.2.4 /Users/shinbigan/geography
 
- ✓ tests/core/command.test.ts (10 tests) 3ms
- ✓ src/lib/utils.test.ts (3 tests) 3ms
- ✓ tests/core/assignRegistry.test.ts (9 tests) 3ms
- ✓ tests/core/cameraSystem.test.ts (9 tests) 16ms
- ✓ tests/core/layerManager.test.ts (8 tests) 10ms
- ✓ tests/core/applyGeometrySetup.test.ts (7 tests) 16ms
- ✓ tests/plugins/geometry/contour.test.ts (7 tests) 34ms
- ✓ tests/core/projectFile.test.ts (7 tests) 4ms
- ✓ tests/core/engine.test.ts (11 tests) 381ms
-   ✓ engine Camera Plugin API — layerManager への委譲検証 > TC-engine-1: setCameraPlugin() が layerManager.setCameraPlugin を呼び出す  374ms
  ✓ tests/core/registry.test.ts (8 tests) 2ms
- ✓ tests/core/transportRegistry.test.ts (13 tests) 6ms
- ✓ tests/core/fxStack.test.ts (11 tests) 7ms
- ✓ tests/plugins/geometry/grid-tunnel.test.ts (7 tests) 6ms
- ✓ tests/core/parameterStore.test.ts (13 tests) 4ms
- ✓ tests/clock.test.ts (6 tests) 1ms
+ ✓ tests/core/fxStack.test.ts (11 tests) 3ms
+ ✓ src/lib/utils.test.ts (3 tests) 5ms
+ ✓ tests/plugins/geometry/grid-tunnel.test.ts (7 tests) 8ms
+ ✓ tests/core/cameraSystem.test.ts (9 tests) 14ms
+ ✓ tests/plugins/geometry/contour.test.ts (7 tests) 32ms
+ ✓ tests/core/applyGeometrySetup.test.ts (7 tests) 16ms
+ ✓ tests/core/layerManager.test.ts (8 tests) 21ms
+ ✓ tests/core/engine.test.ts (11 tests) 369ms
+   ✓ engine Camera Plugin API — layerManager への委譲検証 > TC-engine-1: setCameraPlugin() が layerManager.setCameraPlugin を呼び出す  364ms
+ ✓ tests/clock.test.ts (6 tests) 2ms
+ ✓ tests/core/command.test.ts (10 tests) 4ms
+ ✓ tests/core/assignRegistry.test.ts (9 tests) 4ms
+ ✓ tests/core/parameterStore.test.ts (13 tests) 2ms
+ ✓ tests/core/projectFile.test.ts (7 tests) 3ms
+ ✓ tests/core/transportRegistry.test.ts (13 tests) 10ms
 
  Test Files  15 passed (15)
       Tests  129 passed (129)
-   Start at  17:21:30
-   Duration  1.37s (transform 602ms, setup 73ms, collect 856ms, tests 496ms, environment 4.44s, prepare 828ms)
+   Start at  18:07:39
+   Duration  1.23s (transform 442ms, setup 45ms, collect 705ms, tests 495ms, environment 3.96s, prepare 832ms)
 

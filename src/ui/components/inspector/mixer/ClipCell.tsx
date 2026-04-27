@@ -130,7 +130,7 @@ export function ClipCell({ preset, isActive, color, presetFolders, onClick, onAs
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
           background: isActive ? color : `${color}55`, borderRadius: '2px 0 0 2px' }} />
         <span className="font-mono tracking-wider truncate"
-          style={{ fontSize: 9, color: isActive ? color : '#5a5a8e', marginLeft: 8, flex: 1, textAlign: 'left' }}>
+          style={{ fontSize: 9, color: isActive ? color : '#5a5a8e', marginLeft: 8, flex: 1, textAlign: 'left', minWidth: 0 }}>
           {preset.name}
         </span>
         {isActive && (
@@ -248,7 +248,6 @@ function AssignSection({ presetFolders, hoveredFolder, setHoveredFolder, context
         <div
           key={folder.folder}
           onMouseEnter={() => setHoveredFolder(folder.folder)}
-          onMouseLeave={() => setHoveredFolder(null)}
           style={{ position: 'relative' }}
         >
           <div
@@ -264,6 +263,7 @@ function AssignSection({ presetFolders, hoveredFolder, setHoveredFolder, context
               className="fixed bg-[#0f0f1e] border border-[#3a3a6e] rounded shadow-lg overflow-y-auto"
               style={{ right: 460, top: contextMenuY, minWidth: 160, maxHeight: 300, zIndex: 700 }}
               onMouseEnter={() => setHoveredFolder(folder.folder)}
+              onMouseLeave={() => setHoveredFolder(null)}
             >
               {folder.presets.map((p) => (
                 <button

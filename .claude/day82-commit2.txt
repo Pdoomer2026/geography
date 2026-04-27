@@ -1,0 +1,37 @@
+fix: Geometry Plugin factory function パターン化で二重表示を解消（Day82）
+
+全 Geometry Plugin がモジュールレベル変数（let torus 等）を持つため、
+複数レイヤーで同じ Plugin ID を使うと変数が競合し、二重表示・
+destroy 誤作動が発生していた。Camera Plugin（Day45）と同一のバグ。
+
+修正内容:
+- src/engine/geometry/solid/torus/index.ts
+- src/engine/geometry/solid/icosphere/index.ts
+- src/engine/geometry/solid/torusknot/index.ts
+- src/engine/geometry/wave/grid-wave/index.ts
+- src/engine/geometry/tunnel/grid-tunnel/index.ts
+- src/engine/geometry/terrain/contour/index.ts
+- src/engine/geometry/terrain/hex-grid/index.ts
+  → 全て `export default function create*Plugin(): GeometryPlugin` に変換。
+    モジュールレベル変数をクロージャ変数に移動し、呼び出しごとに
+    独立したインスタンスを生成する。
+
+- src/application/registry/registry.ts
+  → GeometryPluginFactory 型と registerFactory() / getFactory() /
+    listGeometryIds() を追加。
+
+- src/engine/geometry/index.ts
+  → registerGeometryPlugins() で default export が関数かどうかを判定し、
+    factory なら registerFactory、オブジェクトなら register（後方互換）。
+
+- src/application/orchestrator/layerManager.ts
+  → _applyPresetToLayer() で registry.getFactory() を優先的に使用し、
+    factory があれば factory() で新規インスタンスを生成してから setPlugin()。
+
+- tests/plugins/geometry/contour.test.ts
+- tests/plugins/geometry/grid-tunnel.test.ts
+  → beforeEach で factory() を呼んで独立インスタンスを生成するよう修正。
+
+また layerManager の renderer.autoClear を true に修正（前フレーム残像対策）。
+ClipGrid・ClipCell の flex truncate 修正（minWidth: 0 追加）。
+ClipCell サブメニューの hover 消失バグ修正（onMouseLeave 移動）。

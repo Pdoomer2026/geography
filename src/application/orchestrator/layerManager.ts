@@ -49,7 +49,7 @@ export class LayerManager {
       renderer.setSize(container.clientWidth, container.clientHeight)
       renderer.setPixelRatio(window.devicePixelRatio)
       renderer.setClearColor(0x000000, 0)
-      renderer.autoClear = false
+      renderer.autoClear = true
 
       const scene = new THREE.Scene()
       const camera = new THREE.PerspectiveCamera(
@@ -205,12 +205,17 @@ export class LayerManager {
     const composer = this.composers.get(layerId)
     if (!layer) return
 
-    // 1. Geometry 差し替え（params は現在値を維持）
-    const geomPlugin = registry.get(preset.geometryPluginId)
-    if (geomPlugin) {
-      this.setPlugin(layerId, geomPlugin as GeometryPlugin)
+    // 1. Geometry 差し替え: factory があれば新規インスタンスを生成（モジュール共有変数問題を回避）
+    const factory = registry.getFactory(preset.geometryPluginId)
+    if (factory) {
+      this.setPlugin(layerId, factory())
     } else {
-      console.warn(`[LayerManager] Geometry Plugin not found: ${preset.geometryPluginId}`)
+      const geomPlugin = registry.get(preset.geometryPluginId)
+      if (geomPlugin) {
+        this.setPlugin(layerId, geomPlugin as GeometryPlugin)
+      } else {
+        console.warn(`[LayerManager] Geometry Plugin not found: ${preset.geometryPluginId}`)
+      }
     }
 
     // 2. Camera 差し替え（params は現在値を維持・userOverride リセット）

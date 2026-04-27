@@ -3,53 +3,53 @@ import type { GeometryPlugin } from '../../../../application/schema'
 import { catalog, defaultParams } from './icosphere.config'
 import { IcosphereGeometry } from './IcosphereGeometry'
 
-let icosphere: IcosphereGeometry | null = null
-let elapsedTime = 0
+export default function createIcospherePlugin(): GeometryPlugin {
+  let icosphere: IcosphereGeometry | null = null
+  let elapsedTime = 0
 
-const icospherePlugin: GeometryPlugin = {
-  id: 'icosphere',
-  name: 'Icosphere',
-  renderer: 'threejs',
-  enabled: true,
-  catalog,
-  params: structuredClone(defaultParams),
-  defaultCameraPluginId: 'orbit-camera',
-  defaultCameraParams: { radius: 10, height: 3, speed: 0.5, autoRotate: 1 },
+  return {
+    id: 'icosphere',
+    name: 'Icosphere',
+    renderer: 'threejs',
+    enabled: true,
+    catalog,
+    params: structuredClone(defaultParams),
+    defaultCameraPluginId: 'orbit-camera',
+    defaultCameraParams: { radius: 10, height: 3, speed: 0.5, autoRotate: 1 },
 
-  create(scene: THREE.Scene): void {
-    const detail = Math.round(this.params.detail.value)
-    const radius = this.params.radius.value
-    const hue = this.params.hue.value
-    icosphere = new IcosphereGeometry(detail, radius, hue)
-    scene.add(icosphere.getMesh())
-  },
+    create(scene: THREE.Scene): void {
+      const detail = Math.round(this.params.detail.value)
+      const radius = this.params.radius.value
+      const hue    = this.params.hue.value
+      icosphere = new IcosphereGeometry(detail, radius, hue)
+      scene.add(icosphere.getMesh())
+    },
 
-  update(delta: number, _beat: number): void {
-    if (!icosphere) return
-    elapsedTime += delta
-    icosphere.update(elapsedTime, {
-      speed: this.params.speed.value,
-      hue:   this.params.hue.value,
-    })
-  },
+    update(delta: number, _beat: number): void {
+      if (!icosphere) return
+      elapsedTime += delta
+      icosphere.update(elapsedTime, {
+        speed: this.params.speed.value,
+        hue:   this.params.hue.value,
+      })
+    },
 
-  getParameters() {
-    return Object.entries(this.params).map(([id, p]) => ({
-      id,
-      name: p.label,
-      min: p.min,
-      max: p.max,
-      step: 0.01,
-    }))
-  },
+    getParameters() {
+      return Object.entries(this.params).map(([id, p]) => ({
+        id,
+        name: p.label,
+        min: p.min,
+        max: p.max,
+        step: 0.01,
+      }))
+    },
 
-  destroy(scene: THREE.Scene): void {
-    if (!icosphere) return
-    scene.remove(icosphere.getMesh())
-    icosphere.dispose()
-    icosphere = null
-    elapsedTime = 0
-  },
+    destroy(scene: THREE.Scene): void {
+      if (!icosphere) return
+      scene.remove(icosphere.getMesh())
+      icosphere.dispose()
+      icosphere = null
+      elapsedTime = 0
+    },
+  }
 }
-
-export default icospherePlugin
