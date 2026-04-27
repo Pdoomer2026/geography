@@ -15,7 +15,9 @@ import { engine } from '../../../application/orchestrator/engine'
 import { registry } from '../../../application/registry/registry'
 import { presetStore, FX_LABELS, FX_DEFAULTS, FX_ORDER } from '../../../application/adapter/storage/presetStore'
 import type { GeoPreset } from '../../../application/adapter/storage/presetStore'
-import type { GeometryPlugin } from '../../../application/schema'
+import type { GeometryPlugin, LayerPreset, ScenePreset } from '../../../application/schema'
+import { parseLayerPresetSafe } from '../../../application/schema/zod/layerPreset.schema'
+import { parseScenePresetSafe, LAYER_PRESET_STORAGE_KEY, SCENE_PRESET_STORAGE_KEY } from '../../../application/schema/zod/scenePreset.schema'
 import type { WindowMode, GeoWindowMode, MacroWindowMode, MixerWindowMode, LayerId } from '../../../application/schema/windowMode'
 import { LAYER_IDS } from '../../../application/schema/windowMode'
 import { useDraggable } from '../../useDraggable'
@@ -24,10 +26,11 @@ import { useDraggable } from '../../useDraggable'
 // 型定義
 // ----------------------------------------------------------------
 
-type TabId = 'setup' | 'plugins' | 'audio' | 'midi' | 'output'
+type TabId = 'setup' | 'presets' | 'plugins' | 'audio' | 'midi' | 'output'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'setup',   label: 'Setup'   },
+  { id: 'presets', label: 'Presets' },
   { id: 'plugins', label: 'Plugins' },
   { id: 'audio',   label: 'Audio'   },
   { id: 'midi',    label: 'MIDI'    },
@@ -119,7 +122,8 @@ export function PreferencesPanel({ open, onClose, windowMode, onWindowModeChange
         </div>
 
         <div className="p-4 overflow-y-auto" style={{ minHeight: 280, maxHeight: 'calc(100vh - 80px)' }}>
-          {activeTab === 'setup' && <SetupTab onClose={onClose} windowMode={windowMode} onWindowModeChange={onWindowModeChange} />}
+          {activeTab === 'setup'   && <SetupTab onClose={onClose} windowMode={windowMode} onWindowModeChange={onWindowModeChange} />}
+          {activeTab === 'presets' && <PresetsTab />}
           {(activeTab === 'plugins' || activeTab === 'audio' ||
             activeTab === 'midi'   || activeTab === 'output') && <ComingSoonTab />}
         </div>
@@ -562,6 +566,276 @@ function CheckItem({ id, label, checked, onChange }: CheckItemProps) {
       >{label}</span>
     </label>
   )
+}
+
+// ----------------------------------------------------------------
+// PresetsTab
+// ----------------------------------------------------------------
+
+const LAYER_COLORS = ['#5a5aff', '#5affaa', '#ffaa5a'] as const
+const LAYER_LABELS = ['L1', 'L2', 'L3'] as const
+
+function PresetsTab() {
+  const [layerPresets, setLayerPresets] = useState<LayerPreset[]>([])
+  const [scenePresets, setScenePresets] = useState<ScenePreset[]>([])
+  const [layerName, setLayerName] = useState('')
+  const [sceneName, setSceneName] = useState('')
+  const [status, setStatus] = useState<string | null>(null)
+
+  function flash(msg: string) {
+    setStatus(msg)
+    setTimeout(() => setStatus(null), 2500)
+  }
+
+  // 読み込み
+  async function loadAll() {
+    if (!window.geoAPI) {
+      // ブラウザ環境: localStorage から読み込む
+      setLayerPresets(Object.values(loadLayerPresets()))
+      setScenePresets(Object.values(loadScenePresets()))
+      return
+    }
+    const [layerFiles, sceneFiles] = await Promise.all([
+      window.geoAPI.presetList('layer'),
+      window.geoAPI.presetList('scene'),
+    ])
+    setLayerPresets(layerFiles.map((f) => parseLayerPresetSafe(JSON.parse(f.data))).filter((p): p is LayerPreset => p !== null))
+    setScenePresets(sceneFiles.map((f) => parseScenePresetSafe(JSON.parse(f.data))).filter((p): p is ScenePreset => p !== null))
+  }
+
+  useEffect(() => { loadAll() }, [])
+
+  async function saveLayerPreset(layerIndex: number) {
+    const name = layerName.trim()
+    if (!name) { flash('⚠ Name required'); return }
+    const layerId = `layer-${layerIndex + 1}`
+    const preset = engine.captureLayerPreset(layerId, name)
+    const json = JSON.stringify(preset, null, 2)
+    if (window.geoAPI) {
+      await window.geoAPI.presetSave('layer', name, json)
+    } else {
+      const prev = loadLayerPresets()
+      localStorage.setItem(LAYER_PRESET_STORAGE_KEY, JSON.stringify({ ...prev, [name]: preset }))
+    }
+    setLayerName('')
+    flash(`✓ Saved: "${name}" (${LAYER_LABELS[layerIndex]})`)
+    loadAll()
+  }
+
+  function loadLayerPreset(preset: LayerPreset, layerIndex: number) {
+    engine.replaceLayerPreset(`layer-${layerIndex + 1}`, preset)
+    flash(`✓ Loaded: "${preset.name}" → ${LAYER_LABELS[layerIndex]}`)
+  }
+
+  async function deleteLayerPreset(name: string) {
+    if (window.geoAPI) {
+      await window.geoAPI.presetDelete('layer', name)
+    } else {
+      const prev = loadLayerPresets()
+      delete prev[name]
+      localStorage.setItem(LAYER_PRESET_STORAGE_KEY, JSON.stringify(prev))
+    }
+    flash(`✓ Deleted: "${name}"`)
+    loadAll()
+  }
+
+  async function saveScenePreset() {
+    const name = sceneName.trim()
+    if (!name) { flash('⚠ Name required'); return }
+    const layerIds = ['layer-1', 'layer-2', 'layer-3'] as const
+    const captured = layerIds.map((lid, i) => engine.captureLayerPreset(lid, `${name} - L${i + 1}`))
+    const preset: ScenePreset = {
+      id: `scene-${Date.now()}`, name,
+      layerPresets: [captured[0], captured[1], captured[2]],
+      createdAt: new Date().toISOString(),
+    }
+    const json = JSON.stringify(preset, null, 2)
+    if (window.geoAPI) {
+      await window.geoAPI.presetSave('scene', name, json)
+    } else {
+      const prev = loadScenePresets()
+      localStorage.setItem(SCENE_PRESET_STORAGE_KEY, JSON.stringify({ ...prev, [name]: preset }))
+    }
+    setSceneName('')
+    flash(`✓ Scene saved: "${name}"`)
+    loadAll()
+  }
+
+  function loadScenePreset(preset: ScenePreset) {
+    const layerIds = ['layer-1', 'layer-2', 'layer-3'] as const
+    layerIds.forEach((layerId, i) => {
+      const lp = preset.layerPresets[i]
+      if (lp) engine.replaceLayerPreset(layerId, lp)
+    })
+    flash(`✓ Scene loaded: "${preset.name}"`)
+  }
+
+  async function deleteScenePreset(name: string) {
+    if (window.geoAPI) {
+      await window.geoAPI.presetDelete('scene', name)
+    } else {
+      const prev = loadScenePresets()
+      delete prev[name]
+      localStorage.setItem(SCENE_PRESET_STORAGE_KEY, JSON.stringify(prev))
+    }
+    flash(`✓ Deleted: "${name}"`)
+    loadAll()
+  }
+
+  const inputStyle = {
+    background: '#1a1a2e', border: '1px solid #2a2a4e',
+    color: '#ccccee', borderRadius: 3, padding: '3px 8px', fontSize: 10, outline: 'none',
+  }
+
+  const layerPresetList = layerPresets
+  const scenePresetList = scenePresets
+
+  return (
+    <div className="flex flex-col gap-4 font-mono text-xs">
+
+      {/* ステータス */}
+      {status && (
+        <div style={{ fontSize: 9, color: status.startsWith('⚠') ? '#aa6666' : '#6aaa7a' }}>{status}</div>
+      )}
+
+      {/* LAYER PRESETS */}
+      <section>
+        <div className="tracking-widest mb-2" style={{ fontSize: 10, color: '#7878aa' }}>LAYER PRESETS</div>
+
+        {/* 保存行 */}
+        <div className="flex items-center gap-1 mb-2">
+          <input
+            type="text" value={layerName}
+            onChange={(e) => setLayerName(e.target.value)}
+            placeholder="Preset name..."
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          {LAYER_LABELS.map((label, i) => (
+            <button key={i} onClick={() => saveLayerPreset(i)}
+              className="px-2 py-1 rounded transition-colors hover:opacity-80"
+              style={{ fontSize: 9, background: '#1a1a2e',
+                border: `1px solid ${LAYER_COLORS[i]}`,
+                color: LAYER_COLORS[i] }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* 一覧 */}
+        {layerPresetList.length === 0 && (
+          <div style={{ fontSize: 10, color: '#3a3a5e', textAlign: 'center', padding: '12px 0' }}>
+            — no layer presets —
+          </div>
+        )}
+        <div className="flex flex-col gap-1">
+          {layerPresetList.map((preset) => (
+            <div key={preset.id} className="flex items-center gap-1 p-1.5 rounded"
+              style={{ background: '#0d0d1a', border: '1px solid #1a1a2e' }}>
+              <span style={{ flex: 1, fontSize: 10, color: '#aaaacc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {preset.name}
+              </span>
+              <span style={{ fontSize: 8, color: '#4a4a6e', flexShrink: 0 }}>
+                {preset.geometryPluginId}
+              </span>
+              <div className="flex gap-1 ml-1">
+                {LAYER_LABELS.map((label, i) => (
+                  <button key={i} onClick={() => loadLayerPreset(preset, i)}
+                    className="px-1.5 py-0.5 rounded hover:opacity-80"
+                    style={{ fontSize: 8, background: '#1a1a2e',
+                      border: `1px solid ${LAYER_COLORS[i]}`,
+                      color: LAYER_COLORS[i] }}>
+                    →{label}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => deleteLayerPreset(preset.name)}
+                className="ml-1 hover:text-[#cc4444] transition-colors"
+                style={{ fontSize: 11, color: '#3a3a5e' }}>
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div style={{ borderTop: '1px solid #1a1a2e' }} />
+
+      {/* SCENE PRESETS */}
+      <section>
+        <div className="tracking-widest mb-2" style={{ fontSize: 10, color: '#7878aa' }}>SCENE PRESETS</div>
+
+        {/* 保存行 */}
+        <div className="flex items-center gap-1 mb-2">
+          <input
+            type="text" value={sceneName}
+            onChange={(e) => setSceneName(e.target.value)}
+            placeholder="Scene name..."
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <button onClick={saveScenePreset}
+            className="px-2 py-1 rounded whitespace-nowrap"
+            style={{ fontSize: 9, background: '#1a1a2e', border: '1px solid #7878aa', color: '#aaaacc' }}>
+            Save All
+          </button>
+        </div>
+
+        {/* 一覧 */}
+        {scenePresetList.length === 0 && (
+          <div style={{ fontSize: 10, color: '#3a3a5e', textAlign: 'center', padding: '12px 0' }}>
+            — no scene presets —
+          </div>
+        )}
+        <div className="flex flex-col gap-1">
+          {scenePresetList.map((preset) => (
+            <div key={preset.id} className="flex items-center gap-1 p-1.5 rounded"
+              style={{ background: '#0d0d1a', border: '1px solid #1a1a2e' }}>
+              <span style={{ flex: 1, fontSize: 10, color: '#aaaacc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {preset.name}
+              </span>
+              <button onClick={() => loadScenePreset(preset)}
+                className="px-2 py-0.5 rounded hover:opacity-80"
+                style={{ fontSize: 8, background: '#1a1a2e', border: '1px solid #7878aa', color: '#aaaacc' }}>
+                Load
+              </button>
+              <button onClick={() => deleteScenePreset(preset.name)}
+                className="ml-1 hover:text-[#cc4444] transition-colors"
+                style={{ fontSize: 11, color: '#3a3a5e' }}>
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function loadLayerPresets(): Record<string, LayerPreset> {
+  try {
+    const raw = localStorage.getItem(LAYER_PRESET_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const result: Record<string, LayerPreset> = {}
+    for (const [k, v] of Object.entries(parsed)) {
+      const p = parseLayerPresetSafe(v)
+      if (p) result[k] = p
+    }
+    return result
+  } catch { return {} }
+}
+
+function loadScenePresets(): Record<string, ScenePreset> {
+  try {
+    const raw = localStorage.getItem(SCENE_PRESET_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const result: Record<string, ScenePreset> = {}
+    for (const [k, v] of Object.entries(parsed)) {
+      const p = parseScenePresetSafe(v)
+      if (p) result[k] = p
+    }
+    return result
+  } catch { return {} }
 }
 
 // ----------------------------------------------------------------

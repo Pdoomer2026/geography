@@ -97,6 +97,17 @@ contextBridge.exposeInMainWorld('geoAPI', {
   /**
    * onMenuEvents で登録したリスナーをすべて解除する
    */
+  // ── Preset ファイル管理（spec: docs/spec/layer-window.spec.md §5）────────
+
+  presetSave: (type, name, data) =>
+    ipcRenderer.invoke('preset:save', type, name, data),
+
+  presetList: (type) =>
+    ipcRenderer.invoke('preset:list', type),
+
+  presetDelete: (type, name) =>
+    ipcRenderer.invoke('preset:delete', type, name),
+
   // ── Recent ファイル管理（Day78追加）────────────────────────────
 
   addRecent: (filePath) =>

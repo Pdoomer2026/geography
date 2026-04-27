@@ -13,19 +13,21 @@
 
 const { app, BrowserWindow, ipcMain, dialog, Menu, screen } = require('electron')
 const { join } = require('path')
-const { readFile, writeFile, mkdir } = require('fs/promises')
+const { readFile, writeFile, mkdir, readdir, unlink } = require('fs/promises')
 const { existsSync } = require('fs')
 const { homedir } = require('os')
 
 const isDev = !app.isPackaged
 
 // GeoGraphy データディレクトリ（spec: project-file.spec.md §6）
-const GEO_DIR = join(homedir(), 'Documents', 'GeoGraphy')
-const PROJECTS_DIR = join(GEO_DIR, 'projects')
-const PRESETS_DIR = join(GEO_DIR, 'presets')
+const GEO_DIR        = join(homedir(), 'Documents', 'GeoGraphy')
+const PROJECTS_DIR   = join(GEO_DIR, 'projects')
+const PRESETS_DIR    = join(GEO_DIR, 'presets')
+const LAYER_PRESETS_DIR = join(PRESETS_DIR, 'layer')
+const SCENE_PRESETS_DIR = join(PRESETS_DIR, 'scene')
 const RECORDINGS_DIR = join(GEO_DIR, 'recordings')
-const AUTOSAVE_PATH = join(GEO_DIR, 'autosave.geography')
-const RECENT_PATH   = join(GEO_DIR, 'recent.json')
+const AUTOSAVE_PATH  = join(GEO_DIR, 'autosave.geography')
+const RECENT_PATH    = join(GEO_DIR, 'recent.json')
 
 // ── Recent ファイル管理 ────────────────────────────────────────────
 
@@ -262,7 +264,7 @@ function buildMenu(recentItems = []) {
 
 /** アプリ起動時に必要なディレクトリを作成 */
 async function ensureDirectories() {
-  for (const dir of [GEO_DIR, PROJECTS_DIR, PRESETS_DIR, RECORDINGS_DIR]) {
+  for (const dir of [GEO_DIR, PROJECTS_DIR, PRESETS_DIR, LAYER_PRESETS_DIR, SCENE_PRESETS_DIR, RECORDINGS_DIR]) {
     if (!existsSync(dir)) {
       await mkdir(dir, { recursive: true })
     }
@@ -413,6 +415,48 @@ ipcMain.handle('load-cc-overrides', async () => {
 ipcMain.handle('save-cc-overrides', async (_event, data) => {
   const overridesPath = join(GEO_DIR, 'cc-overrides.json')
   await writeFile(overridesPath, data, 'utf-8')
+  return { success: true }
+})
+
+// ── Preset ファイル管理（spec: docs/spec/layer-window.spec.md §5）──────────
+
+/**
+ * Preset を JSON ファイルとして保存する。
+ * type: 'layer' → LAYER_PRESETS_DIR / 'scene' → SCENE_PRESETS_DIR
+ */
+ipcMain.handle('preset:save', async (_event, type, name, data) => {
+  const dir = type === 'layer' ? LAYER_PRESETS_DIR : SCENE_PRESETS_DIR
+  await mkdir(dir, { recursive: true })
+  const filePath = join(dir, `${name}.json`)
+  await writeFile(filePath, data, 'utf-8')
+  return { success: true, filePath }
+})
+
+/**
+ * Preset ファイル一覧を返す。
+ * 各エントリ: { name: string, data: string }
+ */
+ipcMain.handle('preset:list', async (_event, type) => {
+  const dir = type === 'layer' ? LAYER_PRESETS_DIR : SCENE_PRESETS_DIR
+  if (!existsSync(dir)) return []
+  const files = await readdir(dir)
+  const result = []
+  for (const file of files.filter((f) => f.endsWith('.json'))) {
+    try {
+      const raw = await readFile(join(dir, file), 'utf-8')
+      result.push({ name: file.replace(/\.json$/, ''), data: raw })
+    } catch { /* skip broken files */ }
+  }
+  return result
+})
+
+/**
+ * Preset ファイルを削除する。
+ */
+ipcMain.handle('preset:delete', async (_event, type, name) => {
+  const dir = type === 'layer' ? LAYER_PRESETS_DIR : SCENE_PRESETS_DIR
+  const filePath = join(dir, `${name}.json`)
+  if (existsSync(filePath)) await unlink(filePath)
   return { success: true }
 })
 

@@ -8,6 +8,7 @@
 
 import { useState } from 'react'
 import { MixerTab } from './tabs/MixerTab'
+import { LayerTab }  from './tabs/LayerTab'
 
 type InspectorTab = 'mixer' | 'layer'
 
@@ -66,12 +67,7 @@ export function Inspector({ open, onToggle }: InspectorProps) {
           {/* タブコンテンツ */}
           <div className="flex-1 overflow-y-auto" style={{ padding: '12px 10px' }}>
             {activeTab === 'mixer' && <MixerTab />}
-            {activeTab === 'layer' && (
-              <div className="text-[#3a3a6e] text-center py-8 text-[10px] tracking-wider">
-                LAYER TAB<br />
-                <span className="text-[#2a2a4e]">（実装中）</span>
-              </div>
-            )}
+            {activeTab === 'layer' && <LayerTab />}
           </div>
 
           {/* フッター */}

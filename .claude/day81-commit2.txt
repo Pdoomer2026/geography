@@ -1,0 +1,24 @@
+feat: Inspector UI 実装 Phase 3 Step 1-2 (Day81)
+
+Step 1: Inspector シェル
+- Inspector.tsx 新設（画面右固定パネル・開閉トグル）
+- MIXER / LAYER タブ切り替え
+- z-index 500 で Electron ドラッグ領域の上に表示
+- I キーでトグル・▶/◀ ボタンで開閉
+- windowMode に inspector: boolean 追加
+- DEFAULT_WINDOW_MODE を全 none に変更（旧 Window 群は非表示）
+
+Step 2: Mixer タブ実装
+- ClipCell.tsx: 空/未再生/再生中の3状態・L1/#5a5aff L2/#5affaa L3/#ffaa5a カラーリング
+- ClipGrid.tsx: 3×5 Clip グリッド + Scene [▶] ボタン
+  - [+] クリック → engine.captureLayerPreset() で現在の状態を保存
+  - セルクリック → engine.replaceLayerPreset() でダブルバッファ差し替え
+  - [▶] → 行全体（Scene）を同時起動
+  - localStorage: geography:clip-grid-v1 に永続化
+- MixerTab.tsx: ClipGrid + Opacity フェーダー × 3 + BlendMode
+- engine.ts に getFxPlugins / replaceLayerPreset / captureLayerPreset ファサード追加
+
+動作確認済み:
+- Ableton Session View 的な Clip グリッドで Preset 保存・切り替えが動作
+- フェーダー・BlendMode 正常動作
+- 旧 Window 群は非表示（I キーで Inspector トグル）
