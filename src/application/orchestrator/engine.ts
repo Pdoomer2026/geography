@@ -86,19 +86,22 @@ export class Engine {
     await registerLightPlugins()
     await registerParticlePlugins()
 
-    const allPlugins = registry.list().filter((p) => p.enabled)
-
+    // factory 登録済み Geometry Plugin を各レイヤーに割り当て
+    const geometryMeta = registry.listGeometryMeta().filter((m) => m.enabled)
     const layers = layerManager.getLayers()
 
-    allPlugins.slice(0, layers.length).forEach((plugin, index) => {
-      layerManager.setPlugin(`layer-${index + 1}`, plugin as GeometryPlugin)
+    geometryMeta.slice(0, layers.length).forEach((meta, index) => {
+      const factory = registry.getFactory(meta.id)
+      if (factory) {
+        layerManager.setPlugin(`layer-${index + 1}`, factory())
+      }
     })
 
-    for (let i = allPlugins.length; i < layers.length; i++) {
+    for (let i = geometryMeta.length; i < layers.length; i++) {
       layerManager.setMute(`layer-${i + 1}`, true)
     }
 
-    if (allPlugins.length >= 2) {
+    if (geometryMeta.length >= 2) {
       layerManager.setBlendMode('layer-2', 'add')
     }
 
@@ -107,29 +110,28 @@ export class Engine {
     }
 
     const fxPlugins = layers[0]?.fxStack.getOrdered() ?? []
+    const firstPlugin = layerManager.getLayers()[0]?.plugin ?? null
     const initialState: SceneState = {
-      layers: allPlugins.slice(0, 1).map((p) => {
-        const cam = layerManager.getCameraPlugin('layer-1')
-        return {
-          geometryId: p.id,
-          geometryParams: Object.fromEntries(
-            Object.entries(p.params).map(([k, v]) => [k, v.value])
+      layers: firstPlugin ? [{
+        geometryId: firstPlugin.id,
+        geometryParams: Object.fromEntries(
+          Object.entries(firstPlugin.params).map(([k, v]) => [k, (v as { value: number }).value])
+        ),
+        cameraId: layerManager.getCameraPlugin('layer-1')?.id ?? 'static-camera',
+        cameraParams: (() => {
+          const cam = layerManager.getCameraPlugin('layer-1')
+          return cam ? Object.fromEntries(Object.entries(cam.params).map(([k, v]) => [k, v.value])) : {}
+        })(),
+        fxStack: fxPlugins.map((fx) => ({
+          fxId: fx.id,
+          params: Object.fromEntries(
+            Object.entries(fx.params).map(([k, v]) => [k, v.value])
           ),
-          cameraId: cam?.id ?? 'static-camera',
-          cameraParams: cam
-            ? Object.fromEntries(Object.entries(cam.params).map(([k, v]) => [k, v.value]))
-            : {},
-          fxStack: fxPlugins.map((fx) => ({
-            fxId: fx.id,
-            params: Object.fromEntries(
-              Object.entries(fx.params).map(([k, v]) => [k, v.value])
-            ),
-            enabled: fx.enabled,
-          })),
-          opacity: 1,
-          blendMode: 'normal',
-        }
-      }),
+          enabled: fx.enabled,
+        })),
+        opacity: 1,
+        blendMode: 'normal',
+      }] : [],
     }
     programBus.load(initialState)
     previewBus.update(initialState)
@@ -733,7 +735,10 @@ export class Engine {
   }
 
   getRegisteredPlugins(): { id: string; name: string }[] {
-    return registry.list().map((p) => ({ id: p.id, name: p.name }))
+    return [
+      ...registry.list().map((p) => ({ id: p.id, name: p.name })),
+      ...registry.listGeometryMeta().map((m) => ({ id: m.id, name: m.name })),
+    ]
   }
 
   // ── 録画 API ──────────────────────────────────────────────────────
@@ -895,6 +900,18 @@ export class Engine {
       transportRegistry.clear(`${layerId}:geometry`)
       return
     }
+
+    // factory 登録済みなら新規インスタンスを生成
+    const factory = registry.getFactory(pluginId)
+    if (factory) {
+      const plugin = factory()
+      layerManager.setPlugin(layerId, plugin)
+      layerManager.setMute(layerId, false)
+      this.registerPluginToTransportRegistry(layerId, plugin.id)
+      return
+    }
+
+    // 後方互换: 通常登録
     const plugin = registry.get(pluginId)
     if (!plugin) return
     layerManager.setPlugin(layerId, plugin as GeometryPlugin)

@@ -34,6 +34,8 @@ vi.mock('three', () => {
     setSize(): void {}
     setPixelRatio(): void {}
     setClearColor(): void {}
+    clearColor(): void {}
+    clearDepth(): void {}
     render = vi.fn()
     dispose = rendererDispose
     autoClear = false

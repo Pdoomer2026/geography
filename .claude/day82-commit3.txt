@@ -1,0 +1,28 @@
+fix: registry と engine を factory 対応に修正し初期化・Clip 切り替えを復旧（Day82）
+
+factory function パターン化により全 Geometry Plugin が
+geometryFactories Map にのみ登録されるようになったため、
+registry.list() が空を返し以下の問題が発生していた。
+
+- 初回起動時に全レイヤーが mute → 何も表示されない
+- engine.setLayerPlugin() で registry.get() が null → L2/L3 の Clip クリックが効かない
+
+修正内容:
+- src/application/registry/registry.ts
+  → GeometryMeta 型を追加。registerFactory() 時に sample を1回生成して
+    id / name / enabled / catalog を geometryMeta Map に保存。
+    listGeometryMeta() / listGeometryIds() を追加。
+
+- src/application/orchestrator/engine.ts
+  → initialize(): registry.list() → registry.listGeometryMeta() + factory()
+    に変更。initialState 生成も firstPlugin（実インスタンス）から構築。
+  → setLayerPlugin(): registry.getFactory() を優先的に使用し
+    factory があれば factory() で新規インスタンスを生成。
+  → getRegisteredPlugins(): listGeometryMeta() も含めるよう変更。
+
+- src/application/orchestrator/layerManager.ts
+  → update() の FX なし時に clearColor() / clearDepth() を追加
+    （autoClear=false + preserveDrawingBuffer=true の残像対策）。
+
+- tests/core/cameraSystem.test.ts
+  → WebGLRenderer モックに clearColor() / clearDepth() を追加。

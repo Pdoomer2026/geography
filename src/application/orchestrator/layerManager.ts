@@ -49,7 +49,7 @@ export class LayerManager {
       renderer.setSize(container.clientWidth, container.clientHeight)
       renderer.setPixelRatio(window.devicePixelRatio)
       renderer.setClearColor(0x000000, 0)
-      renderer.autoClear = true
+      renderer.autoClear = false
 
       const scene = new THREE.Scene()
       const camera = new THREE.PerspectiveCamera(
@@ -307,6 +307,8 @@ export class LayerManager {
       if (composer && hasFx) {
         composer.render(delta)
       } else {
+        layer.renderer.clearColor()
+        layer.renderer.clearDepth()
         layer.renderer.render(layer.scene, layer.camera)
       }
     }
