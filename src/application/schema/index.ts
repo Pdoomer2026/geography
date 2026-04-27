@@ -466,3 +466,46 @@ export { RangeConstraintSchema } from './zod/rangeConstraint.schema'
 
 export type { AssignProposal } from './zod/assignProposal.schema'
 export { AssignProposalSchema } from './zod/assignProposal.schema'
+
+// ============================================================
+// Layer Window（spec: docs/spec/layer-window.spec.md）
+// ============================================================
+
+export type { LayerPreset } from './zod/layerPreset.schema'
+export { LayerPresetSchema, parseLayerPresetSafe } from './zod/layerPreset.schema'
+
+export type { ScenePreset } from './zod/scenePreset.schema'
+export {
+  ScenePresetSchema,
+  parseScenePresetSafe,
+  loadLayerPresetsFromStorage,
+  loadScenePresetsFromStorage,
+  LAYER_PRESET_STORAGE_KEY,
+  SCENE_PRESET_STORAGE_KEY,
+} from './zod/scenePreset.schema'
+
+/**
+ * LayerPreset から生成される実行中の実体。
+ * 実際の Three.js リソースは layerManager が管理する。
+ * spec: docs/spec/layer-window.spec.md §2.2
+ */
+export interface LayerInstance {
+  /** 一意な実行 ID（`instance-${Date.now()}` 等） */
+  id: string
+  /** 元になった Preset の ID */
+  presetId: string
+  /** アサインされているレイヤー ID（'layer-1' | 'layer-2' | 'layer-3'） */
+  layerId: string
+}
+
+/**
+ * ダブルバッファ構造。active が現在描画中・next が切り替え待ち。
+ * フレームループ内で next が存在するとき active と swap し、旧 active を dispose する。
+ * spec: docs/spec/layer-window.spec.md §2.3
+ */
+export interface LayerRuntime {
+  layerId: string
+  active: LayerInstance
+  /** 裏で準備中の次の Instance。null = 切り替え待ちなし */
+  next: LayerInstance | null
+}

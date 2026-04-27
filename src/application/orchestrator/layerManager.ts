@@ -4,12 +4,15 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { getCameraPlugin } from '../../engine/cameras'
 import { DEFAULT_CAMERA_PLUGIN_ID, MAX_LAYERS } from '../schema/config'
 import { FxStack } from './fxStack'
-import type { CameraPlugin, CSSBlendMode, FXPlugin, GeometryPlugin, Layer } from '../schema'
+import type { CameraPlugin, CSSBlendMode, FXPlugin, GeometryPlugin, Layer, LayerInstance, LayerPreset, LayerRuntime } from '../schema'
+import { registry } from '../registry/registry'
 
 export class LayerManager {
   private layers: Layer[] = []
   private composers: Map<string, EffectComposer> = new Map()
   private styleChangedListeners: Set<() => void> = new Set()
+  private runtimes: Map<string, LayerRuntime> = new Map()
+  private pendingPresets: Map<string, LayerPreset> = new Map()
 
   onStyleChanged(cb: () => void): () => void {
     this.styleChangedListeners.add(cb)
@@ -85,6 +88,12 @@ export class LayerManager {
         mute: false,
         cameraPlugin: camPlugin,
         isCameraUserOverridden: false,
+      })
+
+      this.runtimes.set(layerId, {
+        layerId,
+        active: { id: `instance-init-${layerId}`, presetId: '', layerId },
+        next: null,
       })
     }
   }
@@ -166,6 +175,59 @@ export class LayerManager {
     return layer?.cameraPlugin ?? null
   }
 
+  /**
+   * Preset を元に次の LayerInstance を裏で準備し next にセットする。
+   * 実際の差し替えは次の update() フレームで行われる（ダブルバッファ）。
+   * UI からは engine 経由でのみ呼ぶこと（直接呼び出し禁止）。
+   * spec: docs/spec/layer-window.spec.md §3
+   */
+  replaceLayerPreset(layerId: string, preset: LayerPreset): void {
+    const runtime = this.runtimes.get(layerId)
+    if (!runtime) return
+
+    const next: LayerInstance = {
+      id: `instance-${Date.now()}`,
+      presetId: preset.id,
+      layerId,
+    }
+    this.pendingPresets.set(layerId, preset)
+    runtime.next = next
+  }
+
+  /**
+   * Preset の内容をレイヤーに即時適用する内部ヘルパー。
+   * update() のフレームループ内からのみ呼ぶ。
+   * params は維持（Preset はPlugin 構成のみを変える）。
+   * spec: docs/spec/layer-window.spec.md §3.4
+   */
+  private _applyPresetToLayer(layerId: string, preset: LayerPreset): void {
+    const layer = this.layers.find((l) => l.id === layerId)
+    const composer = this.composers.get(layerId)
+    if (!layer) return
+
+    // 1. Geometry 差し替え（params は現在値を維持）
+    const geomPlugin = registry.get(preset.geometryPluginId)
+    if (geomPlugin) {
+      this.setPlugin(layerId, geomPlugin as GeometryPlugin)
+    } else {
+      console.warn(`[LayerManager] Geometry Plugin not found: ${preset.geometryPluginId}`)
+    }
+
+    // 2. Camera 差し替え（params は現在値を維持・userOverride リセット）
+    const camPlugin = getCameraPlugin(preset.cameraPluginId)
+    if (camPlugin) {
+      layer.isCameraUserOverridden = false
+      this.setCameraPlugin(layerId, camPlugin)
+    } else {
+      console.warn(`[LayerManager] Camera Plugin not found: ${preset.cameraPluginId}`)
+    }
+
+    // 3. FX 差し替え（レイヤー単位で applySetup）
+    if (composer) {
+      layer.fxStack.applySetup(preset.fxPluginIds, composer)
+    }
+  }
+
   setPlugin(layerId: string, plugin: GeometryPlugin | null): void {
     const layer = this.layers.find((entry) => entry.id === layerId)
     if (!layer) return
@@ -214,6 +276,19 @@ export class LayerManager {
   }
 
   update(delta: number, beat: number): void {
+    // ダブルバッファ swap: next が存在するレイヤーを差し替える
+    for (const runtime of this.runtimes.values()) {
+      if (runtime.next) {
+        const preset = this.pendingPresets.get(runtime.layerId)
+        if (preset) {
+          this._applyPresetToLayer(runtime.layerId, preset)
+          this.pendingPresets.delete(runtime.layerId)
+        }
+        runtime.active = runtime.next
+        runtime.next = null
+      }
+    }
+
     for (const layer of this.layers) {
       if (layer.mute || !layer.plugin) continue
 
@@ -264,6 +339,8 @@ export class LayerManager {
 
     this.layers = []
     this.composers.clear()
+    this.runtimes.clear()
+    this.pendingPresets.clear()
   }
 
   /**
