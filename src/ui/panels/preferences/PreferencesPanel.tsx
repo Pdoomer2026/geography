@@ -578,122 +578,115 @@ const LAYER_LABELS = ['L1', 'L2', 'L3'] as const
 function PresetsTab() {
   const [layerPresets, setLayerPresets] = useState<LayerPreset[]>([])
   const [scenePresets, setScenePresets] = useState<ScenePreset[]>([])
+  const [selectedLayer, setSelectedLayer] = useState('')
+  const [selectedScene, setSelectedScene] = useState('')
   const [layerName, setLayerName] = useState('')
   const [sceneName, setSceneName] = useState('')
   const [status, setStatus] = useState<string | null>(null)
+
+  const selectStyle = {
+    background: '#1a1a2e', border: '1px solid #2a2a4e',
+    color: '#aaaacc', borderRadius: 3, padding: '3px 8px', fontSize: 10, outline: 'none',
+  }
+  const inputStyle = { ...selectStyle, color: '#ccccee' }
 
   function flash(msg: string) {
     setStatus(msg)
     setTimeout(() => setStatus(null), 2500)
   }
 
-  // 読み込み
   async function loadAll() {
     if (!window.geoAPI) {
-      // ブラウザ環境: localStorage から読み込む
       setLayerPresets(Object.values(loadLayerPresets()))
       setScenePresets(Object.values(loadScenePresets()))
       return
     }
-    const [layerFiles, sceneFiles] = await Promise.all([
-      window.geoAPI.presetList('layer'),
-      window.geoAPI.presetList('scene'),
+    const [lf, sf] = await Promise.all([
+      window.geoAPI.presetList('layer') as Promise<Array<{ folder: string; presets: Array<{ name: string; data: string }> }>>,
+      window.geoAPI.presetList('scene') as Promise<Array<{ name: string; data: string }>>,
     ])
-    setLayerPresets(layerFiles.map((f) => parseLayerPresetSafe(JSON.parse(f.data))).filter((p): p is LayerPreset => p !== null))
-    setScenePresets(sceneFiles.map((f) => parseScenePresetSafe(JSON.parse(f.data))).filter((p): p is ScenePreset => p !== null))
+    // 階層を flat に展開して一覧表示
+    const allLayerPresets: LayerPreset[] = []
+    for (const folder of lf) {
+      for (const f of folder.presets) {
+        const p = parseLayerPresetSafe(JSON.parse(f.data))
+        if (p) allLayerPresets.push(p)
+      }
+    }
+    setLayerPresets(allLayerPresets)
+    setScenePresets(sf.map((f) => parseScenePresetSafe(JSON.parse(f.data))).filter((p): p is ScenePreset => p !== null))
   }
 
   useEffect(() => { loadAll() }, [])
 
-  async function saveLayerPreset(layerIndex: number) {
+  async function handleSaveLayer(layerIndex: number) {
     const name = layerName.trim()
     if (!name) { flash('⚠ Name required'); return }
-    const layerId = `layer-${layerIndex + 1}`
-    const preset = engine.captureLayerPreset(layerId, name)
+    const preset = engine.captureLayerPreset(`layer-${layerIndex + 1}`, name)
     const json = JSON.stringify(preset, null, 2)
-    if (window.geoAPI) {
-      await window.geoAPI.presetSave('layer', name, json)
-    } else {
-      const prev = loadLayerPresets()
-      localStorage.setItem(LAYER_PRESET_STORAGE_KEY, JSON.stringify({ ...prev, [name]: preset }))
-    }
+    const subfolder = preset.geometryPluginId || undefined
+    if (window.geoAPI) await window.geoAPI.presetSave('layer', name, json, subfolder)
+    else { const p = loadLayerPresets(); localStorage.setItem(LAYER_PRESET_STORAGE_KEY, JSON.stringify({ ...p, [name]: preset })) }
     setLayerName('')
     flash(`✓ Saved: "${name}" (${LAYER_LABELS[layerIndex]})`)
-    loadAll()
+    await loadAll()
+    setSelectedLayer(name)
   }
 
-  function loadLayerPreset(preset: LayerPreset, layerIndex: number) {
+  function handleLoadLayer(layerIndex: number) {
+    const preset = layerPresets.find((p) => p.name === selectedLayer)
+    if (!preset) { flash('⚠ Select a preset'); return }
     engine.replaceLayerPreset(`layer-${layerIndex + 1}`, preset)
     flash(`✓ Loaded: "${preset.name}" → ${LAYER_LABELS[layerIndex]}`)
   }
 
-  async function deleteLayerPreset(name: string) {
-    if (window.geoAPI) {
-      await window.geoAPI.presetDelete('layer', name)
-    } else {
-      const prev = loadLayerPresets()
-      delete prev[name]
-      localStorage.setItem(LAYER_PRESET_STORAGE_KEY, JSON.stringify(prev))
-    }
-    flash(`✓ Deleted: "${name}"`)
-    loadAll()
+  async function handleDeleteLayer() {
+    if (!selectedLayer) { flash('⚠ Select a preset'); return }
+    const preset = layerPresets.find((p) => p.name === selectedLayer)
+    const subfolder = preset?.geometryPluginId || undefined
+    if (window.geoAPI) await window.geoAPI.presetDelete('layer', selectedLayer, subfolder)
+    else { const p = loadLayerPresets(); delete p[selectedLayer]; localStorage.setItem(LAYER_PRESET_STORAGE_KEY, JSON.stringify(p)) }
+    flash(`✓ Deleted: "${selectedLayer}"`)
+    setSelectedLayer('')
+    await loadAll()
   }
 
-  async function saveScenePreset() {
+  async function handleSaveScene() {
     const name = sceneName.trim()
     if (!name) { flash('⚠ Name required'); return }
-    const layerIds = ['layer-1', 'layer-2', 'layer-3'] as const
-    const captured = layerIds.map((lid, i) => engine.captureLayerPreset(lid, `${name} - L${i + 1}`))
-    const preset: ScenePreset = {
-      id: `scene-${Date.now()}`, name,
-      layerPresets: [captured[0], captured[1], captured[2]],
-      createdAt: new Date().toISOString(),
-    }
+    const captured = (['layer-1', 'layer-2', 'layer-3'] as const).map((lid, i) => engine.captureLayerPreset(lid, `${name} - L${i + 1}`))
+    const preset: ScenePreset = { id: `scene-${Date.now()}`, name, layerPresets: [captured[0], captured[1], captured[2]], createdAt: new Date().toISOString() }
     const json = JSON.stringify(preset, null, 2)
-    if (window.geoAPI) {
-      await window.geoAPI.presetSave('scene', name, json)
-    } else {
-      const prev = loadScenePresets()
-      localStorage.setItem(SCENE_PRESET_STORAGE_KEY, JSON.stringify({ ...prev, [name]: preset }))
-    }
+    if (window.geoAPI) await window.geoAPI.presetSave('scene', name, json)
+    else { const p = loadScenePresets(); localStorage.setItem(SCENE_PRESET_STORAGE_KEY, JSON.stringify({ ...p, [name]: preset })) }
     setSceneName('')
     flash(`✓ Scene saved: "${name}"`)
-    loadAll()
+    await loadAll()
+    setSelectedScene(name)
   }
 
-  function loadScenePreset(preset: ScenePreset) {
-    const layerIds = ['layer-1', 'layer-2', 'layer-3'] as const
-    layerIds.forEach((layerId, i) => {
+  function handleLoadScene() {
+    const preset = scenePresets.find((p) => p.name === selectedScene)
+    if (!preset) { flash('⚠ Select a preset'); return }
+    ;(['layer-1', 'layer-2', 'layer-3'] as const).forEach((lid, i) => {
       const lp = preset.layerPresets[i]
-      if (lp) engine.replaceLayerPreset(layerId, lp)
+      if (lp) engine.replaceLayerPreset(lid, lp)
     })
     flash(`✓ Scene loaded: "${preset.name}"`)
   }
 
-  async function deleteScenePreset(name: string) {
-    if (window.geoAPI) {
-      await window.geoAPI.presetDelete('scene', name)
-    } else {
-      const prev = loadScenePresets()
-      delete prev[name]
-      localStorage.setItem(SCENE_PRESET_STORAGE_KEY, JSON.stringify(prev))
-    }
-    flash(`✓ Deleted: "${name}"`)
-    loadAll()
+  async function handleDeleteScene() {
+    if (!selectedScene) { flash('⚠ Select a preset'); return }
+    if (window.geoAPI) await window.geoAPI.presetDelete('scene', selectedScene)
+    else { const p = loadScenePresets(); delete p[selectedScene]; localStorage.setItem(SCENE_PRESET_STORAGE_KEY, JSON.stringify(p)) }
+    flash(`✓ Deleted: "${selectedScene}"`)
+    setSelectedScene('')
+    await loadAll()
   }
-
-  const inputStyle = {
-    background: '#1a1a2e', border: '1px solid #2a2a4e',
-    color: '#ccccee', borderRadius: 3, padding: '3px 8px', fontSize: 10, outline: 'none',
-  }
-
-  const layerPresetList = layerPresets
-  const scenePresetList = scenePresets
 
   return (
     <div className="flex flex-col gap-4 font-mono text-xs">
 
-      {/* ステータス */}
       {status && (
         <div style={{ fontSize: 9, color: status.startsWith('⚠') ? '#aa6666' : '#6aaa7a' }}>{status}</div>
       )}
@@ -702,58 +695,41 @@ function PresetsTab() {
       <section>
         <div className="tracking-widest mb-2" style={{ fontSize: 10, color: '#7878aa' }}>LAYER PRESETS</div>
 
-        {/* 保存行 */}
-        <div className="flex items-center gap-1 mb-2">
-          <input
-            type="text" value={layerName}
-            onChange={(e) => setLayerName(e.target.value)}
-            placeholder="Preset name..."
-            style={{ ...inputStyle, flex: 1 }}
-          />
+        {/* 選択 + Load + Delete */}
+        <div className="flex items-center gap-1.5 mb-2">
+          <select value={selectedLayer} onChange={(e) => setSelectedLayer(e.target.value)}
+            className="flex-1 rounded outline-none" style={selectStyle}>
+            <option value="">— select preset —</option>
+            {layerPresets.map((p) => (
+              <option key={p.id} value={p.name}>{p.name}</option>
+            ))}
+          </select>
           {LAYER_LABELS.map((label, i) => (
-            <button key={i} onClick={() => saveLayerPreset(i)}
-              className="px-2 py-1 rounded transition-colors hover:opacity-80"
-              style={{ fontSize: 9, background: '#1a1a2e',
-                border: `1px solid ${LAYER_COLORS[i]}`,
-                color: LAYER_COLORS[i] }}>
-              {label}
+            <button key={i} onClick={() => handleLoadLayer(i)}
+              className="px-2 py-1 rounded whitespace-nowrap hover:opacity-80"
+              style={{ fontSize: 9, background: '#1a2a1e', border: `1px solid ${LAYER_COLORS[i]}`, color: LAYER_COLORS[i] }}>
+              →{label}
             </button>
           ))}
+          <button onClick={handleDeleteLayer}
+            className="px-2 py-1 rounded whitespace-nowrap"
+            style={{ fontSize: 9, background: '#2a1a1a', border: '1px solid #6e3a3a', color: '#aa7a7a' }}>
+            Delete
+          </button>
         </div>
 
-        {/* 一覧 */}
-        {layerPresetList.length === 0 && (
-          <div style={{ fontSize: 10, color: '#3a3a5e', textAlign: 'center', padding: '12px 0' }}>
-            — no layer presets —
-          </div>
-        )}
-        <div className="flex flex-col gap-1">
-          {layerPresetList.map((preset) => (
-            <div key={preset.id} className="flex items-center gap-1 p-1.5 rounded"
-              style={{ background: '#0d0d1a', border: '1px solid #1a1a2e' }}>
-              <span style={{ flex: 1, fontSize: 10, color: '#aaaacc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {preset.name}
-              </span>
-              <span style={{ fontSize: 8, color: '#4a4a6e', flexShrink: 0 }}>
-                {preset.geometryPluginId}
-              </span>
-              <div className="flex gap-1 ml-1">
-                {LAYER_LABELS.map((label, i) => (
-                  <button key={i} onClick={() => loadLayerPreset(preset, i)}
-                    className="px-1.5 py-0.5 rounded hover:opacity-80"
-                    style={{ fontSize: 8, background: '#1a1a2e',
-                      border: `1px solid ${LAYER_COLORS[i]}`,
-                      color: LAYER_COLORS[i] }}>
-                    →{label}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => deleteLayerPreset(preset.name)}
-                className="ml-1 hover:text-[#cc4444] transition-colors"
-                style={{ fontSize: 11, color: '#3a3a5e' }}>
-                ×
-              </button>
-            </div>
+        {/* 保存 */}
+        <div className="flex items-center gap-1.5">
+          <input type="text" value={layerName} onChange={(e) => setLayerName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveLayer(0) }}
+            placeholder="New preset name..."
+            className="flex-1 rounded" style={inputStyle} />
+          {LAYER_LABELS.map((label, i) => (
+            <button key={i} onClick={() => handleSaveLayer(i)}
+              className="px-2 py-1 rounded whitespace-nowrap hover:opacity-80"
+              style={{ fontSize: 9, background: '#1a1a2e', border: `1px solid ${LAYER_COLORS[i]}`, color: LAYER_COLORS[i] }}>
+              {label}
+            </button>
           ))}
         </div>
       </section>
@@ -764,46 +740,38 @@ function PresetsTab() {
       <section>
         <div className="tracking-widest mb-2" style={{ fontSize: 10, color: '#7878aa' }}>SCENE PRESETS</div>
 
-        {/* 保存行 */}
-        <div className="flex items-center gap-1 mb-2">
-          <input
-            type="text" value={sceneName}
-            onChange={(e) => setSceneName(e.target.value)}
-            placeholder="Scene name..."
-            style={{ ...inputStyle, flex: 1 }}
-          />
-          <button onClick={saveScenePreset}
+        {/* 選択 + Load + Delete */}
+        <div className="flex items-center gap-1.5 mb-2">
+          <select value={selectedScene} onChange={(e) => setSelectedScene(e.target.value)}
+            className="flex-1 rounded outline-none" style={selectStyle}>
+            <option value="">— select scene —</option>
+            {scenePresets.map((p) => (
+              <option key={p.id} value={p.name}>{p.name}</option>
+            ))}
+          </select>
+          <button onClick={handleLoadScene}
+            className="px-3 py-1 rounded whitespace-nowrap"
+            style={{ fontSize: 9, background: '#1a2a1e', border: '1px solid #3a6e4a', color: '#7aaa8a' }}>
+            Load
+          </button>
+          <button onClick={handleDeleteScene}
             className="px-2 py-1 rounded whitespace-nowrap"
-            style={{ fontSize: 9, background: '#1a1a2e', border: '1px solid #7878aa', color: '#aaaacc' }}>
-            Save All
+            style={{ fontSize: 9, background: '#2a1a1a', border: '1px solid #6e3a3a', color: '#aa7a7a' }}>
+            Delete
           </button>
         </div>
 
-        {/* 一覧 */}
-        {scenePresetList.length === 0 && (
-          <div style={{ fontSize: 10, color: '#3a3a5e', textAlign: 'center', padding: '12px 0' }}>
-            — no scene presets —
-          </div>
-        )}
-        <div className="flex flex-col gap-1">
-          {scenePresetList.map((preset) => (
-            <div key={preset.id} className="flex items-center gap-1 p-1.5 rounded"
-              style={{ background: '#0d0d1a', border: '1px solid #1a1a2e' }}>
-              <span style={{ flex: 1, fontSize: 10, color: '#aaaacc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {preset.name}
-              </span>
-              <button onClick={() => loadScenePreset(preset)}
-                className="px-2 py-0.5 rounded hover:opacity-80"
-                style={{ fontSize: 8, background: '#1a1a2e', border: '1px solid #7878aa', color: '#aaaacc' }}>
-                Load
-              </button>
-              <button onClick={() => deleteScenePreset(preset.name)}
-                className="ml-1 hover:text-[#cc4444] transition-colors"
-                style={{ fontSize: 11, color: '#3a3a5e' }}>
-                ×
-              </button>
-            </div>
-          ))}
+        {/* 保存 */}
+        <div className="flex items-center gap-1.5">
+          <input type="text" value={sceneName} onChange={(e) => setSceneName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveScene() }}
+            placeholder="New scene name..."
+            className="flex-1 rounded" style={inputStyle} />
+          <button onClick={handleSaveScene}
+            className="px-3 py-1 rounded whitespace-nowrap"
+            style={{ fontSize: 9, background: '#1a1a2e', border: '1px solid #7878aa', color: '#aaaacc' }}>
+            Save All
+          </button>
         </div>
       </section>
     </div>

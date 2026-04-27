@@ -1,0 +1,16 @@
+feat: Clip 右クリックメニュー改善 + Preset 階層保存 (Day81)
+
+- ClipCell: 右クリックメニューを ASSIGN PRESET + Clear Clip に変更
+  - LOAD TO（重複）を削除
+  - Geometry 名フォルダをホバーでサブメニュー展開
+  - サブメニューで Preset を選択してセルに割り当て
+- ClipGrid: presetFolders を読み込んで ClipCell に渡す
+  - Electron: geoAPI.presetList('layer') から階層構造で取得
+  - ブラウザ: localStorage からフラット取得して 'all' フォルダにまとめる
+- electron/main.js: preset:save にサブフォルダ対応
+  - layer Preset を geometryPluginId サブフォルダに保存
+  - preset:list が folder/presets の階層構造で返す
+  - 旧フラット JSON は uncategorized フォルダに自動振り分け
+  - preset:delete にサブフォルダ対応
+- PreferencesPanel: Save 時に geometryPluginId をサブフォルダとして渡す
+- geoAPI.d.ts: presetList のオーバーロード型定義追加

@@ -20,6 +20,14 @@ const LAYER_COLORS = ['#5a5aff', '#5affaa', '#ffaa5a'] as const
 const ROW_COUNT  = 5
 const STORAGE_KEY = 'geography:clip-grid-v1'
 
+// ============================================================
+// フォルダ構造型
+// ============================================================
+interface PresetFolder {
+  folder: string
+  presets: LayerPreset[]
+}
+
 // grid[layerIndex][rowIndex] = LayerPreset | null
 type Grid = (LayerPreset | null)[][]
 
@@ -48,13 +56,34 @@ function saveGrid(grid: Grid): void {
 
 export function ClipGrid() {
   const [grid, setGrid] = useState<Grid>(emptyGrid)
-  // activeCells[layerIndex] = row index (-1 = none)
   const [activeCells, setActiveCells] = useState<number[]>([-1, -1, -1])
+  const [presetFolders, setPresetFolders] = useState<PresetFolder[]>([])
 
   // 初回ロード
   useEffect(() => {
     setGrid(loadGrid())
+    loadPresetFolders()
   }, [])
+
+  async function loadPresetFolders() {
+    if (!window.geoAPI) {
+      // ブラウザ環境: localStorageからフラットに読み込んで 'all' フォルダにまとめる
+      try {
+        const raw = localStorage.getItem('geography:layer-presets-v2')
+        if (!raw) return
+        const parsed = JSON.parse(raw) as Record<string, unknown>
+        const presets = Object.values(parsed).map((v) => parseLayerPresetSafe(v)).filter((p): p is LayerPreset => p !== null)
+        if (presets.length > 0) setPresetFolders([{ folder: 'all', presets }])
+      } catch { /* ignore */ }
+      return
+    }
+    const folders = await window.geoAPI.presetList('layer') as Array<{ folder: string; presets: Array<{ name: string; data: string }> }>
+    const parsed: PresetFolder[] = folders.map((f) => ({
+      folder: f.folder,
+      presets: f.presets.map((p) => parseLayerPresetSafe(JSON.parse(p.data))).filter((p): p is LayerPreset => p !== null),
+    })).filter((f) => f.presets.length > 0)
+    setPresetFolders(parsed)
+  }
 
   // セルクリック
   function handleCellClick(layerIndex: number, rowIndex: number) {
@@ -123,6 +152,25 @@ export function ClipGrid() {
                 isActive={activeCells[layerIndex] === rowIndex}
                 color={LAYER_COLORS[layerIndex] as string}
                 onClick={() => handleCellClick(layerIndex, rowIndex)}
+                presetFolders={presetFolders}
+                onAssign={(preset) => {
+                  const next = grid.map((col, li) =>
+                    li === layerIndex
+                      ? col.map((cell, ri) => (ri === rowIndex ? preset : cell))
+                      : col
+                  )
+                  setGrid(next)
+                  saveGrid(next)
+                }}
+                onClear={() => {
+                  const next = grid.map((col, li) =>
+                    li === layerIndex
+                      ? col.map((cell, ri) => (ri === rowIndex ? null : cell))
+                      : col
+                  )
+                  setGrid(next)
+                  saveGrid(next)
+                }}
               />
             </div>
           ))}

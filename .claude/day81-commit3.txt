@@ -1,0 +1,24 @@
+feat: Inspector Layer タブ + Preset ファイル保存 実装 (Day81)
+
+Phase 3 Step 3: Layer タブ実装
+- LayerAccordion.tsx: display:none で非表示（アンマウントしない）→ loHiMap 値を維持
+- GeometryPanel.tsx: GeometryStandardDnDWindow の中身を Panel 化
+- CameraPanel.tsx: CameraStandardDnDWindow の中身を Panel 化（Camera 切り替え dropdown 付き）
+- FxPanel.tsx: FxStandardDnDWindow の中身を Panel 化（FX ON/OFF + params）
+- MacroPanel.tsx: Macro8MidiWindow を KNOB_SIZE=50 / 4×2 に縮小して Panel 化
+- LayerTab.tsx: L1/L2/L3 タブ + 4アコーディオン（MACRO デフォルト open）
+
+Phase 5: Preset Save/Load をファイルベースに変更
+- electron/main.js: preset:save / preset:list / preset:delete IPC ハンドラー追加
+  - 保存先: ~/Documents/GeoGraphy/presets/layer/ / scene/
+  - 1 Preset = 1 JSON ファイル（無限増殖問題を解決）
+- electron/preload.js: presetSave / presetList / presetDelete を geoAPI に追加
+- geoAPI.d.ts: 型定義追加
+- PreferencesPanel: Presets タブを localStorage → ファイルベースに更新
+  - Electron 環境: geoAPI 経由でファイル保存
+  - ブラウザ環境: localStorage にフォールバック（開発・デモ用）
+
+動作確認済み:
+- Layer タブ: Macro/Geometry/Camera/FX アコーディオン全て動作
+- アコーディオン閉じても loHiMap 値が維持される
+- Presets タブ: Save / Load / Delete 全て動作

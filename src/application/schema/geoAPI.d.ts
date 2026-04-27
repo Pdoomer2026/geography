@@ -91,13 +91,18 @@ declare global {
       // ── Preset ファイル管理（spec: docs/spec/layer-window.spec.md §5）──────
 
       /** Preset を JSON ファイルとして保存する */
-      presetSave(type: 'layer' | 'scene', name: string, data: string): Promise<{ success: boolean; filePath: string }>
+      presetSave(type: 'layer' | 'scene', name: string, data: string, subfolder?: string): Promise<{ success: boolean; filePath: string }>
 
-      /** Preset ファイル一覧を返す */
-      presetList(type: 'layer' | 'scene'): Promise<Array<{ name: string; data: string }>>
+      /** Preset ファイル一覧を返す
+       * layer: { folder: string, presets: { name: string, data: string }[] }[]
+       * scene: { name: string, data: string }[]
+       */
+      presetList(type: 'layer'): Promise<Array<{ folder: string; presets: Array<{ name: string; data: string }> }>>
+      presetList(type: 'scene'): Promise<Array<{ name: string; data: string }>>
+      presetList(type: 'layer' | 'scene'): Promise<unknown>
 
       /** Preset ファイルを削除する */
-      presetDelete(type: 'layer' | 'scene', name: string): Promise<{ success: boolean }>
+      presetDelete(type: 'layer' | 'scene', name: string, subfolder?: string): Promise<{ success: boolean }>
 
       // ── Recent ファイル管理（Day78追加）─────────────────────────
       // spec: docs/spec/electron.spec.md §4
