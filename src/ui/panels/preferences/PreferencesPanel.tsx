@@ -15,9 +15,15 @@ import { engine } from '../../../application/orchestrator/engine'
 import { registry } from '../../../application/registry/registry'
 import { presetStore, FX_LABELS, FX_DEFAULTS, FX_ORDER } from '../../../application/adapter/storage/presetStore'
 import type { GeoPreset } from '../../../application/adapter/storage/presetStore'
+import {
+  loadLayerPresetFolders,
+  saveLayerPreset,
+  deleteLayerPreset,
+  loadScenePresets,
+  saveScenePreset,
+  deleteScenePreset,
+} from '../../../application/adapter/storage/layerPresetStore'
 import type { GeometryPlugin, LayerPreset, ScenePreset } from '../../../application/schema'
-import { parseLayerPresetSafe } from '../../../application/schema/zod/layerPreset.schema'
-import { parseScenePresetSafe, LAYER_PRESET_STORAGE_KEY, SCENE_PRESET_STORAGE_KEY } from '../../../application/schema/zod/scenePreset.schema'
 import type { WindowMode, GeoWindowMode, MacroWindowMode, MixerWindowMode, LayerId } from '../../../application/schema/windowMode'
 import { LAYER_IDS } from '../../../application/schema/windowMode'
 import { useDraggable } from '../../useDraggable'
@@ -596,25 +602,12 @@ function PresetsTab() {
   }
 
   async function loadAll() {
-    if (!window.geoAPI) {
-      setLayerPresets(Object.values(loadLayerPresets()))
-      setScenePresets(Object.values(loadScenePresets()))
-      return
-    }
-    const [lf, sf] = await Promise.all([
-      window.geoAPI.presetList('layer') as Promise<Array<{ folder: string; presets: Array<{ name: string; data: string }> }>>,
-      window.geoAPI.presetList('scene') as Promise<Array<{ name: string; data: string }>>,
+    const [folders, scenes] = await Promise.all([
+      loadLayerPresetFolders(),
+      loadScenePresets(),
     ])
-    // 階層を flat に展開して一覧表示
-    const allLayerPresets: LayerPreset[] = []
-    for (const folder of lf) {
-      for (const f of folder.presets) {
-        const p = parseLayerPresetSafe(JSON.parse(f.data))
-        if (p) allLayerPresets.push(p)
-      }
-    }
-    setLayerPresets(allLayerPresets)
-    setScenePresets(sf.map((f) => parseScenePresetSafe(JSON.parse(f.data))).filter((p): p is ScenePreset => p !== null))
+    setLayerPresets(folders.flatMap((f) => f.presets))
+    setScenePresets(scenes)
   }
 
   useEffect(() => { loadAll() }, [])
@@ -623,10 +616,7 @@ function PresetsTab() {
     const name = layerName.trim()
     if (!name) { flash('⚠ Name required'); return }
     const preset = engine.captureLayerPreset(`layer-${layerIndex + 1}`, name)
-    const json = JSON.stringify(preset, null, 2)
-    const subfolder = preset.geometryPluginId || undefined
-    if (window.geoAPI) await window.geoAPI.presetSave('layer', name, json, subfolder)
-    else { const p = loadLayerPresets(); localStorage.setItem(LAYER_PRESET_STORAGE_KEY, JSON.stringify({ ...p, [name]: preset })) }
+    await saveLayerPreset(name, preset)
     setLayerName('')
     flash(`✓ Saved: "${name}" (${LAYER_LABELS[layerIndex]})`)
     await loadAll()
@@ -643,9 +633,7 @@ function PresetsTab() {
   async function handleDeleteLayer() {
     if (!selectedLayer) { flash('⚠ Select a preset'); return }
     const preset = layerPresets.find((p) => p.name === selectedLayer)
-    const subfolder = preset?.geometryPluginId || undefined
-    if (window.geoAPI) await window.geoAPI.presetDelete('layer', selectedLayer, subfolder)
-    else { const p = loadLayerPresets(); delete p[selectedLayer]; localStorage.setItem(LAYER_PRESET_STORAGE_KEY, JSON.stringify(p)) }
+    await deleteLayerPreset(selectedLayer, preset?.geometryPluginId)
     flash(`✓ Deleted: "${selectedLayer}"`)
     setSelectedLayer('')
     await loadAll()
@@ -655,10 +643,12 @@ function PresetsTab() {
     const name = sceneName.trim()
     if (!name) { flash('⚠ Name required'); return }
     const captured = (['layer-1', 'layer-2', 'layer-3'] as const).map((lid, i) => engine.captureLayerPreset(lid, `${name} - L${i + 1}`))
-    const preset: ScenePreset = { id: `scene-${Date.now()}`, name, layerPresets: [captured[0], captured[1], captured[2]], createdAt: new Date().toISOString() }
-    const json = JSON.stringify(preset, null, 2)
-    if (window.geoAPI) await window.geoAPI.presetSave('scene', name, json)
-    else { const p = loadScenePresets(); localStorage.setItem(SCENE_PRESET_STORAGE_KEY, JSON.stringify({ ...p, [name]: preset })) }
+    const preset: ScenePreset = {
+      id: `scene-${Date.now()}`, name,
+      layerPresets: [captured[0], captured[1], captured[2]],
+      createdAt: new Date().toISOString(),
+    }
+    await saveScenePreset(name, preset)
     setSceneName('')
     flash(`✓ Scene saved: "${name}"`)
     await loadAll()
@@ -677,8 +667,7 @@ function PresetsTab() {
 
   async function handleDeleteScene() {
     if (!selectedScene) { flash('⚠ Select a preset'); return }
-    if (window.geoAPI) await window.geoAPI.presetDelete('scene', selectedScene)
-    else { const p = loadScenePresets(); delete p[selectedScene]; localStorage.setItem(SCENE_PRESET_STORAGE_KEY, JSON.stringify(p)) }
+    await deleteScenePreset(selectedScene)
     flash(`✓ Deleted: "${selectedScene}"`)
     setSelectedScene('')
     await loadAll()
@@ -776,34 +765,6 @@ function PresetsTab() {
       </section>
     </div>
   )
-}
-
-function loadLayerPresets(): Record<string, LayerPreset> {
-  try {
-    const raw = localStorage.getItem(LAYER_PRESET_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw) as Record<string, unknown>
-    const result: Record<string, LayerPreset> = {}
-    for (const [k, v] of Object.entries(parsed)) {
-      const p = parseLayerPresetSafe(v)
-      if (p) result[k] = p
-    }
-    return result
-  } catch { return {} }
-}
-
-function loadScenePresets(): Record<string, ScenePreset> {
-  try {
-    const raw = localStorage.getItem(SCENE_PRESET_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw) as Record<string, unknown>
-    const result: Record<string, ScenePreset> = {}
-    for (const [k, v] of Object.entries(parsed)) {
-      const p = parseScenePresetSafe(v)
-      if (p) result[k] = p
-    }
-    return result
-  } catch { return {} }
 }
 
 // ----------------------------------------------------------------

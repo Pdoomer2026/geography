@@ -13,20 +13,13 @@ import { useEffect, useState } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
 import { parseLayerPresetSafe } from '../../../../application/schema/zod/layerPreset.schema'
 import type { LayerPreset } from '../../../../application/schema'
+import { loadLayerPresetFolders } from '../../../../application/adapter/storage/layerPresetStore'
+import type { PresetFolder } from '../../../../application/adapter/storage/layerPresetStore'
 import { ClipCell } from './ClipCell'
-
-const LAYER_IDS  = ['layer-1', 'layer-2', 'layer-3'] as const
+const LAYER_IDS    = ['layer-1', 'layer-2', 'layer-3'] as const
 const LAYER_COLORS = ['#5a5aff', '#5affaa', '#ffaa5a'] as const
-const ROW_COUNT  = 5
-const STORAGE_KEY = 'geography:clip-grid-v1'
-
-// ============================================================
-// フォルダ構造型
-// ============================================================
-interface PresetFolder {
-  folder: string
-  presets: LayerPreset[]
-}
+const ROW_COUNT    = 5
+const STORAGE_KEY  = 'geography:clip-grid-v1'
 
 // grid[layerIndex][rowIndex] = LayerPreset | null
 type Grid = (LayerPreset | null)[][]
@@ -66,23 +59,8 @@ export function ClipGrid() {
   }, [])
 
   async function loadPresetFolders() {
-    if (!window.geoAPI) {
-      // ブラウザ環境: localStorageからフラットに読み込んで 'all' フォルダにまとめる
-      try {
-        const raw = localStorage.getItem('geography:layer-presets-v2')
-        if (!raw) return
-        const parsed = JSON.parse(raw) as Record<string, unknown>
-        const presets = Object.values(parsed).map((v) => parseLayerPresetSafe(v)).filter((p): p is LayerPreset => p !== null)
-        if (presets.length > 0) setPresetFolders([{ folder: 'all', presets }])
-      } catch { /* ignore */ }
-      return
-    }
-    const folders = await window.geoAPI.presetList('layer') as Array<{ folder: string; presets: Array<{ name: string; data: string }> }>
-    const parsed: PresetFolder[] = folders.map((f) => ({
-      folder: f.folder,
-      presets: f.presets.map((p) => parseLayerPresetSafe(JSON.parse(p.data))).filter((p): p is LayerPreset => p !== null),
-    })).filter((f) => f.presets.length > 0)
-    setPresetFolders(parsed)
+    const folders = await loadLayerPresetFolders()
+    setPresetFolders(folders)
   }
 
   // セルクリック

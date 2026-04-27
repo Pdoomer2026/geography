@@ -1,0 +1,25 @@
+feat: Inspector UI Phase 3-5 + layerPresetStore SSoT 化 (Day81)
+
+Phase 3: Layer タブ実装
+- LayerAccordion（display:none で非表示・loHiMap 値維持）
+- GeometryPanel / CameraPanel / FxPanel / MacroPanel（StandardDnDWindow 流用）
+- LayerTab: L1/L2/L3 タブ + アコーディオン
+
+Phase 4: Preset Save/Load UI
+- Preferences に Presets タブ新設
+- LayerPreset / ScenePreset の一覧・保存・削除・ロード
+
+Phase 5: layerPresetStore.ts 新設（Application 層 SSoT）
+- PresetFolder 型・CRUD 関数を一箇所に集約
+- ClipGrid / ClipCell / PreferencesPanel が Store 経由に統一
+
+ClipCell 右クリックメニュー改善:
+- ASSIGN PRESET サブメニュー（Geometry 名フォルダ階層）
+- Save to Presets（有りセルのみ・名前入力してPreferences にも保存）
+- Clear Clip
+- メニュー位置を Inspector 左端基準（right: 280px）に固定
+
+設計上の問題（Day82 で修正予定）:
+- layerPresetStore が geoAPI/localStorage で分岐しており保存先が2つ存在する
+- 正しい設計: localStorage に一本化・Electron も同じ localStorage を使う
+- geoAPI の preset:save/list/delete は削除予定（薄い鏡原則の徹底）
