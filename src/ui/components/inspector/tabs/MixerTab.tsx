@@ -7,9 +7,10 @@
  * spec: docs/spec/layer-window.spec.md §3
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
-import type { CSSBlendMode, Layer, LayerRouting } from '../../../../application/schema'
+import { useGeoStore } from '../../../../ui/store/geoStore'
+import type { CSSBlendMode } from '../../../../application/schema'
 import { ClipGrid } from '../mixer/ClipGrid'
 
 const LAYER_COLORS = ['#5a5aff', '#5affaa', '#ffaa5a'] as const
@@ -57,27 +58,24 @@ function VerticalFader({
 // ============================================================
 
 export function MixerTab() {
-  const [layers, setLayers]   = useState<Layer[]>([])
-  const [routings, setRoutings] = useState<LayerRouting[]>([])
+  const { layers, routings, syncLayers } = useGeoStore()
 
+  // 初回同期 + Registry 変化時に再同期
   useEffect(() => {
-    const sync = () => {
-      setLayers([...engine.getLayers()])
-      setRoutings([...engine.getLayerRoutings()])
-    }
-    sync()
-    const timer = window.setInterval(sync, 200)
-    return () => window.clearInterval(timer)
-  }, [])
+    syncLayers()
+    return engine.onRegistryChanged(syncLayers)
+  }, [syncLayers])
 
   function handleOpacity(layerId: string, value: number) {
     const r = routings.find((r) => r.layerId === layerId)
     if (!r) return
     engine.setLayerRouting(layerId, value, r.editOpacity)
+    syncLayers()
   }
 
   function handleBlend(layerId: string, mode: CSSBlendMode) {
     engine.setLayerBlendMode(layerId, mode)
+    syncLayers()
   }
 
   return (
@@ -119,14 +117,13 @@ export function MixerTab() {
         </div>
         <div className="flex flex-col gap-1">
           {layers.map((layer, i) => {
-            const currentLayer = engine.getLayers().find((l) => l.id === layer.id)
             return (
               <div key={layer.id} className="flex items-center gap-2">
                 <span className="font-mono" style={{ fontSize: 9, color: LAYER_COLORS[i], width: 20 }}>
                   L{i + 1}
                 </span>
                 <select
-                  value={currentLayer?.blendMode ?? 'normal'}
+                  value={layers.find((l) => l.id === layer.id)?.blendMode ?? 'normal'}
                   onChange={(e) => handleBlend(layer.id, e.target.value as CSSBlendMode)}
                   className="flex-1 font-mono rounded"
                   style={{

@@ -33,11 +33,6 @@ export function FxPanel({ layerId }: FxPanelProps) {
   useEffect(() => { setFxGroups(buildGroups(layerId)) }, [layerId, buildGroups])
   useEffect(() => engine.onRegistryChanged(() => setFxGroups(buildGroups(layerId))), [layerId, buildGroups])
   useEffect(() => engine.onFxChanged(() => setFxGroups(buildGroups(layerId))), [layerId, buildGroups])
-  useEffect(() => {
-    const t = window.setInterval(() => setFxGroups(buildGroups(layerId)), 200)
-    return () => window.clearInterval(t)
-  }, [layerId, buildGroups])
-
   return (
     <div className="flex flex-col gap-2 font-mono text-xs">
       {fxGroups.length === 0 && (

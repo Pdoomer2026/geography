@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { engine } from '../../../../../application/orchestrator/engine'
+import { useGeoStore } from '../../../../store/geoStore'
 import type { DragPayload, MacroAssign, MacroKnobConfig, MidiLearnTarget } from '../../../../../application/schema'
 import { toGeoParamAddress } from '../../../../../application/schema'
 
@@ -208,17 +209,19 @@ function ContextMenu({ x, y, hasCC, onLearn, onClear, onClose }: {
 // ============================================================
 
 export function MacroPanel() {
-  const [knobs, setKnobs]             = useState<MacroKnobConfig[]>([])
-  const [values, setValues]           = useState<number[]>(new Array(KNOB_COUNT).fill(0))
+  // 構造データ → Zustand（薄い鏡）
+  const { macroKnobs: allKnobs, macroValues: allValues, syncMacroKnobs } = useGeoStore()
+  const knobs  = allKnobs.slice(0, KNOB_COUNT)
+  const values = allValues.slice(0, KNOB_COUNT)
+
+  // ライブ視覚データ（意図的 100ms polling — useAllParams と同じ扱い）
   const [assignValuesList, setAssignValuesList] = useState<number[][]>(new Array(KNOB_COUNT).fill([]))
   const [learnTarget, setLearnTarget] = useState<MidiLearnTarget | null>(null)
   const [learnedCCs, setLearnedCCs]   = useState<number[]>(new Array(KNOB_COUNT).fill(-1))
   const [assignTarget, setAssignTarget] = useState<{ knobId: string; payload: DragPayload } | null>(null)
 
-  const sync = useCallback(() => {
+  const syncLiveVisual = useCallback(() => {
     const configs = engine.getMacroKnobs().slice(0, KNOB_COUNT)
-    setKnobs([...configs])
-    setValues(configs.map((k) => engine.getMacroKnobValue(k.id)))
     setLearnTarget(engine.getMidiLearnTarget())
     setLearnedCCs(configs.map((k) => engine.getLearnedCC(k.id)))
     const liveParams = engine.getParametersLive()
@@ -226,8 +229,8 @@ export function MacroPanel() {
       k.assigns.map((a) => {
         const entry = liveParams.find((p) => p.ccNumber === a.ccNumber && p.layerId === a.layerId)
         if (!entry) return 0
-        const range = entry.max - entry.min || 1
-        const norm  = (entry.value - entry.min) / range
+        const range  = entry.max - entry.min || 1
+        const norm   = (entry.value - entry.min) / range
         const aRange = a.max - a.min || 1
         return Math.min(1, Math.max(0, (norm - a.min) / aRange))
       })
@@ -235,16 +238,16 @@ export function MacroPanel() {
   }, [])
 
   useEffect(() => {
-    sync()
-    const t = window.setInterval(sync, 200)
+    syncLiveVisual()
+    const t = window.setInterval(syncLiveVisual, 100)
     return () => window.clearInterval(t)
-  }, [sync])
+  }, [syncLiveVisual])
 
   function handleAssign(assign: MacroAssign) {
     if (!assignTarget) return
     engine.addMacroAssign(assignTarget.knobId, assign)
+    syncMacroKnobs()
     setAssignTarget(null)
-    sync()
   }
 
   return (

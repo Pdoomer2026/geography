@@ -11,12 +11,18 @@ export class LayerManager {
   private layers: Layer[] = []
   private composers: Map<string, EffectComposer> = new Map()
   private styleChangedListeners: Set<() => void> = new Set()
+  private presetAppliedListeners: Set<(layerId: string) => void> = new Set()
   private runtimes: Map<string, LayerRuntime> = new Map()
   private pendingPresets: Map<string, LayerPreset> = new Map()
 
   onStyleChanged(cb: () => void): () => void {
     this.styleChangedListeners.add(cb)
     return () => this.styleChangedListeners.delete(cb)
+  }
+
+  onPresetApplied(cb: (layerId: string) => void): () => void {
+    this.presetAppliedListeners.add(cb)
+    return () => this.presetAppliedListeners.delete(cb)
   }
 
   private notifyStyleChanged(): void {
@@ -231,6 +237,9 @@ export class LayerManager {
     if (composer) {
       layer.fxStack.applySetup(preset.fxPluginIds, composer)
     }
+
+    // Preset 適用完了を通知（engine が Registry と UI を同期）
+    for (const cb of this.presetAppliedListeners) cb(layerId)
   }
 
   setPlugin(layerId: string, plugin: GeometryPlugin | null): void {

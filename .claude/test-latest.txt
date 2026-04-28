@@ -5,25 +5,25 @@
 
  RUN  v3.2.4 /Users/shinbigan/geography
 
- ✓ tests/core/fxStack.test.ts (11 tests) 8ms
- ✓ src/lib/utils.test.ts (3 tests) 3ms
- ✓ tests/core/assignRegistry.test.ts (9 tests) 5ms
- ✓ tests/core/cameraSystem.test.ts (9 tests) 17ms
- ✓ tests/plugins/geometry/grid-tunnel.test.ts (7 tests) 5ms
+ ✓ tests/core/transportRegistry.test.ts (13 tests) 4ms
+ ✓ tests/core/fxStack.test.ts (11 tests) 5ms
+ ✓ tests/core/assignRegistry.test.ts (9 tests) 3ms
+ ✓ tests/core/cameraSystem.test.ts (9 tests) 16ms
+ ✓ tests/plugins/geometry/grid-tunnel.test.ts (7 tests) 4ms
+ ✓ tests/plugins/geometry/contour.test.ts (7 tests) 31ms
  ✓ tests/core/layerManager.test.ts (8 tests) 12ms
- ✓ tests/core/applyGeometrySetup.test.ts (7 tests) 12ms
- ✓ tests/plugins/geometry/contour.test.ts (7 tests) 27ms
- ✓ tests/core/engine.test.ts (11 tests) 401ms
-   ✓ engine Camera Plugin API — layerManager への委譲検証 > TC-engine-1: setCameraPlugin() が layerManager.setCameraPlugin を呼び出す  397ms
- ✓ tests/core/transportRegistry.test.ts (13 tests) 6ms
+ ✓ tests/core/applyGeometrySetup.test.ts (7 tests) 48ms
+ ✓ tests/core/engine.test.ts (11 tests) 395ms
+   ✓ engine Camera Plugin API — layerManager への委譲検証 > TC-engine-1: setCameraPlugin() が layerManager.setCameraPlugin を呼び出す  389ms
+ ✓ src/lib/utils.test.ts (3 tests) 6ms
  ✓ tests/core/command.test.ts (10 tests) 3ms
- ✓ tests/core/projectFile.test.ts (7 tests) 3ms
+ ✓ tests/core/registry.test.ts (8 tests) 5ms
  ✓ tests/clock.test.ts (6 tests) 2ms
  ✓ tests/core/parameterStore.test.ts (13 tests) 2ms
- ✓ tests/core/registry.test.ts (8 tests) 3ms
+ ✓ tests/core/projectFile.test.ts (7 tests) 6ms
 
  Test Files  15 passed (15)
       Tests  129 passed (129)
-   Start at  18:20:18
-   Duration  1.20s (transform 468ms, setup 87ms, collect 711ms, tests 510ms, environment 3.95s, prepare 776ms)
+   Start at  09:50:05
+   Duration  1.31s (transform 520ms, setup 89ms, collect 736ms, tests 542ms, environment 4.13s, prepare 791ms)
 

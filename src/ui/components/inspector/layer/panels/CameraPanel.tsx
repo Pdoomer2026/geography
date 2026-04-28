@@ -28,17 +28,22 @@ export function CameraPanel({ layerId }: CameraPanelProps) {
     const cam = engine.getCameraPlugin(layerId)
     if (cam) { setCameraId(cam.id); setParams(getParams(layerId, cam.id)) }
     else { setCameraId(''); setParams([]) }
+    return engine.onRegistryChanged(() => {
+      const updated = engine.getCameraPlugin(layerId)
+      if (!updated) return
+      setCameraId(updated.id)
+      setParams(getParams(layerId, updated.id))
+    })
   }, [layerId, getParams])
 
   useEffect(() => {
-    const t = window.setInterval(() => {
+    engine.onCameraChanged(() => {
       const cam = engine.getCameraPlugin(layerId)
-      if (!cam) return
-      if (cam.id !== cameraId) setCameraId(cam.id)
+      if (!cam) { setCameraId(''); setParams([]); return }
+      setCameraId(cam.id)
       setParams(getParams(layerId, cam.id))
-    }, 200)
-    return () => window.clearInterval(t)
-  }, [layerId, cameraId, getParams])
+    })
+  }, [layerId, getParams])
 
   function handleCameraChange(pluginId: string) {
     engine.setCameraPlugin(layerId, pluginId)

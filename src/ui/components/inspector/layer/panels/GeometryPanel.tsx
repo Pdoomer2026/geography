@@ -43,6 +43,15 @@ export function GeometryPanel({ layerId }: GeometryPanelProps) {
   }, [layerId, getParams])
 
   useEffect(() => {
+    engine.onGeometryChanged(() => {
+      const geo = engine.getGeometryPlugin(layerId)
+      if (!geo) { setPluginId(''); setPluginName(''); setParams([]); return }
+      setPluginId(geo.id); setPluginName(geo.name)
+      setParams(getParams(layerId, geo.id))
+    })
+  }, [layerId, getParams])
+
+  useEffect(() => {
     return engine.onParamChanged(() => {
       const geo = engine.getGeometryPlugin(layerId)
       if (!geo) return

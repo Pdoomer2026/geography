@@ -15,7 +15,7 @@
 
 import { create } from 'zustand'
 import { engine } from '../../application/orchestrator/engine'
-import type { MacroKnobConfig } from '../../application/schema'
+import type { MacroKnobConfig, Layer, LayerRouting } from '../../application/schema'
 
 // ============================================================
 // State 定義
@@ -26,9 +26,15 @@ interface GeoState {
   macroKnobs: MacroKnobConfig[]
   /** MacroKnob の現在値（0.0〜1.0・index は macroKnobs と一致） */
   macroValues: number[]
+  /** レイヤー一覧 */
+  layers: Layer[]
+  /** レイヤールーティング一覧 */
+  routings: LayerRouting[]
 
   /** engine から MacroKnob 状態を同期する */
   syncMacroKnobs: () => void
+  /** engine から Layer / LayerRouting 状態を同期する */
+  syncLayers: () => void
 }
 
 // ============================================================
@@ -38,12 +44,21 @@ interface GeoState {
 export const useGeoStore = create<GeoState>((set) => ({
   macroKnobs: [],
   macroValues: [],
+  layers: [],
+  routings: [],
 
   syncMacroKnobs: () => {
     const configs = engine.getMacroKnobs()
     set({
       macroKnobs: [...configs],
       macroValues: configs.map((k) => engine.getMacroKnobValue(k.id)),
+    })
+  },
+
+  syncLayers: () => {
+    set({
+      layers: [...engine.getLayers()],
+      routings: [...engine.getLayerRoutings()],
     })
   },
 }))

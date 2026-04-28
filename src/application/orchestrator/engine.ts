@@ -59,6 +59,10 @@ export class Engine {
   private paramChangedListeners: Set<() => void> = new Set()
   /** FX enabled 変化コールバック（Day59 新設・Sequencer 対応前倒し）*/
   private fxChangedCallback: (() => void) | null = null
+  /** Geometry Plugin 変化コールバック（Day84 新設）*/
+  private geometryChangedCallback: (() => void) | null = null
+  /** Camera Plugin 変化コールバック（Day84 新設）*/
+  private cameraChangedCallback: (() => void) | null = null
 
   constructor() {
     this.parameterStore = new ParameterStore()
@@ -71,6 +75,14 @@ export class Engine {
 
   onFxChanged(cb: () => void): void {
     this.fxChangedCallback = cb
+  }
+
+  onGeometryChanged(cb: () => void): void {
+    this.geometryChangedCallback = cb
+  }
+
+  onCameraChanged(cb: () => void): void {
+    this.cameraChangedCallback = cb
   }
 
   // --- 初期化 ---
@@ -152,6 +164,17 @@ export class Engine {
 
     this.initTransportRegistry()
     this.fxChangedCallback?.()
+    this.geometryChangedCallback?.()
+    this.cameraChangedCallback?.()
+
+    // Clip プリセット適用後に Registry と UI を同期
+    layerManager.onPresetApplied((layerId) => {
+      this.registerPluginToTransportRegistry(layerId, '')
+      this.registerCameraToTransportRegistry(layerId)
+      this.fxChangedCallback?.()
+      this.geometryChangedCallback?.()
+      this.cameraChangedCallback?.()
+    })
   }
 
   registerCameraToTransportRegistry(layerId: string): void {
@@ -818,6 +841,7 @@ export class Engine {
     const plugin = { ...base, params: structuredClone(base.params) }
     layerManager.setCameraPlugin(layerId, plugin, undefined, true)
     this.registerCameraToTransportRegistry(layerId)
+    this.cameraChangedCallback?.()
   }
 
   getCameraPlugin(layerId: string): CameraPlugin | null {
@@ -898,6 +922,7 @@ export class Engine {
       layerManager.setPlugin(layerId, null)
       layerManager.setMute(layerId, true)
       transportRegistry.clear(`${layerId}:geometry`)
+      this.geometryChangedCallback?.()
       return
     }
 
@@ -908,6 +933,7 @@ export class Engine {
       layerManager.setPlugin(layerId, plugin)
       layerManager.setMute(layerId, false)
       this.registerPluginToTransportRegistry(layerId, plugin.id)
+      this.geometryChangedCallback?.()
       return
     }
 
@@ -917,6 +943,7 @@ export class Engine {
     layerManager.setPlugin(layerId, plugin as GeometryPlugin)
     layerManager.setMute(layerId, false)
     this.registerPluginToTransportRegistry(layerId, plugin.id)
+    this.geometryChangedCallback?.()
   }
 }
 
