@@ -151,7 +151,7 @@ function KnobCell({ config, value, assignValues, learnedCC, isLearning, onEdit, 
         </svg>
 
         <span style={{ fontSize: 8, color: '#8888bb', maxWidth: KNOB_SIZE + 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
-          {config.name || config.id.replace('macro-', '#')}
+          {config.name || config.id.replace(/.*macro-/, '#')}
         </span>
 
         {isLearning
@@ -208,20 +208,56 @@ function ContextMenu({ x, y, hasCC, onLearn, onClear, onClose }: {
 // MacroPanel
 // ============================================================
 
-export function MacroPanel() {
-  // 構造データ → Zustand（薄い鏡）
-  const { macroKnobs: allKnobs, macroValues: allValues, syncMacroKnobs } = useGeoStore()
-  const knobs  = allKnobs.slice(0, KNOB_COUNT)
-  const values = allValues.slice(0, KNOB_COUNT)
+interface MacroPanelProps {
+  /** undefined = Global Macro表示、指定時 = そのレイヤーの Layer Macro 表示 */
+  layerId?: string
+}
 
-  // ライブ視覚データ（意図的 100ms polling — useAllParams と同じ扱い）
+export function MacroPanel({ layerId }: MacroPanelProps = {}) {
+  const isLayerMode = layerId !== undefined
+
+  const {
+    macroKnobs: allKnobs,
+    macroValues: allValues,
+    syncMacroKnobs,
+    macroKnobsByLayer,
+    macroValuesByLayer,
+    syncLayerMacroKnobs,
+  } = useGeoStore()
+
+  // activeLayer 切替時に Layer Macro を同期
+  useEffect(() => {
+    if (isLayerMode && layerId) syncLayerMacroKnobs(layerId)
+    else syncMacroKnobs()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layerId])
+
+  const knobs  = isLayerMode
+    ? (macroKnobsByLayer[layerId!] ?? []).slice(0, KNOB_COUNT)
+    : allKnobs.slice(0, KNOB_COUNT)
+  const values = isLayerMode
+    ? (macroValuesByLayer[layerId!] ?? []).slice(0, KNOB_COUNT)
+    : allValues.slice(0, KNOB_COUNT)
+
+  function getEngineKnobs() {
+    return isLayerMode
+      ? engine.getLayerMacroKnobs(layerId!)
+      : engine.getMacroKnobs()
+  }
+
+  function syncStore() {
+    if (isLayerMode) syncLayerMacroKnobs(layerId!)
+    else syncMacroKnobs()
+  }
+
+  // ライブ視覚データ（意図的 100ms polling）
   const [assignValuesList, setAssignValuesList] = useState<number[][]>(new Array(KNOB_COUNT).fill([]))
   const [learnTarget, setLearnTarget] = useState<MidiLearnTarget | null>(null)
   const [learnedCCs, setLearnedCCs]   = useState<number[]>(new Array(KNOB_COUNT).fill(-1))
   const [assignTarget, setAssignTarget] = useState<{ knobId: string; payload: DragPayload } | null>(null)
 
   const syncLiveVisual = useCallback(() => {
-    const configs = engine.getMacroKnobs().slice(0, KNOB_COUNT)
+    const configs = getEngineKnobs().slice(0, KNOB_COUNT)
     setLearnTarget(engine.getMidiLearnTarget())
     setLearnedCCs(configs.map((k) => engine.getLearnedCC(k.id)))
     const liveParams = engine.getParametersLive()
@@ -235,7 +271,8 @@ export function MacroPanel() {
         return Math.min(1, Math.max(0, (norm - a.min) / aRange))
       })
     ))
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layerId])
 
   useEffect(() => {
     syncLiveVisual()
@@ -245,8 +282,12 @@ export function MacroPanel() {
 
   function handleAssign(assign: MacroAssign) {
     if (!assignTarget) return
-    engine.addMacroAssign(assignTarget.knobId, assign)
-    syncMacroKnobs()
+    if (isLayerMode) {
+      engine.addLayerMacroAssign(assignTarget.knobId, assign, layerId!)
+    } else {
+      engine.addMacroAssign(assignTarget.knobId, assign)
+    }
+    syncStore()
     setAssignTarget(null)
   }
 
@@ -270,16 +311,22 @@ export function MacroPanel() {
             learnedCC={learnedCCs[i] ?? -1}
             isLearning={learnTarget?.id === knob.id}
             onEdit={(id) => {
-              const k = engine.getMacroKnobs().find((k) => k.id === id)
-              if (k) engine.setMacroKnob(id, { ...k })
+              // Layer モードでは名前編集のみ（setKnob は将来実装）
+              if (!isLayerMode) {
+                const k = engine.getMacroKnobs().find((k) => k.id === id)
+                if (k) engine.setMacroKnob(id, { ...k })
+              }
             }}
             onLearn={(id) => {
-              const k = engine.getMacroKnobs().find((k) => k.id === id)
-              engine.startMidiLearn({ id, type: 'macro', label: k?.name || id })
+              if (isLayerMode) {
+                engine.startLayerMacroMidiLearn(id, layerId!)
+              } else {
+                const k = engine.getMacroKnobs().find((k) => k.id === id)
+                engine.startMidiLearn({ id, type: 'macro', label: k?.name || id })
+              }
             }}
             onClearCC={(id) => engine.clearLearnedCC(id)}
             onDrop={(knobId, payload) => {
-              // proposal がある場合は AssignDialog をスキップして直接アサイン
               if (payload.proposal) {
                 const fullRange = payload.max - payload.min || 1
                 const assign: MacroAssign = {
@@ -291,18 +338,27 @@ export function MacroPanel() {
                   curve: 'linear',
                 }
                 try {
-                  engine.addMacroAssign(knobId, assign)
-                  syncMacroKnobs()
+                  if (isLayerMode) {
+                    engine.addLayerMacroAssign(knobId, assign, layerId!)
+                  } else {
+                    engine.addMacroAssign(knobId, assign)
+                  }
+                  syncStore()
                 } catch (e) {
-                  console.error('[MacroPanel] addMacroAssign failed:', e)
+                  console.error('[MacroPanel] addAssign failed:', e)
                 }
                 return
               }
               setAssignTarget({ knobId, payload })
             }}
             onKnobChange={(knobId, val) => {
-              engine.setMacroKnobValue(knobId, val)
-              engine.receiveMidiModulation(knobId, val)
+              if (isLayerMode) {
+                engine.setLayerMacroKnobValue(knobId, val, layerId!)
+                engine.receiveMidiLayerModulation(knobId, val, layerId!)
+              } else {
+                engine.setMacroKnobValue(knobId, val)
+                engine.receiveMidiModulation(knobId, val)
+              }
             }}
           />
         ))}

@@ -13,6 +13,7 @@ import { programBus } from './programBus'
 import { previewBus } from './previewBus'
 import { layerManager } from './layerManager'
 import { assignRegistry } from '../registry/assignRegistry'
+import { layerAssignRegistry } from '../registry/layerAssignRegistry'
 import { transportManager } from '../registry/transportManager'
 import { transportRegistry } from '../registry/transportRegistry'
 import { ccMapService } from '../catalog/ccMapService'
@@ -324,6 +325,67 @@ export class Engine {
     )
   }
 
+  // --- Layer Macro API（spec: docs/spec/layer-macro-preset.spec.md）---
+
+  getLayerMacroKnobs(layerId: string): MacroKnobConfig[] {
+    return layerAssignRegistry.forLayer(layerId).getKnobs()
+  }
+
+  getLayerMacroKnobValue(knobId: string, layerId: string): number {
+    return layerAssignRegistry.forLayer(layerId).getValue(knobId)
+  }
+
+  setLayerMacroKnobValue(knobId: string, value: number, layerId: string): void {
+    layerAssignRegistry.forLayer(layerId).setValue(knobId, value)
+  }
+
+  addLayerMacroAssign(knobId: string, assign: import('../schema').MacroAssign, layerId: string): void {
+    layerAssignRegistry.forLayer(layerId).addAssign(knobId, assign)
+  }
+
+  removeLayerMacroAssign(knobId: string, geoParamAddress: string, layerId: string): void {
+    layerAssignRegistry.forLayer(layerId).removeAssign(knobId, geoParamAddress)
+  }
+
+  getLayerAssignsForParam(
+    geoParamAddress: string,
+    layerId: string,
+  ): { knobId: string; assign: import('../schema').MacroAssign }[] {
+    return layerAssignRegistry.forLayer(layerId).getKnobs().flatMap((k) =>
+      k.assigns
+        .filter((a) => a.geoParamAddress === geoParamAddress)
+        .map((a) => ({ knobId: k.id, assign: a }))
+    )
+  }
+
+  receiveMidiLayerModulation(knobId: string, value: number, layerId: string): void {
+    const registry = layerAssignRegistry.forLayer(layerId)
+    registry.setValue(knobId, value)
+    const knob = registry.getKnobs().find((k) => k.id === knobId)
+    if (!knob) return
+    for (const assign of knob.assigns) {
+      const mapped = assign.min + value * (assign.max - assign.min)
+      this.parameterStore.set(assign.geoParamAddress, mapped)
+    }
+  }
+
+  startLayerMacroMidiLearn(knobId: string, layerId: string): void {
+    const knob = layerAssignRegistry.forLayer(layerId).getKnobs().find((k) => k.id === knobId)
+    midiLearnService.startLearn({
+      id: knobId,
+      type: 'macro',
+      label: knob?.name || knobId,
+    })
+  }
+
+  getLayerMacroLearnedCC(knobId: string): number {
+    return midiLearnService.getAssignedCC(knobId)
+  }
+
+  clearLayerMacroLearnedCC(knobId: string): void {
+    midiLearnService.clearAssign(knobId)
+  }
+
   // --- MIDI Learn API ---
 
   startMidiLearn(target: MidiLearnTarget): void {
@@ -368,10 +430,17 @@ export class Engine {
   /** MIDI Learn 済みコントロールへの値を流す */
   private dispatchToLearned(target: MidiLearnTarget, value: number): void {
     switch (target.type) {
-      case 'macro':
-        assignRegistry.setValue(target.id, value)
-        transportManager.receiveModulation(target.id, value)
+      case 'macro': {
+        // Layer Macro（ID形式: 'layer-N:macro-M'）と Global Macro を分岐
+        const layerMacroMatch = target.id.match(/^(layer-\d+):macro-/)
+        if (layerMacroMatch) {
+          this.receiveMidiLayerModulation(target.id, value, layerMacroMatch[1])
+        } else {
+          assignRegistry.setValue(target.id, value)
+          transportManager.receiveModulation(target.id, value)
+        }
         break
+      }
       case 'layer-opacity': {
         // controlId: 'opacity-L1' / 'opacity-L2' / 'opacity-L3'
         const match = target.id.match(/^opacity-L(\d+)$/)
@@ -861,28 +930,44 @@ export class Engine {
 
   /**
    * Preset を元にレイヤーを差し替える（ダブルバッファ経由）。
-   * UI からは必ずこのメソッドを呼ぶ（layerManager を直接呼ばない）。
+   * macroKnobs があれば Layer Macro レジストリにも restore する。
+   * Global Macro（assignRegistry）は一切触らない。
    * spec: docs/spec/layer-window.spec.md §3
+   * spec: docs/spec/layer-macro-preset.spec.md
    */
   replaceLayerPreset(layerId: string, preset: import('../schema').LayerPreset): void {
     layerManager.replaceLayerPreset(layerId, preset)
+    if (preset.macroKnobs && preset.macroKnobs.length > 0) {
+      layerAssignRegistry.forLayer(layerId).restore(preset.macroKnobs)
+    }
   }
 
   /**
    * 現在のレイヤー状態を LayerPreset として切り取る。
+   * Geometry + Camera + FX + Layer Macro ノブを一括スナップショット。
+   * Global Macro（assignRegistry）は含めない。
    * Clip セルの [ + ] クリック時に呼ぶ。
    * spec: docs/spec/layer-window.spec.md §3
+   * spec: docs/spec/layer-macro-preset.spec.md
    */
   captureLayerPreset(layerId: string, name: string): import('../schema').LayerPreset {
     const geom = this.getGeometryPlugin(layerId)
     const cam = this.getCameraPlugin(layerId)
     const fxPlugins = this.getFxPlugins(layerId)
+    const macroKnobs = layerAssignRegistry.forLayer(layerId).snapshot()
     return {
       id: `preset-${Date.now()}`,
       name,
       geometryPluginId: geom?.id ?? '',
       cameraPluginId:   cam?.id  ?? 'static-camera',
       fxPluginIds: fxPlugins.filter((f) => f.enabled).map((f) => f.id),
+      geometryParams: geom
+        ? Object.fromEntries(Object.entries(geom.params).map(([k, v]) => [k, v.value]))
+        : undefined,
+      cameraParams: cam
+        ? Object.fromEntries(Object.entries(cam.params).map(([k, v]) => [k, v.value]))
+        : undefined,
+      macroKnobs,
       createdAt: new Date().toISOString(),
     }
   }

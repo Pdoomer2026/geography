@@ -1,6 +1,9 @@
 /**
  * LayerTab — Inspector の Layer タブ
- * L1/L2/L3 タブ + Macro/Geometry/Camera/FX アコーディオン
+ * 上部: MACRO (Global) — L1/L2/L3 共通
+ * タブ: L1/L2/L3（右クリックで LayerMacroPreset Save/Load）
+ * 下部: MACRO (Layer) / GEOMETRY / CAMERA / FX — activeLayer に追従
+ * spec: docs/spec/layer-macro-preset.spec.md
  * spec: docs/spec/layer-window.spec.md §4
  */
 
@@ -17,12 +20,12 @@ const LAYER_TABS = [
   { id: 'layer-3', label: 'L3', color: '#ffaa5a' },
 ] as const
 
-type AccordionKey = 'macro' | 'geometry' | 'camera' | 'fx'
+type AccordionKey = 'macroGlobal' | 'macroLayer' | 'geometry' | 'camera' | 'fx'
 
 export function LayerTab() {
   const [activeLayer, setActiveLayer] = useState<string>('layer-1')
   const [open, setOpen] = useState<Record<AccordionKey, boolean>>({
-    macro: true, geometry: false, camera: false, fx: false,
+    macroGlobal: true, macroLayer: false, geometry: false, camera: false, fx: false,
   })
 
   function toggle(key: AccordionKey) {
@@ -31,8 +34,14 @@ export function LayerTab() {
 
   return (
     <div className="flex flex-col">
-      {/* L1/L2/L3 タブ */}
-      <div className="flex gap-1 mb-3">
+
+      {/* 上部: MACRO (Global) — L1/L2/L3 共通 */}
+      <LayerAccordion title="MACRO (Global)" open={open.macroGlobal} onToggle={() => toggle('macroGlobal')}>
+        <MacroPanel />
+      </LayerAccordion>
+
+      {/* L1/L2/L3 タブ（右クリックで LayerMacroPreset Save/Load — Phase 8 で実装） */}
+      <div className="flex gap-1 my-3">
         {LAYER_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -50,9 +59,9 @@ export function LayerTab() {
         ))}
       </div>
 
-      {/* アコーディオン */}
-      <LayerAccordion title="MACRO" open={open.macro} onToggle={() => toggle('macro')}>
-        <MacroPanel />
+      {/* 下部: activeLayer に追従するパネル群 */}
+      <LayerAccordion title="MACRO (Layer)" open={open.macroLayer} onToggle={() => toggle('macroLayer')}>
+        <MacroPanel layerId={activeLayer} />
       </LayerAccordion>
 
       <LayerAccordion title="GEOMETRY" open={open.geometry} onToggle={() => toggle('geometry')}>

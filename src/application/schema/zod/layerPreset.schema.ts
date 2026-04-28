@@ -12,6 +12,7 @@
  */
 
 import { z } from 'zod'
+import { MacroKnobConfigSchema } from './macroKnob.schema'
 
 export const LayerPresetSchema = z.object({
   /** 一意な Preset ID（`preset-${Date.now()}` 等） */
@@ -48,6 +49,13 @@ export const LayerPresetSchema = z.object({
 
   /** 作成日時（ISO 8601） */
   createdAt: z.string().datetime(),
+
+  /**
+   * Layer Macro ノブ設定（8個分）。
+   * optional = 既存 LayerPreset ファイルの後方互換を保持。
+   * spec: docs/spec/layer-macro-preset.spec.md
+   */
+  macroKnobs: z.array(MacroKnobConfigSchema).optional(),
 })
 
 export type LayerPreset = z.infer<typeof LayerPresetSchema>

@@ -4,6 +4,8 @@ export const DEFAULT_BPM = 128
 export const LERP_FACTOR = 0.05
 export const MACRO_KNOB_COUNT = 32
 export const MACRO_KNOB_MAX_ASSIGNS = 3
+/** Layer Macro: レイヤーごとの専用ノブ数（Inspector Layer タブに表示） */
+export const LAYER_MACRO_KNOB_COUNT = 8
 
 /**
  * Geometry Plugin が defaultCameraPluginId を指定しない場合に使われるデフォルトの Camera Plugin ID。

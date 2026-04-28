@@ -31,15 +31,37 @@ interface GeoState {
   /** レイヤールーティング一覧 */
   routings: LayerRouting[]
 
+  /**
+   * Layer Macro ノブ設定（layerId → MacroKnobConfig[8]）
+   * spec: docs/spec/layer-macro-preset.spec.md
+   */
+  macroKnobsByLayer: Record<string, MacroKnobConfig[]>
+  /**
+   * Layer Macro ノブ現在値（layerId → number[8]）
+   * spec: docs/spec/layer-macro-preset.spec.md
+   */
+  macroValuesByLayer: Record<string, number[]>
+
   /** engine から MacroKnob 状態を同期する */
   syncMacroKnobs: () => void
   /** engine から Layer / LayerRouting 状態を同期する */
   syncLayers: () => void
   /**
+   * 指定レイヤーの Layer Macro 状態を engine から同期する。
+   * MacroPanel（Layer）が activeLayer 切替時・値変更後に呼ぶ。
+   * spec: docs/spec/layer-macro-preset.spec.md
+   */
+  syncLayerMacroKnobs: (layerId: string) => void
+  /**
    * MacroKnob アサインを削除し macroKnobs を即時同期する。
    * UI は engine を直接呼ばずここ経由でのみ操作する。
    */
   removeAssign: (knobId: string, geoParamAddress: string) => void
+  /**
+   * Layer Macro アサインを削除し macroKnobsByLayer を即時同期する。
+   * spec: docs/spec/layer-macro-preset.spec.md
+   */
+  removeLayerAssign: (knobId: string, geoParamAddress: string, layerId: string) => void
 }
 
 // ============================================================
@@ -51,6 +73,8 @@ export const useGeoStore = create<GeoState>((set) => ({
   macroValues: [],
   layers: [],
   routings: [],
+  macroKnobsByLayer: {},
+  macroValuesByLayer: {},
 
   syncMacroKnobs: () => {
     const configs = engine.getMacroKnobs()
@@ -67,6 +91,20 @@ export const useGeoStore = create<GeoState>((set) => ({
     })
   },
 
+  syncLayerMacroKnobs: (layerId: string) => {
+    const configs = engine.getLayerMacroKnobs(layerId)
+    set((state) => ({
+      macroKnobsByLayer: {
+        ...state.macroKnobsByLayer,
+        [layerId]: [...configs],
+      },
+      macroValuesByLayer: {
+        ...state.macroValuesByLayer,
+        [layerId]: configs.map((k) => engine.getLayerMacroKnobValue(k.id, layerId)),
+      },
+    }))
+  },
+
   removeAssign: (knobId: string, geoParamAddress: string) => {
     engine.removeMacroAssign(knobId, geoParamAddress)
     const configs = engine.getMacroKnobs()
@@ -74,5 +112,20 @@ export const useGeoStore = create<GeoState>((set) => ({
       macroKnobs: [...configs],
       macroValues: configs.map((k) => engine.getMacroKnobValue(k.id)),
     })
+  },
+
+  removeLayerAssign: (knobId: string, geoParamAddress: string, layerId: string) => {
+    engine.removeLayerMacroAssign(knobId, geoParamAddress, layerId)
+    const configs = engine.getLayerMacroKnobs(layerId)
+    set((state) => ({
+      macroKnobsByLayer: {
+        ...state.macroKnobsByLayer,
+        [layerId]: [...configs],
+      },
+      macroValuesByLayer: {
+        ...state.macroValuesByLayer,
+        [layerId]: configs.map((k) => engine.getLayerMacroKnobValue(k.id, layerId)),
+      },
+    }))
   },
 }))
