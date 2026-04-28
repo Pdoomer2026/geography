@@ -1,86 +1,78 @@
-# GeoGraphy Day82 引き継ぎ｜2026-04-27
+# GeoGraphy Day83 引き継ぎ｜2026-04-28
 
 ## プロジェクト概要
 - **アプリ名**: GeoGraphy（No-Texture Plugin 駆動 VJ アプリ）
 - **スタック**: Vite / React 18 / TypeScript / Three.js r160+ / pnpm / Electron / Zod
 - **GitHub**: https://github.com/Pdoomer2026/geography
 - **ブランチ**: `feature/inspector-ui`
-- **最終コミット**: `1b88b62`
+- **最終コミット**: `1d1547b`
 - **テスト**: 129 tests グリーン・tsc エラーゼロ
-- **タグ**: `day82` push 済み
+- **タグ**: `day83` 未打（終業時に打つこと）
 
 ---
 
-## Day82 で完了したこと
+## Day83 で完了したこと
 
-### 1. layerPresetStore.ts localStorage 一本化（設計ミス修正）
-- `window.geoAPI` 分岐を全削除。Electron・ブラウザ共通で localStorage のみ使用
-- `electron/preload.js` から `presetSave / presetList / presetDelete` を削除
-- `electron/main.js` から `preset:save / preset:list / preset:delete` IPC ハンドラーを削除
-- `geoAPI.d.ts` から preset 型定義を削除
-- `PreferencesPanel.tsx` の `deleteLayerPreset()` 呼び出しの不要引数を削除
+### Clip D&D 移動・コピー機能（ClipGrid.tsx のみ変更）
 
-### 2. Geometry Plugin factory function パターン化（二重表示バグ修正）
-- 全 Geometry Plugin（7ファイル）がモジュールレベル変数を共有していた
-- Camera Plugin（Day45）と同一のバグ
-- 全プラグインを `export default function create*Plugin(): GeometryPlugin` に変換
-- `registry.ts` に `GeometryPluginFactory` 型・`registerFactory()` / `getFactory()` / `listGeometryMeta()` を追加
-- `geometry/index.ts` で factory function を自動判定して `registerFactory()` で登録
-- `layerManager._applyPresetToLayer()` で `registry.getFactory()` を優先使用
-- `engine.initialize()` / `setLayerPlugin()` / `getRegisteredPlugins()` を factory 対応に修正
+ClipGrid の ClipCell 単位でドラッグ＆ドロップ移動を実装。
 
-### 3. ClipCell・ClipGrid UI バグ修正
-- サブメニューが消える問題: `onMouseLeave` をフォルダ行から削除しサブメニュー側に移動
-- Clip 名が長いと幅が崩れる問題: `minWidth: 0` を追加（ClipGrid・ClipCell 両方）
-
-### 4. レンダリング残像バグ修正
-- `autoClear = false` 環境で FX なし時の残像対策として `clearColor()` / `clearDepth()` を追加
+| 操作 | 動作 |
+|---|---|
+| 通常 D&D → 空セル | Move（元セルが null になる）|
+| 通常 D&D → 有りセル | Swap（互いのPresetが入れ替わる）|
+| Option+D&D → 任意セル | Copy（元セルを残してコピー）|
 
 ---
 
-## 重要ファイルパス（Day82 変更分）
+## Day83 で判明した重要な学び
+
+### HTML5 D&D のブラウザ挙動（重要・今後の D&D 実装すべてに適用）
+
+1. **draggable な要素は Drop ターゲットとして機能しない**
+   - 有りセルのラッパーが `draggable={true}` のままだと、別セルをドロップできない
+   - 修正: `draggable={!!preset && dragSource === null}`（ドラッグ中は全セルを non-draggable に）
+
+2. **effectAllowed = 'move' のとき Option キー（copy）でドロップが拒否される**
+   - `effectAllowed = 'move'` → Option 時にブラウザが 'copy' を要求 → drop イベント不発火
+   - 修正: `effectAllowed = 'copyMove'`
+
+3. **e.metaKey / e.altKey は onDrop では信頼できない場合がある**
+   - onDrop の e.altKey は Chrome on macOS で取れないことがある
+   - 修正: `onDragOver`（連続発火）で `isCopyModeRef.current = e.altKey` を更新し、onDrop で ref を読む
+
+4. **keydown/keyup リスナーで modifier を追跡すると keyup がリセットしてしまう**
+   - Option を離した瞬間に ref が false になり、drop 前にリセットされる
+   - 修正: keydown/keyup リスナーを削除し、dragOver + dragEnd でのみ管理
+
+---
+
+## 重要ファイルパス（Day83 変更分）
 
 | ファイル | 状態 |
 |---|---|
-| `src/application/adapter/storage/layerPresetStore.ts` | ✅ localStorage 一本化 |
-| `src/application/registry/registry.ts` | ✅ factory 対応 |
-| `src/engine/geometry/index.ts` | ✅ factory 自動判定登録 |
-| `src/engine/geometry/solid/torus/index.ts` | ✅ factory function 化 |
-| `src/engine/geometry/solid/icosphere/index.ts` | ✅ factory function 化 |
-| `src/engine/geometry/solid/torusknot/index.ts` | ✅ factory function 化 |
-| `src/engine/geometry/wave/grid-wave/index.ts` | ✅ factory function 化 |
-| `src/engine/geometry/tunnel/grid-tunnel/index.ts` | ✅ factory function 化 |
-| `src/engine/geometry/terrain/contour/index.ts` | ✅ factory function 化 |
-| `src/engine/geometry/terrain/hex-grid/index.ts` | ✅ factory function 化 |
-| `src/application/orchestrator/layerManager.ts` | ✅ factory 対応・clearColor 追加 |
-| `src/application/orchestrator/engine.ts` | ✅ factory 対応 |
-| `src/ui/components/inspector/mixer/ClipCell.tsx` | ✅ サブメニュー・truncate 修正 |
-| `src/ui/components/inspector/mixer/ClipGrid.tsx` | ✅ minWidth 修正 |
-| `electron/preload.js` | ✅ preset メソッド削除済み |
-| `electron/main.js` | ✅ preset IPC 削除済み |
-| `src/application/schema/geoAPI.d.ts` | ✅ preset 型定義削除済み |
+| `src/ui/components/inspector/mixer/ClipGrid.tsx` | ✅ D&D 実装済み |
 
 ---
 
-## アーキテクチャ原則（Day82 確立）
+## アーキテクチャ原則（Day83 確認）
 
-### 薄い鏡原則（完全確立）
-- `localStorage` が Preset の SSoT（Electron・ブラウザ共通）
-- `geoAPI` の役割: `showSaveDialog / showOpenDialog / saveFile / loadFile` のみ
-
-### Geometry Plugin factory function パターン
-- 全プラグインが `() => GeometryPlugin` の factory として登録
-- `registry.registerFactory(id, factory)` → `registry.getFactory(id)()` で独立インスタンス生成
-- Camera Plugin（Day45）と同じパターンで統一
+### Clip D&D の設計方針
+- D&D は「どこに置くか」の操作 → engine を呼ばない
+- `saveGrid(next)` のみ（localStorage 書き込み）
+- Application 層への新規依存ゼロ
+- activeCells は移動に関わったセルのみリセット（再生状態の引き継ぎなし）
 
 ---
 
 ## 次回以降の実装候補
 
-1. **Clip D&D 並び替え**（ClipGrid.tsx のみ変更・dragSource + drop swap）
+1. **MacroKnob D&D 割り当て UI**（Day83 未着手）
+   - アサイン状態の可視化（≡ ハンドルにドット表示）
+   - 右クリックでアサイン削除（spec §4-3 ④）
+   - 変更ファイル: `useDnDParamRow.ts` / `GeometrySimpleDnDWindow.tsx`
 2. **Phase 4: 旧 Window 廃止**（Inspector 安定後）
-3. **MacroKnob D&D 割り当て UI**
-4. **Sequencer Plugin**
+3. **Sequencer Plugin**
 
 ---
 
@@ -98,5 +90,5 @@
 ## 次回スタートプロンプト
 
 ```
-Day83開始
+Day84開始
 ```
