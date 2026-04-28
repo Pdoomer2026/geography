@@ -1,5 +1,0 @@
-export { GeometrySimpleWindow } from './GeometrySimpleWindow'
-export type { GeometrySimpleWindowProps } from './GeometrySimpleWindow'
-export { CameraSimpleWindow } from './CameraSimpleWindow'
-export { FxSimpleWindow } from './FxSimpleWindow'
-export type { FxGroup } from './FxSimpleWindow'

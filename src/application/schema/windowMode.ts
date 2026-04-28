@@ -3,7 +3,7 @@
  * App.tsx / PreferencesPanel で共有する Window 表示状態の型
  */
 
-export type GeoWindowMode = 'none' | 'simple' | 'simple-dnd' | 'standard' | 'standard-dnd'
+export type GeoWindowMode = 'none'
 export type MacroWindowMode = 'none' | 'macro-8-window'
 export type MixerWindowMode = 'none' | 'mixer-simple'
 

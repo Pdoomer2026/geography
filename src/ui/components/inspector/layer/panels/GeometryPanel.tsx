@@ -8,7 +8,7 @@ import { engine } from '../../../../../application/orchestrator/engine'
 import { useStandardDnDParamRow } from '../../../../hooks/useStandardDnDParamRow'
 import { DnDHandleWithMenu } from './DnDHandleWithMenu'
 import type { RegisteredParameterWithCC } from '../../../../../application/schema/midi-registry'
-import { RangeSlider } from '../../../window/standard-window/RangeSlider'
+import { RangeSlider } from '../../../common/RangeSlider'
 
 interface GeometryPanelProps {
   layerId: string

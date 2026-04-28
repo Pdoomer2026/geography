@@ -9,7 +9,7 @@ import { useStandardDnDParamRow } from '../../../../hooks/useStandardDnDParamRow
 import { DnDHandleWithMenu } from './DnDHandleWithMenu'
 import type { CameraPlugin } from '../../../../../application/schema'
 import type { RegisteredParameterWithCC } from '../../../../../application/schema/midi-registry'
-import { RangeSlider } from '../../../window/standard-window/RangeSlider'
+import { RangeSlider } from '../../../common/RangeSlider'
 
 interface CameraPanelProps {
   layerId: string

@@ -343,11 +343,7 @@ function SetupTab({ onClose, windowMode, onWindowModeChange }: { onClose: () => 
     color: '#aaaacc',
   }
   const GEO_WINDOW_OPTIONS: { value: GeoWindowMode; label: string }[] = [
-    { value: 'none',         label: '— none —'     },
-    { value: 'simple',       label: 'Simple'       },
-    { value: 'simple-dnd',   label: 'Simple D&D'  },
-    { value: 'standard',     label: 'Standard'     },
-    { value: 'standard-dnd', label: 'Standard D&D' },
+    { value: 'none', label: '— none (Inspector を使用)—' },
   ]
 
   return (

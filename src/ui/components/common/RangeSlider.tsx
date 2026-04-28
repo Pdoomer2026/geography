@@ -1,15 +1,20 @@
 /**
  * RangeSlider
- * Standard Window 専用コンポーネント
+ *
+ * 純粋な UI コンポーネント。engine / Zustand に依存しない。
+ * Inspector Panel および将来の Window Plugin から共通利用できる。
  *
  * 2段構成:
  *   段1: lo/hi カスタムdivドラッグ（稼働幅）
  *   段2: 現在値 range input（書き込み可能）
  *
  * 設計原則:
- *   - lo/hi は親(ParamRow)の localState。Registry/engine に影響しない
- *   - 現在値スライダーは Simple Window と同じく engine.handleMidiCC() を呼ぶ
+ *   - lo/hi は親コンポーネントの localState。Registry/engine に影響しない
+ *   - onChange / onLoHiChange で親にのみ通知する
  *   - 変換式: normalized = (raw - lo) / (hi - lo)
+ *
+ * 移動履歴:
+ *   Day86: standard-window/RangeSlider.tsx → common/RangeSlider.tsx に昇格
  */
 
 import { useCallback, useRef } from 'react'
@@ -84,10 +89,6 @@ export function RangeSlider({ min, max, lo, hi, value, step, onLoHiChange, onCha
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }
-
-  function handleValueChange(raw: number) {
-    onChange(raw)
   }
 
   const loDisplay = lo.toFixed(max <= 1 ? 3 : max <= 10 ? 2 : 1)
@@ -175,7 +176,7 @@ export function RangeSlider({ min, max, lo, hi, value, step, onLoHiChange, onCha
           max={hi}
           step={step}
           value={value}
-          onChange={(e) => handleValueChange(parseFloat(e.target.value))}
+          onChange={(e) => onChange(parseFloat(e.target.value))}
           className="absolute inset-0 w-full opacity-0 cursor-pointer"
           style={{ height: '100%' }}
         />

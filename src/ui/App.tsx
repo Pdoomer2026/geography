@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { throttleTime } from 'rxjs/operators'
 import { engine } from '../application/orchestrator/engine'
 import { midiInputWrapper } from '../application/adapter/input/MidiInputWrapper'
@@ -8,10 +8,7 @@ import { useGeoStore } from './store/geoStore'
 import { MixerSimpleWindow } from './components/mixers/simple-mixer/MixerSimpleWindow'
 import { Macro8Window } from './components/window/macro-8-window'
 import { Macro8MidiWindow } from './components/window/macro-8-window/Macro8MidiWindow'
-import { GeometrySimpleWindow, CameraSimpleWindow, FxSimpleWindow } from './components/window/simple-window'
-import { GeometryStandardWindow, CameraStandardWindow, FxStandardWindow } from './components/window/standard-window'
-import { GeometrySimpleDnDWindow, CameraSimpleDnDWindow, FxSimpleDnDWindow } from './components/window/simple-dnd-window'
-import { GeometryStandardDnDWindow, CameraStandardDnDWindow, FxStandardDnDWindow } from './components/window/standard-dnd-window'
+
 import { GeoMonitorWindow } from './components/window/geo-monitor'
 import { MidiMonitorWindow } from './components/window/midi-monitor'
 import { PreferencesPanel } from './panels/preferences/PreferencesPanel'
@@ -39,14 +36,6 @@ export default function App() {
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const midiMonitorCallbackRef = useRef<((event: MidiMonitorEvent) => void) | null>(null)
-
-  const applyPluginToRegistry = useCallback((layerId: string, pluginId: string) => {
-    engine.registerPluginToTransportRegistry(layerId, pluginId)
-  }, [])
-
-  const removePluginFromRegistry = useCallback((layerId: string) => {
-    engine.removePluginFromRegistry(layerId)
-  }, [])
 
   useAutosave()
 
@@ -117,7 +106,6 @@ export default function App() {
       },
       onPreferences: () => setPrefsOpen((o) => !o),
       onToggleMixerWindow: () => setWindowMode((v) => ({ ...v, mixer: v.mixer === 'none' ? 'mixer-simple' : 'none' })),
-      onToggleFxWindow: () => setWindowMode((v) => ({ ...v, fx: v.fx === 'none' ? 'standard' : 'none' })),
       onToggleMacroKnobWindow: () => setWindowMode((v) => ({ ...v, macro: v.macro === 'none' ? 'macro-8-window' : 'none' })),
       onHideAllWindows: () => setWindowMode(HIDE_ALL),
       onShowAllWindows: () => setWindowMode(DEFAULT_WINDOW_MODE),
@@ -202,33 +190,7 @@ export default function App() {
       {/* Mixer */}
       {windowMode.mixer === 'mixer-simple' && <MixerSimpleWindow />}
 
-      {/* Geometry */}
-      {windowMode.geometry === 'simple' && (
-        <GeometrySimpleWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
-      )}
-      {windowMode.geometry === 'standard' && (
-        <GeometryStandardWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
-      )}
-      {windowMode.geometry === 'simple-dnd' && (
-        <GeometrySimpleDnDWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
-      )}
-      {windowMode.geometry === 'standard-dnd' && (
-        <GeometryStandardDnDWindow onPluginApply={applyPluginToRegistry} onPluginRemove={removePluginFromRegistry} />
-      )}
 
-      {/* Camera */}
-      {windowMode.camera === 'simple'      && <CameraSimpleWindow />}
-      {windowMode.camera === 'standard'    && <CameraStandardWindow />}
-      {windowMode.camera === 'simple-dnd'  && <CameraSimpleDnDWindow />}
-      {windowMode.camera === 'standard-dnd' && <CameraStandardDnDWindow />}
-
-      {/* FX */}
-      {windowMode.fx === 'simple'      && <FxSimpleWindow />}
-      {windowMode.fx === 'standard'    && <FxStandardWindow />}
-      {windowMode.fx === 'simple-dnd'  && <FxSimpleDnDWindow />}
-      {windowMode.fx === 'standard-dnd' && <FxStandardDnDWindow />}
-
-      {/* Monitor */}
       {windowMode.monitor && <GeoMonitorWindow />}
       {windowMode.midiMonitor && (
         <MidiMonitorWindow

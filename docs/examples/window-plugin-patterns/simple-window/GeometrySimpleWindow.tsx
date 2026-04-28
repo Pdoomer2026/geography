@@ -1,19 +1,16 @@
+// [ARCHIVE] Day86 移動。src から廃止。Inspector の GeometryPanel が代替。
+// 新規 Window 制作の参考実装として保存。import パスは動作しません。
+// RangeSlider を使う場合は src/ui/components/common/RangeSlider.tsx を参照。
+// See: docs/examples/window-plugin-patterns/README.md
+
 /**
- * GeometrySimpleWindow
- * spec: docs/spec/plugin-manager.spec.md §4-1
+ * GeometrySimpleWindow — Simple Window パターンの参考実装
  *
- * Geometry Plugin 用 Simple Window（Day61 改名: SimpleWindowPlugin → GeometrySimpleWindow）
- *
- * 設計原則:
- *   - transportRegistry を直接購読する（App.tsx から params を受け取らない）
+ * ポイント:
+ *   - useDraggable でウィンドウドラッグ
+ *   - engine.onRegistryChanged() でパラメーター変化を購読
+ *   - useSimpleParamRow hook でパラメーター値管理
  *   - L1/L2/L3 タブで activeLayer を切り替える
- *   - engine.handleMidiCC() でパラメータ変更
- *   - onPluginApply / onPluginRemove は App.tsx 経由で受け取る
- *
- * 含めないもの:
- *   - RangeSlider（可動域制約）
- *   - D&D ハンドル（MacroKnob アサイン）
- *   - Preset（Save / Load / Delete）
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -25,18 +22,10 @@ import type { RegisteredParameterWithCC } from '../../../../application/schema/m
 const LAYER_TABS = ['layer-1', 'layer-2', 'layer-3'] as const
 type LayerId = (typeof LAYER_TABS)[number]
 
-// ============================================================
-// Props
-// ============================================================
-
 export interface GeometrySimpleWindowProps {
   onPluginApply: (layerId: string, pluginId: string) => void
   onPluginRemove: (layerId: string) => void
 }
-
-// ============================================================
-// GeometrySimpleWindow
-// ============================================================
 
 export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: GeometrySimpleWindowProps) {
   const [collapsed, setCollapsed] = useState(false)
@@ -53,14 +42,9 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
   useEffect(() => {
     const geo = engine.getGeometryPlugin(activeLayer)
     if (geo) {
-      setPluginId(geo.id)
-      setPluginName(geo.name)
+      setPluginId(geo.id); setPluginName(geo.name)
       setParams(getParamsFromRegistry(activeLayer, geo.id))
-    } else {
-      setPluginId('')
-      setPluginName('')
-      setParams([])
-    }
+    } else { setPluginId(''); setPluginName(''); setParams([]) }
   }, [activeLayer, getParamsFromRegistry])
 
   const pluginIdRef = useRef(pluginId)
@@ -70,18 +54,12 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
     return engine.onRegistryChanged(() => {
       const geo = engine.getGeometryPlugin(activeLayer)
       if (!geo) {
-        if (pluginIdRef.current !== '') {
-          setPluginId('')
-          setPluginName('')
-          setParams([])
-          onPluginRemove(activeLayer)
-        }
+        if (pluginIdRef.current !== '') { setPluginId(''); setPluginName(''); setParams([]); onPluginRemove(activeLayer) }
         return
       }
       if (geo.id !== pluginIdRef.current) {
-        pluginIdRef.current = geo.id  // 先に更新して再入ループを防ぐ
-        setPluginId(geo.id)
-        setPluginName(geo.name)
+        pluginIdRef.current = geo.id
+        setPluginId(geo.id); setPluginName(geo.name)
         setParams(getParamsFromRegistry(activeLayer, geo.id))
         onPluginApply(activeLayer, geo.id)
         return
@@ -93,54 +71,30 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
   return (
     <div className="fixed z-50 font-mono text-xs select-none" style={{ left: pos.x, top: pos.y, width: 320 }}>
       <div className="bg-[#0f0f1e] border border-[#2a2a4e] rounded-lg overflow-hidden" style={{ padding: '10px 14px' }}>
-
-        {/* ヘッダー */}
         <div onMouseDown={handleMouseDown} className="flex items-center justify-between mb-2" style={{ cursor: 'grab' }}>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-[#7878aa] tracking-widest">GEOMETRY SIMPLE WINDOW</span>
+            <span className="text-[10px] text-[#7878aa] tracking-widest">GEOMETRY SIMPLE</span>
             <div className="flex gap-1">
               {LAYER_TABS.map((id, i) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveLayer(id)}
+                <button key={id} onClick={() => setActiveLayer(id)}
                   className="text-[9px] rounded px-1.5 py-0.5 border transition-colors"
-                  style={{
-                    background: activeLayer === id ? '#2a2a6e' : '#1a1a2e',
-                    borderColor: activeLayer === id ? '#5a5aaa' : '#2a2a4e',
-                    color: activeLayer === id ? '#aaaaee' : '#4a4a6e',
-                  }}
-                >
+                  style={{ background: activeLayer === id ? '#2a2a6e' : '#1a1a2e', borderColor: activeLayer === id ? '#5a5aaa' : '#2a2a4e', color: activeLayer === id ? '#aaaaee' : '#4a4a6e' }}>
                   L{i + 1}
                 </button>
               ))}
             </div>
           </div>
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            className="text-[#4a4a6e] hover:text-[#aaaacc] transition-colors text-[11px] leading-none"
-          >
-            {collapsed ? '＋' : '－'}
-          </button>
+          <button onClick={() => setCollapsed((c) => !c)} className="text-[#4a4a6e] hover:text-[#aaaacc] transition-colors text-[11px]">{collapsed ? '＋' : '－'}</button>
         </div>
-
         {!collapsed && (
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <span className="text-[9px] text-[#5a5a8e] w-14 shrink-0">Geometry</span>
               <span className="text-[10px] text-[#aaaaee]">{pluginName || '— none —'}</span>
             </div>
-
             <div className="flex flex-col gap-1.5">
-              {params.length === 0 && (
-                <div className="text-[#3a3a5e] text-[10px] py-2 text-center">— no params —</div>
-              )}
-              {params.map((param) => (
-                <ParamRow
-                  key={param.ccNumber}
-                  param={param}
-                  layerId={activeLayer}
-                />
-              ))}
+              {params.length === 0 && <div className="text-[#3a3a5e] text-[10px] py-2 text-center">— no params —</div>}
+              {params.map((param) => <ParamRow key={param.ccNumber} param={param} layerId={activeLayer} />)}
             </div>
           </div>
         )}
@@ -149,52 +103,23 @@ export function GeometrySimpleWindow({ onPluginApply, onPluginRemove }: Geometry
   )
 }
 
-// ============================================================
-// ParamRow
-// ============================================================
-
-interface ParamRowProps {
-  param: RegisteredParameterWithCC
-  layerId: string
-}
-
-function ParamRow({ param, layerId }: ParamRowProps) {
+function ParamRow({ param, layerId }: { param: RegisteredParameterWithCC; layerId: string }) {
   const { name, min, max, step, ccNumber } = param
-
   const { value, isBinary, handleChange } = useSimpleParamRow({ param, layerId })
-
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">
-        CC{ccNumber}
-      </span>
+      <span className="text-[8px] text-[#4a4a7e] w-10 shrink-0 tabular-nums">CC{ccNumber}</span>
       <span className="text-[9px] text-[#5a5a8e] w-16 truncate shrink-0">{name}</span>
       {isBinary ? (
-        <button
-          onClick={() => handleChange(value >= 0.5 ? 0 : 1)}
+        <button onClick={() => handleChange(value >= 0.5 ? 0 : 1)}
           className="text-[10px] rounded px-2 py-0.5 border transition-colors"
-          style={{
-            background: value >= 0.5 ? '#2a2a6e' : '#1a1a2e',
-            borderColor: value >= 0.5 ? '#5a5aaa' : '#2a2a4e',
-            color: value >= 0.5 ? '#aaaaee' : '#4a4a6e',
-          }}
-        >
+          style={{ background: value >= 0.5 ? '#2a2a6e' : '#1a1a2e', borderColor: value >= 0.5 ? '#5a5aaa' : '#2a2a4e', color: value >= 0.5 ? '#aaaaee' : '#4a4a6e' }}>
           {value >= 0.5 ? 'ON' : 'OFF'}
         </button>
       ) : (
         <>
-          <input
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={value}
-            onChange={(e) => handleChange(parseFloat(e.target.value))}
-            className="flex-1 accent-[#5a5aff] h-1 cursor-pointer"
-          />
-          <span className="text-[9px] text-[#5a5a8e] w-10 text-right tabular-nums shrink-0">
-            {value.toFixed(max <= 0.1 ? 4 : 2)}
-          </span>
+          <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => handleChange(parseFloat(e.target.value))} className="flex-1 accent-[#5a5aff] h-1 cursor-pointer" />
+          <span className="text-[9px] text-[#5a5a8e] w-10 text-right tabular-nums shrink-0">{value.toFixed(max <= 0.1 ? 4 : 2)}</span>
         </>
       )}
     </div>
