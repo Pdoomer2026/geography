@@ -9,7 +9,7 @@
  * spec: docs/spec/layer-window.spec.md §3
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { engine } from '../../../../application/orchestrator/engine'
 import { parseLayerPresetSafe } from '../../../../application/schema/zod/layerPreset.schema'
 import type { LayerPreset } from '../../../../application/schema'
@@ -51,6 +51,9 @@ export function ClipGrid() {
   const [grid, setGrid] = useState<Grid>(emptyGrid)
   const [activeCells, setActiveCells] = useState<number[]>([-1, -1, -1])
   const [presetFolders, setPresetFolders] = useState<PresetFolder[]>([])
+  const [dragSource, setDragSource] = useState<{ li: number; ri: number } | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ li: number; ri: number } | null>(null)
+  const isCopyModeRef = useRef(false)
 
   // 初回ロード
   useEffect(() => {
@@ -90,6 +93,70 @@ export function ClipGrid() {
     }
   }
 
+  // ============================================================
+  // D&D ハンドラ：Clip の move / swap
+  // ============================================================
+
+  function handleClipDragStart(e: React.DragEvent, li: number, ri: number) {
+    e.dataTransfer.setData('application/geography-clip', JSON.stringify({ li, ri }))
+    e.dataTransfer.effectAllowed = 'copyMove'
+    setDragSource({ li, ri })
+  }
+
+  function handleClipDragEnd() {
+    setDragSource(null)
+    setDropTarget(null)
+    isCopyModeRef.current = false  // ドラッグ終了時にリセット
+  }
+
+  function handleClipDragOver(e: React.DragEvent, li: number, ri: number) {
+    if (!e.dataTransfer.types.includes('application/geography-clip')) return
+    e.preventDefault()
+    isCopyModeRef.current = e.altKey   // Option+D&D = Copy
+    e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move'
+    setDropTarget({ li, ri })
+  }
+
+  function handleClipDrop(e: React.DragEvent, dstLi: number, dstRi: number) {
+    e.preventDefault()
+    setDragSource(null)
+    setDropTarget(null)
+    const raw = e.dataTransfer.getData('application/geography-clip')
+    if (!raw) return
+    try {
+      const { li: srcLi, ri: srcRi } = JSON.parse(raw) as { li: number; ri: number }
+      if (srcLi === dstLi && srcRi === dstRi) return
+      const srcPreset = grid[srcLi]?.[srcRi] ?? null
+      if (!srcPreset) return
+      const isCopy = e.altKey || isCopyModeRef.current
+      const dstPreset = grid[dstLi]?.[dstRi] ?? null
+      const next = grid.map((col, li) =>
+        col.map((cell, ri) => {
+          if (li === dstLi && ri === dstRi) return srcPreset
+          if (!isCopy && li === srcLi && ri === srcRi) return dstPreset  // move/swap: 元セルに dst を入れる
+          return cell
+        })
+      )
+      setGrid(next)
+      saveGrid(next)
+      // move/swap 時のみ active リセット（copy は src の active を保持）
+      if (!isCopy) {
+        setActiveCells((prev) => {
+          const updated = [...prev]
+          if (prev[srcLi] === srcRi) updated[srcLi] = -1
+          if (prev[dstLi] === dstRi) updated[dstLi] = -1
+          return updated
+        })
+      } else {
+        setActiveCells((prev) => {
+          const updated = [...prev]
+          if (prev[dstLi] === dstRi) updated[dstLi] = -1
+          return updated
+        })
+      }
+    } catch { /* malformed payload は無視 */ }
+  }
+
   // Scene [▶] クリック：行全体を同時起動
   function handleSceneLaunch(rowIndex: number) {
     LAYER_IDS.forEach((layerId, layerIndex) => {
@@ -123,8 +190,28 @@ export function ClipGrid() {
       {Array.from({ length: ROW_COUNT }, (_, rowIndex) => (
         <div key={rowIndex} className="flex items-center mb-1" style={{ gap: 3 }}>
           {/* 3セル */}
-          {LAYER_IDS.map((layerId, layerIndex) => (
-            <div key={layerId} className="flex-1" style={{ minWidth: 0, overflow: 'hidden' }}>
+          {LAYER_IDS.map((layerId, layerIndex) => {
+            const preset = grid[layerIndex]?.[rowIndex] ?? null
+            const isDragging = dragSource?.li === layerIndex && dragSource?.ri === rowIndex
+            const isDragOver = dropTarget?.li === layerIndex && dropTarget?.ri === rowIndex && !isDragging
+            return (
+            <div
+              key={layerId}
+              className="flex-1"
+              style={{
+                minWidth: 0,
+                overflow: 'hidden',
+                opacity: isDragging ? 0.35 : 1,
+                outline: isDragOver ? '1px solid #ffffff66' : 'none',
+                borderRadius: 4,
+                transition: 'opacity 0.1s',
+              }}
+              draggable={!!preset && dragSource === null}
+              onDragStart={(e) => handleClipDragStart(e, layerIndex, rowIndex)}
+              onDragEnd={handleClipDragEnd}
+              onDragOver={(e) => handleClipDragOver(e, layerIndex, rowIndex)}
+              onDrop={(e) => handleClipDrop(e, layerIndex, rowIndex)}
+            >
               <ClipCell
                 preset={grid[layerIndex]?.[rowIndex] ?? null}
                 isActive={activeCells[layerIndex] === rowIndex}
@@ -151,7 +238,8 @@ export function ClipGrid() {
                 }}
               />
             </div>
-          ))}
+            )
+          })}
 
           {/* Scene Launch [▶] */}
           <button
