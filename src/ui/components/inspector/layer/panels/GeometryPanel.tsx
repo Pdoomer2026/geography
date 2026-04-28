@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../../../../../application/orchestrator/engine'
 import { useStandardDnDParamRow } from '../../../../hooks/useStandardDnDParamRow'
+import { DnDHandleWithMenu } from './DnDHandleWithMenu'
 import type { RegisteredParameterWithCC } from '../../../../../application/schema/midi-registry'
 import { RangeSlider } from '../../../window/standard-window/RangeSlider'
 
@@ -100,17 +101,20 @@ interface ParamRowProps {
 
 function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange }: ParamRowProps) {
   const { min, max, step, name } = param
-  const { value, lo, hi, isDragging, isBinary, handleChange, handleLoHiChange, handleDragStart, handleDragEnd } =
+  const { value, lo, hi, isDragging, isBinary, assignedKnobs, handleChange, handleLoHiChange, handleDragStart, handleDragEnd, handleRemoveAssign } =
     useStandardDnDParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange })
 
   return (
     <div className="flex flex-col gap-1 mb-1">
       <div className="flex items-center gap-1.5">
-        <div
-          draggable onDragStart={handleDragStart} onDragEnd={handleDragEnd}
-          className="shrink-0 flex items-center justify-center rounded cursor-grab"
-          style={{ width: 14, height: 14, fontSize: 9, color: isDragging ? '#9090ff' : '#3a3a6e', userSelect: 'none' }}
-        >≡</div>
+        <DnDHandleWithMenu
+          paramName={name}
+          isDragging={isDragging}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          assignedKnobs={assignedKnobs}
+          onRemoveAssign={handleRemoveAssign}
+        />
         <span style={{ fontSize: 8, color: '#4a4a7e', width: 28, flexShrink: 0 }}>CC{param.ccNumber}</span>
         <span style={{ fontSize: 9, color: '#5a5a8e', width: 56, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
         <span style={{ fontSize: 9, color: '#aaaaee', width: 36, textAlign: 'right', flexShrink: 0 }}>{value.toFixed(max <= 0.1 ? 4 : 2)}</span>

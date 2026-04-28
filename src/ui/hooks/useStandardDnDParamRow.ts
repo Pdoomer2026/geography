@@ -37,6 +37,7 @@ import { useEffect, useState } from 'react'
 import { paramCommand$ } from '../../application/command/commandStream'
 import type { RegisteredParameterWithCC } from '../../application/schema/midi-registry'
 import type { DragPayload } from '../../application/schema'
+import { useGeoStore } from '../store/geoStore'
 
 // ============================================================
 // Options
@@ -64,10 +65,14 @@ export interface UseStandardDnDParamRowReturn {
   hi: number
   isDragging: boolean
   isBinary: boolean
+  /** この param にアサイン済みの MacroKnob 一覧 */
+  assignedKnobs: { knobId: string; name: string }[]
   handleChange: (raw: number) => void
   handleLoHiChange: (newLo: number, newHi: number) => void
   handleDragStart: (e: React.DragEvent) => void
   handleDragEnd: () => void
+  /** 指定 knobId のアサインを削除（geoStore 経由） */
+  handleRemoveAssign: (knobId: string) => void
 }
 
 // ============================================================
@@ -88,6 +93,13 @@ export function useStandardDnDParamRow({
   const [lo, setLo] = useState(initialLo ?? min)
   const [hi, setHi] = useState(initialHi ?? max)
   const [isDragging, setIsDragging] = useState(false)
+
+  // geoStore 経由でアサイン状態を購読（UI → geoStore の一方通行）
+  const macroKnobs = useGeoStore((s) => s.macroKnobs)
+  const removeAssign = useGeoStore((s) => s.removeAssign)
+  const assignedKnobs = macroKnobs
+    .filter((k) => k.assigns.some((a) => a.geoParamAddress === param.geoParamAddress))
+    .map((k) => ({ knobId: k.id, name: k.name }))
 
   // 外部（MacroKnob 操作等）からの値変化を反映
   useEffect(() => {
@@ -131,15 +143,21 @@ export function useStandardDnDParamRow({
     setIsDragging(false)
   }
 
+  function handleRemoveAssign(knobId: string): void {
+    removeAssign(knobId, param.geoParamAddress)
+  }
+
   return {
     value,
     lo,
     hi,
     isDragging,
     isBinary,
+    assignedKnobs,
     handleChange,
     handleLoHiChange,
     handleDragStart,
     handleDragEnd,
+    handleRemoveAssign,
   }
 }

@@ -35,6 +35,11 @@ interface GeoState {
   syncMacroKnobs: () => void
   /** engine から Layer / LayerRouting 状態を同期する */
   syncLayers: () => void
+  /**
+   * MacroKnob アサインを削除し macroKnobs を即時同期する。
+   * UI は engine を直接呼ばずここ経由でのみ操作する。
+   */
+  removeAssign: (knobId: string, geoParamAddress: string) => void
 }
 
 // ============================================================
@@ -59,6 +64,15 @@ export const useGeoStore = create<GeoState>((set) => ({
     set({
       layers: [...engine.getLayers()],
       routings: [...engine.getLayerRoutings()],
+    })
+  },
+
+  removeAssign: (knobId: string, geoParamAddress: string) => {
+    engine.removeMacroAssign(knobId, geoParamAddress)
+    const configs = engine.getMacroKnobs()
+    set({
+      macroKnobs: [...configs],
+      macroValues: configs.map((k) => engine.getMacroKnobValue(k.id)),
     })
   },
 }))

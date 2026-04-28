@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../../../../../application/orchestrator/engine'
 import { useStandardDnDParamRow } from '../../../../hooks/useStandardDnDParamRow'
+import { DnDHandleWithMenu } from './DnDHandleWithMenu'
 import type { CameraPlugin } from '../../../../../application/schema'
 import type { RegisteredParameterWithCC } from '../../../../../application/schema/midi-registry'
 import { RangeSlider } from '../../../window/standard-window/RangeSlider'
@@ -41,6 +42,15 @@ export function CameraPanel({ layerId }: CameraPanelProps) {
       const cam = engine.getCameraPlugin(layerId)
       if (!cam) { setCameraId(''); setParams([]); return }
       setCameraId(cam.id)
+      setParams(getParams(layerId, cam.id))
+    })
+  }, [layerId, getParams])
+
+  // MacroKnob 操作など外部からの値変化をスライダーに反映
+  useEffect(() => {
+    return engine.onParamChanged(() => {
+      const cam = engine.getCameraPlugin(layerId)
+      if (!cam) return
       setParams(getParams(layerId, cam.id))
     })
   }, [layerId, getParams])
@@ -90,15 +100,20 @@ interface ParamRowProps {
 
 function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange }: ParamRowProps) {
   const { min, max, step, name } = param
-  const { value, lo, hi, isDragging, isBinary, handleChange, handleLoHiChange, handleDragStart, handleDragEnd } =
+  const { value, lo, hi, isDragging, isBinary, assignedKnobs, handleChange, handleLoHiChange, handleDragStart, handleDragEnd, handleRemoveAssign } =
     useStandardDnDParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange })
 
   return (
     <div className="flex flex-col gap-1 mb-1">
       <div className="flex items-center gap-1.5">
-        <div draggable onDragStart={handleDragStart} onDragEnd={handleDragEnd}
-          className="shrink-0 flex items-center justify-center cursor-grab"
-          style={{ width: 14, height: 14, fontSize: 9, color: isDragging ? '#9090ff' : '#3a3a6e', userSelect: 'none' }}>≡</div>
+        <DnDHandleWithMenu
+          paramName={name}
+          isDragging={isDragging}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          assignedKnobs={assignedKnobs}
+          onRemoveAssign={handleRemoveAssign}
+        />
         <span style={{ fontSize: 9, color: '#5a5a8e', width: 60, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
         <span style={{ fontSize: 9, color: '#aaaaee', width: 36, textAlign: 'right', flexShrink: 0 }}>{value.toFixed(max <= 0.1 ? 4 : 2)}</span>
       </div>
