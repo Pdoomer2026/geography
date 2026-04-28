@@ -278,7 +278,28 @@ export function MacroPanel() {
               engine.startMidiLearn({ id, type: 'macro', label: k?.name || id })
             }}
             onClearCC={(id) => engine.clearLearnedCC(id)}
-            onDrop={(knobId, payload) => setAssignTarget({ knobId, payload })}
+            onDrop={(knobId, payload) => {
+              // proposal がある場合は AssignDialog をスキップして直接アサイン
+              if (payload.proposal) {
+                const fullRange = payload.max - payload.min || 1
+                const assign: MacroAssign = {
+                  geoParamAddress: toGeoParamAddress(payload.layerId, payload.pluginId, payload.id),
+                  ccNumber: payload.ccNumber,
+                  layerId: payload.layerId,
+                  min: (payload.proposal.lo - payload.min) / fullRange,
+                  max: (payload.proposal.hi - payload.min) / fullRange,
+                  curve: 'linear',
+                }
+                try {
+                  engine.addMacroAssign(knobId, assign)
+                  syncMacroKnobs()
+                } catch (e) {
+                  console.error('[MacroPanel] addMacroAssign failed:', e)
+                }
+                return
+              }
+              setAssignTarget({ knobId, payload })
+            }}
             onKnobChange={(knobId, val) => {
               engine.setMacroKnobValue(knobId, val)
               engine.receiveMidiModulation(knobId, val)

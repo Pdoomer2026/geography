@@ -21,10 +21,11 @@
  *     （RangeSlider の段2スライダーが min={lo} max={hi} で制約するため）
  *
  * ## データフロー
- *   RangeSlider の lo/hi（RangeConstraint）
+ *   RangeSlider の lo/hi（RangeConstraint）+ inverted トグル
  *       ↓ D&D payload に AssignProposal として乗る
- *       ↓ MacroWindow の AssignDialog が初期値として表示
- *       ↓ ユーザーが確認・調整
+ *         inverted=false → proposal: { lo, hi }（正方向）
+ *         inverted=true  → proposal: { lo: hi, hi: lo }（逆方向）
+ *       ↓ MacroWindow/MacroPanel がドロップ時に直接アサイン（AssignDialog スキップ）
  *   MacroAssign.min / max（0〜1 の正規化済み確定値）
  *
  * ## 使用場所
@@ -65,12 +66,16 @@ export interface UseStandardDnDParamRowReturn {
   hi: number
   isDragging: boolean
   isBinary: boolean
+  /** proposal の lo/hi を逆転させるフラグ（Knob↑でparam↓になる） */
+  inverted: boolean
   /** この param にアサイン済みの MacroKnob 一覧 */
   assignedKnobs: { knobId: string; name: string }[]
   handleChange: (raw: number) => void
   handleLoHiChange: (newLo: number, newHi: number) => void
   handleDragStart: (e: React.DragEvent) => void
   handleDragEnd: () => void
+  /** inverted フラグをトグル */
+  handleToggleInverted: () => void
   /** 指定 knobId のアサインを削除（geoStore 経由） */
   handleRemoveAssign: (knobId: string) => void
 }
@@ -93,6 +98,7 @@ export function useStandardDnDParamRow({
   const [lo, setLo] = useState(initialLo ?? min)
   const [hi, setHi] = useState(initialHi ?? max)
   const [isDragging, setIsDragging] = useState(false)
+  const [inverted, setInverted] = useState(false)
 
   // geoStore 経由でアサイン状態を購読（UI → geoStore の一方通行）
   const macroKnobs = useGeoStore((s) => s.macroKnobs)
@@ -122,7 +128,14 @@ export function useStandardDnDParamRow({
     onLoHiChange?.(newLo, newHi)
   }
 
+  function handleToggleInverted(): void {
+    setInverted((v) => !v)
+  }
+
   function handleDragStart(e: React.DragEvent): void {
+    // inverted=true のとき lo/hi を入れ替えて逆方向アサインにする
+    const proposalLo = inverted ? hi : lo
+    const proposalHi = inverted ? lo : hi
     const payload: DragPayload = {
       type: 'param',
       id: param.id,
@@ -131,8 +144,7 @@ export function useStandardDnDParamRow({
       ccNumber,
       min,
       max,
-      // RangeSlider で設定した lo/hi を AssignProposal として乗せる
-      proposal: { lo, hi },
+      proposal: { lo: proposalLo, hi: proposalHi },
     }
     e.dataTransfer.setData('application/geography-param', JSON.stringify(payload))
     e.dataTransfer.effectAllowed = 'copy'
@@ -153,11 +165,13 @@ export function useStandardDnDParamRow({
     hi,
     isDragging,
     isBinary,
+    inverted,
     assignedKnobs,
     handleChange,
     handleLoHiChange,
     handleDragStart,
     handleDragEnd,
+    handleToggleInverted,
     handleRemoveAssign,
   }
 }

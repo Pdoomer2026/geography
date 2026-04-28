@@ -31,10 +31,14 @@ export interface DnDHandleWithMenuProps {
   paramName: string
   /** ドラッグ中フラグ */
   isDragging: boolean
+  /** proposal の lo/hi を逆転させるフラグ */
+  inverted: boolean
   /** ドラッグ開始 */
   onDragStart: (e: React.DragEvent) => void
   /** ドラッグ終了 */
   onDragEnd: () => void
+  /** inverted フラグをトグル */
+  onToggleInverted: () => void
   /** アサイン済みノブ一覧（空 = 未アサイン）*/
   assignedKnobs: { knobId: string; name: string }[]
   /** アサイン削除コールバック */
@@ -48,8 +52,10 @@ export interface DnDHandleWithMenuProps {
 export function DnDHandleWithMenu({
   paramName,
   isDragging,
+  inverted,
   onDragStart,
   onDragEnd,
+  onToggleInverted,
   assignedKnobs,
   onRemoveAssign,
 }: DnDHandleWithMenuProps) {
@@ -85,44 +91,69 @@ export function DnDHandleWithMenu({
 
   return (
     <>
-      {/* ≡ ハンドル */}
-      <div
-        draggable
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        onContextMenu={handleContextMenu}
-        className="relative shrink-0 flex items-center justify-center rounded cursor-grab"
-        style={{
-          width: 14,
-          height: 14,
-          fontSize: 9,
-          color: isDragging ? '#9090ff' : isAssigned ? '#a0c4ff' : '#3a3a6e',
-          background: isDragging ? '#1a1a4e' : 'transparent',
-          userSelect: 'none',
-        }}
-        title={
-          isAssigned
-            ? `${paramName}：アサイン済み（右クリックで解除）`
-            : `${paramName} をドラッグして MacroKnob にアサイン`
-        }
-      >
-        ≡
-        {/* アサイン済みドット */}
-        {isAssigned && (
-          <span
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              width: 4,
-              height: 4,
-              borderRadius: '50%',
-              background: '#ff9944',
-              boxShadow: '0 0 3px #ff9944aa',
-              pointerEvents: 'none',
-            }}
-          />
-        )}
+      {/* ≡ ハンドル + ⇅ 逆転トグル */}
+      <div className="flex items-center gap-0.5 shrink-0">
+        <div
+          draggable
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onContextMenu={handleContextMenu}
+          className="relative flex items-center justify-center rounded cursor-grab"
+          style={{
+            width: 14,
+            height: 14,
+            fontSize: 9,
+            color: isDragging ? '#9090ff' : isAssigned ? '#a0c4ff' : '#3a3a6e',
+            background: isDragging ? '#1a1a4e' : 'transparent',
+            userSelect: 'none',
+          }}
+          title={
+            isAssigned
+              ? `${paramName}：アサイン済み（右クリックで解除）`
+              : `${paramName} をドラッグして MacroKnob にアサイン`
+          }
+        >
+          ≡
+          {/* アサイン済みドット */}
+          {isAssigned && (
+            <span
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: 4,
+                height: 4,
+                borderRadius: '50%',
+                background: '#ff9944',
+                boxShadow: '0 0 3px #ff9944aa',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+        </div>
+
+        {/* ⇅ 逆転トグル */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleInverted() }}
+          style={{
+            width: 12,
+            height: 14,
+            fontSize: 8,
+            border: `1px solid ${inverted ? '#ff9944' : '#3a3a5e'}`,
+            borderRadius: 2,
+            cursor: 'pointer',
+            background: inverted ? '#ff9944' : 'transparent',
+            color: inverted ? '#fff' : '#6666aa',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+            flexShrink: 0,
+          }}
+          title={inverted ? '逆転ON（Knob↑でparam↓）' : '逆転OFF（クリックで逆転）'}
+        >
+          ⇅
+        </button>
       </div>
 
       {/* コンテキストメニュー（左方向展開）*/}

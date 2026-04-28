@@ -100,7 +100,7 @@ interface ParamRowProps {
 
 function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange }: ParamRowProps) {
   const { min, max, step, name } = param
-  const { value, lo, hi, isDragging, isBinary, assignedKnobs, handleChange, handleLoHiChange, handleDragStart, handleDragEnd, handleRemoveAssign } =
+  const { value, lo, hi, isDragging, isBinary, inverted, assignedKnobs, handleChange, handleLoHiChange, handleDragStart, handleDragEnd, handleToggleInverted, handleRemoveAssign } =
     useStandardDnDParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange })
 
   return (
@@ -109,8 +109,10 @@ function ParamRow({ param, layerId, pluginId, initialLo, initialHi, onLoHiChange
         <DnDHandleWithMenu
           paramName={name}
           isDragging={isDragging}
+          inverted={inverted}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          onToggleInverted={handleToggleInverted}
           assignedKnobs={assignedKnobs}
           onRemoveAssign={handleRemoveAssign}
         />

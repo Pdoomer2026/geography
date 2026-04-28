@@ -465,8 +465,28 @@ export function MacroWindow() {
   const handleClose = useCallback(() => setEditingId(null), [])
 
   const handleDrop = useCallback((knobId: string, payload: DragPayload) => {
+    // proposal がある場合（Inspector からのドロップ）は AssignDialog をスキップして直接アサイン
+    if (payload.proposal) {
+      const fullRange = payload.max - payload.min || 1
+      const assign: MacroAssign = {
+        geoParamAddress: toGeoParamAddress(payload.layerId, payload.pluginId, payload.id),
+        ccNumber: payload.ccNumber,
+        layerId: payload.layerId,
+        min: (payload.proposal.lo - payload.min) / fullRange,
+        max: (payload.proposal.hi - payload.min) / fullRange,
+        curve: 'linear',
+      }
+      try {
+        engine.addMacroAssign(knobId, assign)
+        syncMacroKnobs()
+      } catch (e) {
+        console.error('[MacroWindow] addMacroAssign failed:', e)
+      }
+      return
+    }
+    // proposal なし（Simple Window 等）は AssignDialog を表示
     setAssignTarget({ knobId, payload })
-  }, [])
+  }, [syncMacroKnobs])
 
   const handleAssign = useCallback((assign: MacroAssign) => {
     if (!assignTarget) return
