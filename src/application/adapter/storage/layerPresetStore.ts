@@ -4,11 +4,9 @@
  * Application 層のストア。UI 層・Electron・ブラウザすべてからの
  * Preset 操作はここを経由する。
  *
- * 保存先: ~/Documents/GeoGraphy/presets/（fileStore 経由）
- *   Electron: geoAPI.saveFile / loadFile で直接書き込み
- *   ブラウザ: File System Access API（初回のみユーザーがフォルダを選択）
- *
- * localStorage は使用しない。
+ * 保存先: localStorage に一本化（Electron・ブラウザ共通）
+ * Electron は「薄い鏡」として機能し、ロジックはすべてこのファイルに集約する。
+ * geoAPI の役割は showSaveDialog / showOpenDialog / saveFile / loadFile のみ。
  *
  * spec: docs/spec/layer-window.spec.md §5
  */
@@ -16,7 +14,6 @@
 import type { LayerPreset, ScenePreset } from '../../schema'
 import { parseLayerPresetSafe } from '../../schema/zod/layerPreset.schema'
 import { parseScenePresetSafe } from '../../schema/zod/scenePreset.schema'
-import { readJson, writeJson } from './fileStore'
 
 // ============================================================
 // 型定義（SSoT）
@@ -29,11 +26,11 @@ export interface PresetFolder {
 }
 
 // ============================================================
-// ファイルパス
+// ストレージキー（ブラウザ環境用）
 // ============================================================
 
-const LAYER_FILE = 'presets/layer-presets.json'
-const SCENE_FILE = 'presets/scene-presets.json'
+const LAYER_KEY = 'geography:layer-presets-v2'
+const SCENE_KEY = 'geography:scene-presets-v2'
 
 // ============================================================
 // LayerPreset
@@ -41,12 +38,13 @@ const SCENE_FILE = 'presets/scene-presets.json'
 
 /**
  * 保存済み LayerPreset を Geometry 名フォルダ単位で返す。
+ * localStorage から読み、geometryPluginId でグループ化する。
  */
 export async function loadLayerPresetFolders(): Promise<PresetFolder[]> {
   try {
-    const data = await readJson(LAYER_FILE)
-    if (!data || typeof data !== 'object') return []
-    const parsed = data as Record<string, unknown>
+    const raw = localStorage.getItem(LAYER_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as Record<string, unknown>
     const presets = Object.values(parsed)
       .map((v) => parseLayerPresetSafe(v))
       .filter((p): p is LayerPreset => p !== null)
@@ -68,10 +66,10 @@ export async function loadLayerPresetFolders(): Promise<PresetFolder[]> {
  */
 export async function saveLayerPreset(name: string, preset: LayerPreset): Promise<void> {
   try {
-    const existing = await readJson(LAYER_FILE)
-    const prev = (existing && typeof existing === 'object') ? existing as Record<string, unknown> : {}
+    const raw = localStorage.getItem(LAYER_KEY)
+    const prev = raw ? JSON.parse(raw) as Record<string, unknown> : {}
     const updated = { ...preset, name, id: `preset-${Date.now()}` }
-    await writeJson(LAYER_FILE, { ...prev, [name]: updated })
+    localStorage.setItem(LAYER_KEY, JSON.stringify({ ...prev, [name]: updated }))
   } catch { /* ignore */ }
 }
 
@@ -80,11 +78,11 @@ export async function saveLayerPreset(name: string, preset: LayerPreset): Promis
  */
 export async function deleteLayerPreset(name: string): Promise<void> {
   try {
-    const existing = await readJson(LAYER_FILE)
-    if (!existing || typeof existing !== 'object') return
-    const prev = existing as Record<string, unknown>
+    const raw = localStorage.getItem(LAYER_KEY)
+    if (!raw) return
+    const prev = JSON.parse(raw) as Record<string, unknown>
     delete prev[name]
-    await writeJson(LAYER_FILE, prev)
+    localStorage.setItem(LAYER_KEY, JSON.stringify(prev))
   } catch { /* ignore */ }
 }
 
@@ -97,9 +95,9 @@ export async function deleteLayerPreset(name: string): Promise<void> {
  */
 export async function loadScenePresets(): Promise<ScenePreset[]> {
   try {
-    const data = await readJson(SCENE_FILE)
-    if (!data || typeof data !== 'object') return []
-    const parsed = data as Record<string, unknown>
+    const raw = localStorage.getItem(SCENE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as Record<string, unknown>
     return Object.values(parsed)
       .map((v) => parseScenePresetSafe(v))
       .filter((p): p is ScenePreset => p !== null)
@@ -113,9 +111,9 @@ export async function loadScenePresets(): Promise<ScenePreset[]> {
  */
 export async function saveScenePreset(name: string, preset: ScenePreset): Promise<void> {
   try {
-    const existing = await readJson(SCENE_FILE)
-    const prev = (existing && typeof existing === 'object') ? existing as Record<string, unknown> : {}
-    await writeJson(SCENE_FILE, { ...prev, [name]: preset })
+    const raw = localStorage.getItem(SCENE_KEY)
+    const prev = raw ? JSON.parse(raw) as Record<string, unknown> : {}
+    localStorage.setItem(SCENE_KEY, JSON.stringify({ ...prev, [name]: preset }))
   } catch { /* ignore */ }
 }
 
@@ -124,37 +122,10 @@ export async function saveScenePreset(name: string, preset: ScenePreset): Promis
  */
 export async function deleteScenePreset(name: string): Promise<void> {
   try {
-    const existing = await readJson(SCENE_FILE)
-    if (!existing || typeof existing !== 'object') return
-    const prev = existing as Record<string, unknown>
+    const raw = localStorage.getItem(SCENE_KEY)
+    if (!raw) return
+    const prev = JSON.parse(raw) as Record<string, unknown>
     delete prev[name]
-    await writeJson(SCENE_FILE, prev)
-  } catch { /* ignore */ }
-}
-
-// ============================================================
-// 後方互換（localStorage からの移行）
-// ============================================================
-
-/**
- * localStorage に残っている旧データを fileStore に移行して削除する。
- * 一度だけ呼ぶ（migration 済みフラグは fileStore 側で管理）。
- */
-export async function migrateFromLocalStorage(): Promise<void> {
-  try {
-    const layerRaw = localStorage.getItem('geography:layer-presets-v2')
-    if (layerRaw) {
-      const parsed = JSON.parse(layerRaw) as Record<string, unknown>
-      await writeJson(LAYER_FILE, parsed)
-      localStorage.removeItem('geography:layer-presets-v2')
-      console.info('[layerPresetStore] localStorage → fileStore 移行完了 (layer)')
-    }
-    const sceneRaw = localStorage.getItem('geography:scene-presets-v2')
-    if (sceneRaw) {
-      const parsed = JSON.parse(sceneRaw) as Record<string, unknown>
-      await writeJson(SCENE_FILE, parsed)
-      localStorage.removeItem('geography:scene-presets-v2')
-      console.info('[layerPresetStore] localStorage → fileStore 移行完了 (scene)')
-    }
+    localStorage.setItem(SCENE_KEY, JSON.stringify(prev))
   } catch { /* ignore */ }
 }

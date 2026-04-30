@@ -4,7 +4,7 @@
  * - 空セル [ + ]: クリックで現在のレイヤー状態を Preset として保存
  * - 有りセル: クリックで replaceLayerPreset を発火
  * - [▶]: 行全体（Scene）を同時起動
- * - グリッドデータは ~/Documents/GeoGraphy/clip-grid.json に保存（fileStore 経由）
+ * - グリッドデータは localStorage: geography:clip-grid-v1 に保存
  *
  * spec: docs/spec/layer-window.spec.md §3
  */
@@ -15,12 +15,11 @@ import { parseLayerPresetSafe } from '../../../../application/schema/zod/layerPr
 import type { LayerPreset } from '../../../../application/schema'
 import { loadLayerPresetFolders } from '../../../../application/adapter/storage/layerPresetStore'
 import type { PresetFolder } from '../../../../application/adapter/storage/layerPresetStore'
-import { readJson, writeJson } from '../../../../application/adapter/storage/fileStore'
 import { ClipCell } from './ClipCell'
 const LAYER_IDS    = ['layer-1', 'layer-2', 'layer-3'] as const
 const LAYER_COLORS = ['#5a5aff', '#5affaa', '#ffaa5a'] as const
 const ROW_COUNT    = 5
-const CLIP_FILE    = 'clip-grid.json'
+const STORAGE_KEY  = 'geography:clip-grid-v1'
 
 // grid[layerIndex][rowIndex] = LayerPreset | null
 type Grid = (LayerPreset | null)[][]
@@ -29,11 +28,12 @@ function emptyGrid(): Grid {
   return Array.from({ length: 3 }, () => Array(ROW_COUNT).fill(null))
 }
 
-async function loadGrid(): Promise<Grid> {
+function loadGrid(): Grid {
   try {
-    const data = await readJson(CLIP_FILE)
-    if (!data || !Array.isArray(data)) return emptyGrid()
-    return (data as unknown[][]).map((col) =>
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return emptyGrid()
+    const parsed = JSON.parse(raw) as unknown[][]
+    return parsed.map((col) =>
       col.map((cell) => parseLayerPresetSafe(cell))
     )
   } catch {
@@ -41,9 +41,9 @@ async function loadGrid(): Promise<Grid> {
   }
 }
 
-async function saveGrid(grid: Grid): Promise<void> {
+function saveGrid(grid: Grid): void {
   try {
-    await writeJson(CLIP_FILE, grid)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(grid))
   } catch { /* ignore */ }
 }
 
@@ -57,7 +57,7 @@ export function ClipGrid() {
 
   // 初回ロード
   useEffect(() => {
-    loadGrid().then(setGrid)
+    setGrid(loadGrid())
     loadPresetFolders()
   }, [])
 
@@ -83,7 +83,7 @@ export function ClipGrid() {
           : col
       )
       setGrid(next)
-      void saveGrid(next)
+      saveGrid(next)
     } else {
       // 有りセル → replaceLayerPreset
       engine.replaceLayerPreset(layerId, preset)
@@ -138,7 +138,7 @@ export function ClipGrid() {
         })
       )
       setGrid(next)
-      void saveGrid(next)
+      saveGrid(next)
       // move/swap 時のみ active リセット（copy は src の active を保持）
       if (!isCopy) {
         setActiveCells((prev) => {
@@ -225,7 +225,7 @@ export function ClipGrid() {
                       : col
                   )
                   setGrid(next)
-                  void saveGrid(next)
+                  saveGrid(next)
                 }}
                 onClear={() => {
                   const next = grid.map((col, li) =>
@@ -234,7 +234,7 @@ export function ClipGrid() {
                       : col
                   )
                   setGrid(next)
-                  void saveGrid(next)
+                  saveGrid(next)
                 }}
               />
             </div>

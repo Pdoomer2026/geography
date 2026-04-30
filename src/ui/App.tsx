@@ -5,8 +5,6 @@ import { midiInputWrapper } from '../application/adapter/input/MidiInputWrapper'
 import { projectManager } from '../application/adapter/storage/projectManager'
 import { paramCommand$ } from '../application/command/commandStream'
 import { useGeoStore } from './store/geoStore'
-import { initFileStore, isElectron, requestFolderAccess } from '../application/adapter/storage/fileStore'
-import { migrateFromLocalStorage } from '../application/adapter/storage/layerPresetStore'
 import { MixerSimpleWindow } from './components/mixers/simple-mixer/MixerSimpleWindow'
 import { Macro8Window } from './components/window/macro-8-window'
 import { Macro8MidiWindow } from './components/window/macro-8-window/Macro8MidiWindow'
@@ -37,23 +35,9 @@ export default function App() {
   const [windowMode, setWindowMode] = useState<WindowMode>(DEFAULT_WINDOW_MODE)
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
-  const [fileStoreReady, setFileStoreReady] = useState(false)
   const midiMonitorCallbackRef = useRef<((event: MidiMonitorEvent) => void) | null>(null)
 
   useAutosave()
-
-  // fileStore 初期化（Electron は自動、ブラウザは手動フォルダ選択が必要）
-  useEffect(() => {
-    initFileStore().then(async (ready) => {
-      if (ready) {
-        await migrateFromLocalStorage() // 旧 localStorage データを移行
-        setFileStoreReady(true)
-      } else if (isElectron()) {
-        console.warn('[fileStore] Electron 環境で初期化に失敗')
-      }
-      // ブラウザで未許可の場合は fileStoreReady = false のまま → フォルダ選択ボタンを表示
-    })
-  }, [])
 
   useEffect(() => {
     midiInputWrapper.init(
@@ -229,36 +213,6 @@ export default function App() {
       >
         P:Prefs 1:Macro 3:Mixer M:MIDI Monitor 6:GeoMonitor O:Output A:Aspect(contain/cover) | H:Hide S:Show F:全非表示+全画面
       </div>
-
-      {/* ブラウザ環境で fileStore 未許可の場合: フォルダ選択ボタンを表示 */}
-      {!isElectron() && !fileStoreReady && (
-        <div
-          style={{
-            position: 'fixed', bottom: 48, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-          }}
-        >
-          <div style={{ fontSize: 11, color: '#888', fontFamily: 'monospace' }}>
-            Clip / Preset の保存先に ~/Documents/GeoGraphy/ を指定してください
-          </div>
-          <button
-            onClick={async () => {
-              const ok = await requestFolderAccess()
-              if (ok) {
-                await migrateFromLocalStorage()
-                setFileStoreReady(true)
-              }
-            }}
-            style={{
-              padding: '6px 16px', borderRadius: 6, border: '1px solid #5a5aff',
-              background: '#0d0d2a', color: '#aaaaff', fontSize: 11,
-              fontFamily: 'monospace', cursor: 'pointer',
-            }}
-          >
-            📂 GeoGraphy フォルダを選択
-          </button>
-        </div>
-      )}
     </>
   )
 }
