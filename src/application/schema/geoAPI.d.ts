@@ -10,10 +10,10 @@
  *     const result = await window.geoAPI.showSaveDialog()
  *   }
  *
- * 保存先の原則（Day82確立）:
- *   Application 層（localStorage）が SSoT。geoAPI の役割は
- *   showSaveDialog / showOpenDialog / saveFile / loadFile のみ。
- *   Preset の CRUD は layerPresetStore.ts が localStorage で完結する。
+ * 保存先の原則（Day88確立）:
+ *   Preset・Clipの保存は fileStore.ts 経由で ~/Documents/GeoGraphy/ に直接書き込む。
+ *   geoAPI の役割は showSaveDialog / showOpenDialog / saveFile / loadFile（プロジェクトファイルのみ）。
+ *   localStorage は使用しない。
  */
 
 export {}
