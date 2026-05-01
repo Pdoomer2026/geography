@@ -62,6 +62,14 @@ interface GeoState {
    * spec: docs/spec/layer-macro-preset.spec.md
    */
   removeLayerAssign: (knobId: string, geoParamAddress: string, layerId: string) => void
+
+  /**
+   * fileStore の初期化完了フラグ。
+   * App.tsx が initFileStore() 完了後に setFileStoreReady() を呼ぶ。
+   * ClipGrid はこのフラグが true になってから読み込みを実行する。
+   */
+  fileStoreReady: boolean
+  setFileStoreReady: () => void
 }
 
 // ============================================================
@@ -75,6 +83,8 @@ export const useGeoStore = create<GeoState>((set) => ({
   routings: [],
   macroKnobsByLayer: {},
   macroValuesByLayer: {},
+  fileStoreReady: false,
+  setFileStoreReady: () => set({ fileStoreReady: true }),
 
   syncMacroKnobs: () => {
     const configs = engine.getMacroKnobs()

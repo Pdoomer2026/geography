@@ -15,11 +15,14 @@ import { parseLayerPresetSafe } from '../../../../application/schema/zod/layerPr
 import type { LayerPreset } from '../../../../application/schema'
 import { loadLayerPresetFolders } from '../../../../application/adapter/storage/layerPresetStore'
 import type { PresetFolder } from '../../../../application/adapter/storage/layerPresetStore'
+import { readJson, writeJson } from '../../../../application/adapter/storage/fileStore'
+import { useGeoStore } from '../../../store/geoStore'
 import { ClipCell } from './ClipCell'
 const LAYER_IDS    = ['layer-1', 'layer-2', 'layer-3'] as const
 const LAYER_COLORS = ['#5a5aff', '#5affaa', '#ffaa5a'] as const
 const ROW_COUNT    = 5
-const STORAGE_KEY  = 'geography:clip-grid-v1'
+const CLIP_FILE    = 'clip-grid.json'
+const LS_CLIP_KEY  = 'geography:clip-grid-v1' // 移行元（旧 localStorage キー）
 
 // grid[layerIndex][rowIndex] = LayerPreset | null
 type Grid = (LayerPreset | null)[][]
@@ -28,12 +31,11 @@ function emptyGrid(): Grid {
   return Array.from({ length: 3 }, () => Array(ROW_COUNT).fill(null))
 }
 
-function loadGrid(): Grid {
+async function loadGrid(): Promise<Grid> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return emptyGrid()
-    const parsed = JSON.parse(raw) as unknown[][]
-    return parsed.map((col) =>
+    const data = await readJson(CLIP_FILE)
+    if (!data || !Array.isArray(data)) return emptyGrid()
+    return (data as unknown[][]).map((col) =>
       col.map((cell) => parseLayerPresetSafe(cell))
     )
   } catch {
@@ -41,9 +43,9 @@ function loadGrid(): Grid {
   }
 }
 
-function saveGrid(grid: Grid): void {
+async function saveGrid(grid: Grid): Promise<void> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(grid))
+    await writeJson(CLIP_FILE, grid)
   } catch { /* ignore */ }
 }
 
@@ -54,12 +56,33 @@ export function ClipGrid() {
   const [dragSource, setDragSource] = useState<{ li: number; ri: number } | null>(null)
   const [dropTarget, setDropTarget] = useState<{ li: number; ri: number } | null>(null)
   const isCopyModeRef = useRef(false)
+  const fileStoreReady = useGeoStore((s) => s.fileStoreReady)
 
-  // 初回ロード
+  // fileStore が ready になってから読み込む（タイミング問題の解決）
   useEffect(() => {
-    setGrid(loadGrid())
+    if (!fileStoreReady) return
+    loadGrid().then(async (grid) => {
+      // fileStore が空 & localStorage に旧データがあれば移行
+      const hasData = grid.some((col) => col.some((cell) => cell !== null))
+      if (!hasData) {
+        const raw = localStorage.getItem(LS_CLIP_KEY)
+        if (raw) {
+          try {
+            const migrated = (JSON.parse(raw) as unknown[][]).map((col) =>
+              col.map((cell) => parseLayerPresetSafe(cell))
+            )
+            setGrid(migrated)
+            await saveGrid(migrated)
+            localStorage.removeItem(LS_CLIP_KEY)
+            console.info('[ClipGrid] localStorage → fileStore 移行完了')
+            return
+          } catch { /* ignore */ }
+        }
+      }
+      setGrid(grid)
+    })
     loadPresetFolders()
-  }, [])
+  }, [fileStoreReady])
 
   async function loadPresetFolders() {
     const folders = await loadLayerPresetFolders()
@@ -83,7 +106,7 @@ export function ClipGrid() {
           : col
       )
       setGrid(next)
-      saveGrid(next)
+      void saveGrid(next)
     } else {
       // 有りセル → replaceLayerPreset
       engine.replaceLayerPreset(layerId, preset)
@@ -138,7 +161,7 @@ export function ClipGrid() {
         })
       )
       setGrid(next)
-      saveGrid(next)
+      void saveGrid(next)
       // move/swap 時のみ active リセット（copy は src の active を保持）
       if (!isCopy) {
         setActiveCells((prev) => {
@@ -225,7 +248,7 @@ export function ClipGrid() {
                       : col
                   )
                   setGrid(next)
-                  saveGrid(next)
+                  void saveGrid(next)
                 }}
                 onClear={() => {
                   const next = grid.map((col, li) =>
@@ -234,7 +257,7 @@ export function ClipGrid() {
                       : col
                   )
                   setGrid(next)
-                  saveGrid(next)
+                  void saveGrid(next)
                 }}
               />
             </div>
