@@ -13,7 +13,7 @@
 
 const { app, BrowserWindow, ipcMain, dialog, Menu, screen } = require('electron')
 const { join } = require('path')
-const { readFile, writeFile, mkdir } = require('fs/promises')
+const { readFile, writeFile, mkdir, readdir, unlink } = require('fs/promises')
 const { existsSync } = require('fs')
 const { homedir } = require('os')
 
@@ -348,6 +348,18 @@ ipcMain.handle('show-open-dialog', async () => {
     properties: ['openFile'],
   })
   return result
+})
+
+ipcMain.handle('list-files', async (_event, dirPath) => {
+  if (!existsSync(dirPath)) return []
+  const entries = await readdir(dirPath, { withFileTypes: true })
+  return entries.filter((e) => e.isFile()).map((e) => e.name)
+})
+
+ipcMain.handle('delete-file', async (_event, filePath) => {
+  if (!existsSync(filePath)) return { success: false }
+  await unlink(filePath)
+  return { success: true }
 })
 
 ipcMain.handle('get-data-dir', () => {

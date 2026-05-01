@@ -21,6 +21,12 @@ contextBridge.exposeInMainWorld('geoAPI', {
   loadFile: (filePath) =>
     ipcRenderer.invoke('load-file', filePath),
 
+  listFiles: (dirPath) =>
+    ipcRenderer.invoke('list-files', dirPath),
+
+  deleteFile: (filePath) =>
+    ipcRenderer.invoke('delete-file', filePath),
+
   showSaveDialog: () =>
     ipcRenderer.invoke('show-save-dialog'),
 

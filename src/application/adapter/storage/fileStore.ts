@@ -148,6 +148,21 @@ function parsePath(relativePath: string): { dirs: string[]; name: string } {
   return { dirs: parts.slice(0, -1), name: parts[parts.length - 1] }
 }
 
+/** 相対パスのディレクトリハンドルを取得する */
+async function getDirHandle(
+  relativeDir: string,
+  create = false,
+): Promise<FileSystemDirectoryHandle | null> {
+  if (!_dirHandle) return null
+  if (!relativeDir) return _dirHandle
+  let dir = _dirHandle
+  for (const part of relativeDir.split('/').filter(Boolean)) {
+    try { dir = await dir.getDirectoryHandle(part, { create }) }
+    catch { return null }
+  }
+  return dir
+}
+
 async function getFileHandle(
   relativePath: string,
   create: boolean,
@@ -166,6 +181,50 @@ async function getFileHandle(
 // ============================================================
 // Public API
 // ============================================================
+
+/**
+ * ディレクトリ内のファイル名一覧を返す。
+ * @param relativeDir ~/Documents/GeoGraphy/ からの相対ディレクトリパス
+ */
+export async function listFiles(relativeDir: string): Promise<string[]> {
+  try {
+    if (isElectron() && _geoDir) {
+      return await window.geoAPI!.listFiles(`${_geoDir}/${relativeDir}`)
+    }
+    if (_dirHandle) {
+      const dir = await getDirHandle(relativeDir)
+      if (!dir) return []
+      const names: string[] = []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for await (const [name, handle] of (dir as any).entries()) {
+        if ((handle as FileSystemHandle).kind === 'file') names.push(name)
+      }
+      return names
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * ファイルを削除する。
+ * @param relativePath ~/Documents/GeoGraphy/ からの相対パス
+ */
+export async function deleteFile(relativePath: string): Promise<void> {
+  try {
+    if (isElectron() && _geoDir) {
+      await window.geoAPI!.deleteFile(`${_geoDir}/${relativePath}`)
+      return
+    }
+    if (_dirHandle) {
+      const { dirs, name } = parsePath(relativePath)
+      const dir = await getDirHandle(dirs.join('/'))
+      if (!dir) return
+      await dir.removeEntry(name)
+    }
+  } catch { /* ファイルが存在しない場合は無視 */ }
+}
 
 /**
  * JSON ファイルを読み込む。

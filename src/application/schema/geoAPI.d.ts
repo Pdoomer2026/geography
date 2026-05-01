@@ -25,6 +25,8 @@ declare global {
 
       saveFile(filePath: string, data: string): Promise<{ success: boolean }>
       loadFile(filePath: string): Promise<string>
+      listFiles(dirPath: string): Promise<string[]>
+      deleteFile(filePath: string): Promise<{ success: boolean }>
       showSaveDialog(): Promise<{ canceled: boolean; filePath?: string }>
       showOpenDialog(): Promise<{ canceled: boolean; filePaths: string[] }>
       getDataDir(): Promise<{
